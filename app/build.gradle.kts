@@ -142,3 +142,15 @@ dependencies {
   // "ksp"(libs.androidx.room.compiler)
   // "ksp"(libs.moshi.kotlin.codegen)
 }
+
+val syncDebugApkToFolder by tasks.registering(Copy::class) {
+  from(layout.buildDirectory.dir("outputs/apk/debug")) {
+    include("*.apk")
+    rename { "debug.apk" }
+  }
+  into(rootProject.layout.projectDirectory.dir("debug"))
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+  finalizedBy(syncDebugApkToFolder)
+}
