@@ -1,6 +1,10 @@
 package com.example.sweetrush.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,14 +34,20 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
@@ -45,6 +56,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,16 +77,21 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.sweetrush.ToastNotification
 import com.example.sweetrush.model.ControlScheme
 import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.GameSettings
+import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.model.VehicleDebugTelemetry
+import com.example.sweetrush.online.RoomMessageDoc
 import com.example.sweetrush.physics.KartPhysicsEngine
 import com.example.sweetrush.render3d.RaceHudSnapshot
 import com.example.ui.theme.BerryDeep
@@ -97,9 +115,19 @@ fun RaceHudScreen(
     settings: GameSettings,
     isPaused: Boolean,
     notification: ToastNotification?,
+    roomMessages: List<RoomMessageDoc> = emptyList(),
+    isRecordingVoice: Boolean = false,
+    isVoiceMuted: Boolean = false,
     onControlsChanged: (steer: Float, throttle: Boolean, brake: Boolean, drift: Boolean, nitro: Boolean) -> Unit,
     onJump: () -> Unit,
     onUsePowerUp: () -> Unit,
+    onCycleCameraPreset: () -> Unit = {},
+    onResetCameraAngle: () -> Unit = {},
+    onStartVoiceRecording: (teamOnly: Boolean) -> Unit = {},
+    onStopVoiceRecording: (teamOnly: Boolean) -> Unit = {},
+    onToggleVoiceMute: () -> Unit = {},
+    onSendQuickCallout: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
+    onSendChat: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
     onPauseToggle: (Boolean) -> Unit,
     onRestart: () -> Unit,
     onFinishSession: () -> Unit,
@@ -109,6 +137,19 @@ fun RaceHudScreen(
     onEnterPortalRace: () -> Unit = {}
 ) {
     BackHandler { onPauseToggle(!isPaused) }
+
+    val context = LocalContext.current
+    var showInRaceChat by remember { mutableStateOf(false) }
+    var inRaceChatDraft by remember { mutableStateOf("") }
+    var teamOnlyComms by remember { mutableStateOf(false) }
+    var hasMicPerm by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val micPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> hasMicPerm = granted }
 
     var steerLeft by remember { mutableStateOf(false) }
     var steerRight by remember { mutableStateOf(false) }
@@ -235,7 +276,7 @@ fun RaceHudScreen(
                                         style = MaterialTheme.typography.headlineMedium,
                                         color = if (hud.position == 1) CaramelGold else FrostingWhite
                                     )
-                                    Text("OF 8", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                    Text("OF ${hud.totalRacers}", style = MaterialTheme.typography.labelSmall, color = MintCream)
                                 }
                             }
                             Column {
@@ -261,6 +302,27 @@ fun RaceHudScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    if (hud.isOnlineSession) {
+                        val myTeam = SquadTeam.fromIndex(hud.localTeamIndex)
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(BerryDeep.copy(alpha = 0.78f))
+                                .border(1.dp, Color(myTeam.colorHex), RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(myTeam.colorHex))
+                            )
+                            Text("ONLINE • ${myTeam.teamName}", style = MaterialTheme.typography.labelSmall, color = Color(myTeam.colorHex))
                         }
                     }
 
@@ -366,6 +428,36 @@ fun RaceHudScreen(
                         horizontalAlignment = Alignment.End
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Camera Angle Preset Cycle Button
+                            Row(
+                                modifier = Modifier
+                                    .testTag("hud_camera_preset_button")
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(BerryDeep.copy(alpha = 0.82f))
+                                    .border(1.5.dp, SkyCandy.copy(alpha = 0.85f), RoundedCornerShape(24.dp))
+                                    .clickable { onCycleCameraPreset() }
+                                    .padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Filled.CameraAlt, contentDescription = "Cycle Camera Angle", tint = SkyCandy, modifier = Modifier.size(18.dp))
+                                Text(hud.cameraPreset.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                            }
+
+                            if (hud.hasCustomCameraAngle) {
+                                IconButton(
+                                    onClick = onResetCameraAngle,
+                                    modifier = Modifier
+                                        .testTag("hud_camera_reset_button")
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(CaramelGold)
+                                ) {
+                                    Icon(Icons.Filled.Refresh, contentDescription = "Reset Camera Angle", tint = BerryDeep)
+                                }
+                            }
+
                             IconButton(
                                 onClick = onToggleDebug,
                                 modifier = Modifier
@@ -460,6 +552,155 @@ fun RaceHudScreen(
                         .padding(bottom = 18.dp)
                         .width(300.dp)
                 )
+            }
+
+            // IN-RACE VOICE PTT & CHAT DRAWER WHEN PLAYING ONLINE WITH FRIENDS
+            if (hud.isOnlineSession) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(bottom = 36.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .testTag("hud_ptt_button")
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (isRecordingVoice) StrawberryRed else MintDark.copy(alpha = 0.88f))
+                                .border(2.dp, if (isRecordingVoice) CaramelGold else Color.White, CircleShape)
+                                .pointerInput(teamOnlyComms, hasMicPerm) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            if (!hasMicPerm) {
+                                                micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                                return@detectTapGestures
+                                            }
+                                            onStartVoiceRecording(teamOnlyComms)
+                                            tryAwaitRelease()
+                                            onStopVoiceRecording(teamOnlyComms)
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Mic, contentDescription = "Push to Talk", tint = FrostingWhite)
+                        }
+
+                        IconButton(
+                            onClick = onToggleVoiceMute,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (isVoiceMuted) StrawberryRed.copy(alpha = 0.88f) else BerryDeep.copy(alpha = 0.80f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = if (isVoiceMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = "Mute Voice",
+                                tint = FrostingWhite
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { showInRaceChat = !showInRaceChat },
+                            modifier = Modifier
+                                .testTag("hud_chat_toggle_button")
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (showInRaceChat) CandyPink else BerryPurple.copy(alpha = 0.86f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Race Chat", tint = FrostingWhite)
+                        }
+                    }
+
+                    if (showInRaceChat) {
+                        Column(
+                            modifier = Modifier
+                                .width(270.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(BerryDeep.copy(alpha = 0.88f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(false to "ALL", true to "TEAM").forEach { (onlyTeam, lbl) ->
+                                    val sel = teamOnlyComms == onlyTeam
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(if (sel) CaramelGold else BerryPurple)
+                                            .clickable { teamOnlyComms = onlyTeam }
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(lbl, style = MaterialTheme.typography.labelSmall, color = if (sel) BerryDeep else FrostingWhite)
+                                    }
+                                }
+                                Spacer(Modifier.weight(1f))
+                                listOf("Go!", "Watch out!", "هيا!").forEach { q ->
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(GrapeJelly)
+                                            .clickable { onSendQuickCallout(q, teamOnlyComms) }
+                                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(q, style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                                    }
+                                }
+                            }
+                            roomMessages.takeLast(3).forEach { msg ->
+                                Text(
+                                    text = "${msg.senderName}: ${msg.text}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (msg.targetTeamOnly) CaramelGold else MintCream,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = inRaceChatDraft,
+                                    onValueChange = { inRaceChatDraft = it.take(120) },
+                                    singleLine = true,
+                                    placeholder = { Text("Say...", style = MaterialTheme.typography.labelSmall) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = FrostingWhite,
+                                        unfocusedTextColor = FrostingWhite,
+                                        focusedBorderColor = MintCream,
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = {
+                                        if (inRaceChatDraft.isNotBlank()) {
+                                            onSendChat(inRaceChatDraft, teamOnlyComms)
+                                            inRaceChatDraft = ""
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(CandyPink)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = FrostingWhite, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // BOTTOM-LEFT CONTROLS: Steering Left/Right OR Virtual Wheel
@@ -814,9 +1055,16 @@ private fun TrackMiniMap(hud: RaceHudSnapshot, modifier: Modifier = Modifier) {
 
             for (dot in hud.mapDots) {
                 val p = mapPt(dot.x, dot.z)
+                if (dot.isTeammate) {
+                    drawCircle(
+                        color = Color.White,
+                        radius = 6.5f,
+                        center = p
+                    )
+                }
                 drawCircle(
                     color = if (dot.isPlayer) CaramelGold else Color(dot.colorHex),
-                    radius = if (dot.isPlayer) 6.5f else 4f,
+                    radius = if (dot.isPlayer) 6.5f else if (dot.isTeammate) 4.8f else 4f,
                     center = p
                 )
             }

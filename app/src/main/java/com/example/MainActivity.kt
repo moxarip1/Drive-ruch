@@ -11,32 +11,52 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.credentials.CredentialManager
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sweetrush.SweetRushViewModel
 import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.GameScreen
+import com.example.sweetrush.online.OnlineMultiplayerRepository
+import com.example.sweetrush.online.attemptAutoSignIn
+import com.example.sweetrush.online.authStateFlow
+import com.example.sweetrush.online.onGoogleSignInClicked
+import com.example.sweetrush.online.signOutFromGoogle
 import com.example.sweetrush.render3d.CandyViewport3D
+import com.example.sweetrush.ui.AuthScreen
 import com.example.sweetrush.ui.ChallengesScreen
 import com.example.sweetrush.ui.GarageAndCharacterScreen
 import com.example.sweetrush.ui.MainMenuScreen
+import com.example.sweetrush.ui.OnlineLobbyScreen
 import com.example.sweetrush.ui.RaceHudScreen
 import com.example.sweetrush.ui.RaceSetupScreen
 import com.example.sweetrush.ui.ResultsScreen
 import com.example.sweetrush.ui.SettingsScreen
 import com.example.sweetrush.ui.WorldMapScreen
 import com.example.ui.theme.SweetRushTheme
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
-    private val viewModel: SweetRushViewModel by viewModels()
+    private var activeViewModel: SweetRushViewModel? = null
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
 
@@ -55,215 +75,370 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         setContent {
             SweetRushTheme {
-                val screen by viewModel.currentScreen.collectAsStateWithLifecycle()
-                val profile by viewModel.profile.collectAsStateWithLifecycle()
-                val selectedTrack by viewModel.selectedTrack.collectAsStateWithLifecycle()
-                val selectedDifficulty by viewModel.selectedDifficulty.collectAsStateWithLifecycle()
-                val activeMode by viewModel.activeMode.collectAsStateWithLifecycle()
-                val raceHud by viewModel.raceHud.collectAsStateWithLifecycle()
-                val isPaused by viewModel.isRacePaused.collectAsStateWithLifecycle()
-                val raceNotification by viewModel.raceNotification.collectAsStateWithLifecycle()
-                val raceSummary by viewModel.raceSummary.collectAsStateWithLifecycle()
-                val statusBanner by viewModel.statusBanner.collectAsStateWithLifecycle()
-                val gpSession by viewModel.grandPrixSession.collectAsStateWithLifecycle()
+                val appContext = applicationContext
+                val credentialManager = remember { CredentialManager.create(appContext) }
+                val authScope = rememberCoroutineScope()
 
-                val allowShowroomOrbit = screen == GameScreen.GARAGE ||
-                    screen == GameScreen.CHARACTER_SELECT ||
-                    screen == GameScreen.RESULTS
+                val currentUser: FirebaseUser? by Firebase.auth.authStateFlow()
+                    .collectAsStateWithLifecycle(initialValue = Firebase.auth.currentUser)
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Persistent hardware-accelerated 3D OpenGL ES 3.0 Candy World Viewport
-                    CandyViewport3D(
-                        renderer = viewModel.renderer,
-                        allowOrbitDrag = allowShowroomOrbit,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                var isAuthBusy by remember { mutableStateOf(Firebase.auth.currentUser == null) }
+                var authError by remember { mutableStateOf<String?>(null) }
 
-                    when (screen) {
-                        GameScreen.MAIN_MENU -> {
-                            MainMenuScreen(
-                                profile = profile,
-                                onNavigate = { target -> viewModel.navigateTo(target) },
-                                onStartFreeRoam = { viewModel.startFreeRoam() }
+                LaunchedEffect(Unit) {
+                    if (Firebase.auth.currentUser == null) {
+                        attemptAutoSignIn(
+                            context = this@MainActivity,
+                            credentialManager = credentialManager,
+                            onAuthSuccess = {
+                                isAuthBusy = false
+                                authError = null
+                            },
+                            onUnauthenticated = {
+                                isAuthBusy = false
+                            },
+                            scope = authScope
+                        )
+                    } else {
+                        isAuthBusy = false
+                    }
+                }
+
+                val signedInUser = currentUser
+                if (signedInUser == null) {
+                    activeViewModel = null
+                    AuthScreen(
+                        isLoading = isAuthBusy,
+                        errorMessage = authError,
+                        onGoogleSignInClick = {
+                            isAuthBusy = true
+                            authError = null
+                            onGoogleSignInClicked(
+                                context = this@MainActivity,
+                                credentialManager = credentialManager,
+                                onAuthSuccess = {
+                                    isAuthBusy = false
+                                    authError = null
+                                },
+                                onAuthError = { msg ->
+                                    isAuthBusy = false
+                                    authError = msg
+                                },
+                                onAuthCancelled = {
+                                    isAuthBusy = false
+                                },
+                                scope = authScope
                             )
                         }
+                    )
+                } else {
+                    key(signedInUser.uid) {
+                        val dbId = remember(appContext) { appContext.getString(R.string.firestore_database_id) }
+                        val onlineRepo = remember(dbId, signedInUser.uid) {
+                            val db = FirebaseFirestore.getInstance(dbId)
+                            OnlineMultiplayerRepository(db = db, auth = Firebase.auth)
+                        }
 
-                        GameScreen.WORLD_MAP -> {
-                            WorldMapScreen(
-                                profile = profile,
-                                hud = raceHud,
-                                onFastTravelRegion = { region -> viewModel.startFreeRoam(region) },
-                                onStartRegionRace = { trackId -> viewModel.startQuickRace(trackId, selectedDifficulty) },
-                                onBack = {
-                                    if (activeMode == GameMode.FREE_ROAM && viewModel.renderer.physicsEngine?.isFreeRoam == true) {
-                                        viewModel.navigateTo(GameScreen.RACE)
+                        val viewModel: SweetRushViewModel = viewModel(
+                            key = signedInUser.uid,
+                            factory = object : ViewModelProvider.Factory {
+                                @Suppress("UNCHECKED_CAST")
+                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                    return SweetRushViewModel(
+                                        appContext = appContext,
+                                        onlineRepo = onlineRepo,
+                                        currentUserId = signedInUser.uid,
+                                        userDisplayName = signedInUser.displayName?.takeIf { it.isNotBlank() }
+                                            ?: signedInUser.email?.substringBefore("@")
+                                            ?: "Candy Racer",
+                                        userPhotoUrl = signedInUser.photoUrl?.toString()
+                                    ) as T
+                                }
+                            }
+                        )
+                        activeViewModel = viewModel
+
+                        val screen by viewModel.currentScreen.collectAsStateWithLifecycle()
+                        val profile by viewModel.profile.collectAsStateWithLifecycle()
+                        val selectedTrack by viewModel.selectedTrack.collectAsStateWithLifecycle()
+                        val selectedDifficulty by viewModel.selectedDifficulty.collectAsStateWithLifecycle()
+                        val activeMode by viewModel.activeMode.collectAsStateWithLifecycle()
+                        val raceHud by viewModel.raceHud.collectAsStateWithLifecycle()
+                        val isPaused by viewModel.isRacePaused.collectAsStateWithLifecycle()
+                        val raceNotification by viewModel.raceNotification.collectAsStateWithLifecycle()
+                        val raceSummary by viewModel.raceSummary.collectAsStateWithLifecycle()
+                        val statusBanner by viewModel.statusBanner.collectAsStateWithLifecycle()
+                        val gpSession by viewModel.grandPrixSession.collectAsStateWithLifecycle()
+
+                        val friendCode by viewModel.friendCode.collectAsStateWithLifecycle()
+                        val onlineRoom by viewModel.onlineRoom.collectAsStateWithLifecycle()
+                        val roomPlayers by viewModel.roomPlayers.collectAsStateWithLifecycle()
+                        val roomMessages by viewModel.roomMessages.collectAsStateWithLifecycle()
+                        val friends by viewModel.friends.collectAsStateWithLifecycle()
+                        val isOnlineBusy by viewModel.isOnlineBusy.collectAsStateWithLifecycle()
+                        val isRecordingVoice by viewModel.isRecordingVoice.collectAsStateWithLifecycle()
+                        val isVoiceMuted by viewModel.isVoiceMuted.collectAsStateWithLifecycle()
+
+                        val allowShowroomOrbit = screen == GameScreen.GARAGE ||
+                            screen == GameScreen.CHARACTER_SELECT ||
+                            screen == GameScreen.RESULTS
+                        val allowRaceCamDrag = (screen == GameScreen.RACE) && !isPaused
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            CandyViewport3D(
+                                renderer = viewModel.renderer,
+                                allowOrbitDrag = allowShowroomOrbit,
+                                allowRaceCameraDrag = allowRaceCamDrag,
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            when (screen) {
+                                GameScreen.MAIN_MENU -> {
+                                    MainMenuScreen(
+                                        profile = profile,
+                                        userDisplayName = viewModel.userDisplayName,
+                                        userPhotoUrl = viewModel.userPhotoUrl,
+                                        friendCode = friendCode,
+                                        activeRoomCode = onlineRoom?.roomCode,
+                                        onNavigate = { target -> viewModel.navigateTo(target) },
+                                        onStartFreeRoam = { viewModel.startFreeRoam() }
+                                    )
+                                }
+
+                                GameScreen.ONLINE_LOBBY -> {
+                                    OnlineLobbyScreen(
+                                        currentUserId = viewModel.currentUserId,
+                                        friendCode = friendCode,
+                                        profile = profile,
+                                        room = onlineRoom,
+                                        players = roomPlayers,
+                                        messages = roomMessages,
+                                        friends = friends,
+                                        isBusy = isOnlineBusy,
+                                        isRecordingVoice = isRecordingVoice,
+                                        isVoiceMuted = isVoiceMuted,
+                                        statusMessage = statusBanner,
+                                        onCreateRoom = viewModel::createOnlineRoom,
+                                        onJoinRoom = viewModel::joinOnlineRoom,
+                                        onLeaveRoom = { viewModel.leaveOnlineRoom(navigateBackToMenu = false) },
+                                        onUpdateRoomConfig = viewModel::updateRoomConfiguration,
+                                        onSelectTeamAndReady = viewModel::selectTeamAndReady,
+                                        onStartMatch = viewModel::startOnlineMatchAsHost,
+                                        onAddFriend = viewModel::addFriendByCode,
+                                        onRemoveFriend = viewModel::removeFriend,
+                                        onSendChat = viewModel::sendRoomTextMessage,
+                                        onSendQuickCallout = viewModel::sendQuickCallout,
+                                        onStartVoiceRecording = viewModel::startVoiceRecording,
+                                        onStopVoiceRecording = viewModel::stopAndSendVoiceMessage,
+                                        onToggleVoiceMute = viewModel::toggleVoiceMute,
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.WORLD_MAP -> {
+                                    WorldMapScreen(
+                                        profile = profile,
+                                        hud = raceHud,
+                                        onFastTravelRegion = { region -> viewModel.startFreeRoam(region) },
+                                        onStartRegionRace = { trackId -> viewModel.startQuickRace(trackId, selectedDifficulty) },
+                                        onBack = {
+                                            if (activeMode == GameMode.FREE_ROAM && viewModel.renderer.physicsEngine?.isFreeRoam == true) {
+                                                viewModel.navigateTo(GameScreen.RACE)
+                                            } else {
+                                                viewModel.navigateTo(GameScreen.MAIN_MENU)
+                                            }
+                                        }
+                                    )
+                                }
+
+                                GameScreen.QUICK_RACE_SETUP -> {
+                                    RaceSetupScreen(
+                                        title = "Quick Race",
+                                        mode = GameMode.QUICK_RACE,
+                                        isCollectionPreviewOnly = false,
+                                        profile = profile,
+                                        selectedTrack = selectedTrack,
+                                        selectedDifficulty = selectedDifficulty,
+                                        onSelectTrack = viewModel::selectTrack,
+                                        onSelectDifficulty = viewModel::selectDifficulty,
+                                        onStart = { viewModel.startQuickRace() },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.GRAND_PRIX_SETUP -> {
+                                    RaceSetupScreen(
+                                        title = "Grand Prix Cup",
+                                        mode = GameMode.GRAND_PRIX,
+                                        isCollectionPreviewOnly = false,
+                                        profile = profile,
+                                        selectedTrack = selectedTrack,
+                                        selectedDifficulty = selectedDifficulty,
+                                        onSelectTrack = viewModel::selectTrack,
+                                        onSelectDifficulty = viewModel::selectDifficulty,
+                                        onStart = { viewModel.startGrandPrix() },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.TIME_TRIAL_SETUP -> {
+                                    RaceSetupScreen(
+                                        title = "Time Trial",
+                                        mode = GameMode.TIME_TRIAL,
+                                        isCollectionPreviewOnly = false,
+                                        profile = profile,
+                                        selectedTrack = selectedTrack,
+                                        selectedDifficulty = selectedDifficulty,
+                                        onSelectTrack = viewModel::selectTrack,
+                                        onSelectDifficulty = viewModel::selectDifficulty,
+                                        onStart = { viewModel.startTimeTrial() },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.PRACTICE_SETUP -> {
+                                    RaceSetupScreen(
+                                        title = "Free Practice",
+                                        mode = GameMode.PRACTICE,
+                                        isCollectionPreviewOnly = false,
+                                        profile = profile,
+                                        selectedTrack = selectedTrack,
+                                        selectedDifficulty = selectedDifficulty,
+                                        onSelectTrack = viewModel::selectTrack,
+                                        onSelectDifficulty = viewModel::selectDifficulty,
+                                        onStart = { viewModel.startPractice() },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.TRACK_COLLECTION -> {
+                                    RaceSetupScreen(
+                                        title = "Track Collection",
+                                        mode = GameMode.QUICK_RACE,
+                                        isCollectionPreviewOnly = true,
+                                        profile = profile,
+                                        selectedTrack = selectedTrack,
+                                        selectedDifficulty = selectedDifficulty,
+                                        onSelectTrack = viewModel::selectTrack,
+                                        onSelectDifficulty = viewModel::selectDifficulty,
+                                        onStart = { viewModel.startQuickRace() },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.CHALLENGES -> {
+                                    ChallengesScreen(
+                                        profile = profile,
+                                        onStartChallenge = viewModel::startChallenge,
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.CHARACTER_SELECT, GameScreen.GARAGE -> {
+                                    GarageAndCharacterScreen(
+                                        initialTab = if (screen == GameScreen.CHARACTER_SELECT) 0 else 1,
+                                        profile = profile,
+                                        statusMessage = statusBanner,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
+                                        onSelectPaint = viewModel::selectOrUnlockPaint,
+                                        onSelectWheel = viewModel::selectOrUnlockWheel,
+                                        onSelectExhaust = viewModel::selectOrUnlockExhaust,
+                                        onSelectDecoration = viewModel::selectOrUnlockDecoration,
+                                        onUpgradeStat = viewModel::upgradeKartStat,
+                                        onZoomIn = { viewModel.adjustShowroomZoom(-0.8f) },
+                                        onZoomOut = { viewModel.adjustShowroomZoom(0.8f) },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.SETTINGS -> {
+                                    SettingsScreen(
+                                        profile = profile,
+                                        userDisplayName = viewModel.userDisplayName,
+                                        friendCode = friendCode,
+                                        statusMessage = statusBanner,
+                                        onUpdateSettings = viewModel::updateSettings,
+                                        onRestoreDefaults = viewModel::restoreDefaultSettings,
+                                        onSignOutClick = {
+                                            signOutFromGoogle(
+                                                credentialManager = credentialManager,
+                                                scope = authScope,
+                                                onPreSignOutCleanup = { viewModel.onPreSignOutCleanup() }
+                                            )
+                                        },
+                                        onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                    )
+                                }
+
+                                GameScreen.RACE -> {
+                                    RaceHudScreen(
+                                        mode = activeMode,
+                                        hud = raceHud,
+                                        settings = profile.settings,
+                                        isPaused = isPaused,
+                                        notification = raceNotification,
+                                        roomMessages = roomMessages,
+                                        isRecordingVoice = isRecordingVoice,
+                                        isVoiceMuted = isVoiceMuted,
+                                        onControlsChanged = viewModel::updateTouchControls,
+                                        onJump = viewModel::triggerJump,
+                                        onUsePowerUp = viewModel::triggerPowerUp,
+                                        onCycleCameraPreset = viewModel::cycleCameraPreset,
+                                        onResetCameraAngle = viewModel::resetRaceCameraAngle,
+                                        onStartVoiceRecording = viewModel::startVoiceRecording,
+                                        onStopVoiceRecording = viewModel::stopAndSendVoiceMessage,
+                                        onToggleVoiceMute = viewModel::toggleVoiceMute,
+                                        onSendQuickCallout = viewModel::sendQuickCallout,
+                                        onSendChat = viewModel::sendRoomTextMessage,
+                                        onPauseToggle = viewModel::togglePause,
+                                        onRestart = {
+                                            when (activeMode) {
+                                                GameMode.FREE_ROAM -> viewModel.startFreeRoam(raceHud.currentRegion)
+                                                GameMode.TIME_TRIAL -> viewModel.startTimeTrial(selectedTrack)
+                                                GameMode.PRACTICE -> viewModel.startPractice(selectedTrack)
+                                                else -> viewModel.startQuickRace(selectedTrack, selectedDifficulty)
+                                            }
+                                        },
+                                        onFinishSession = viewModel::finishTimeTrialOrPractice,
+                                        onQuitToMenu = {
+                                            if (raceHud.isOnlineSession) {
+                                                viewModel.rematchOnlineRoom()
+                                            } else {
+                                                viewModel.navigateTo(GameScreen.MAIN_MENU)
+                                            }
+                                        },
+                                        onToggleDebug = viewModel::toggleDebugTelemetry,
+                                        onOpenWorldMap = { viewModel.navigateTo(GameScreen.WORLD_MAP) },
+                                        onEnterPortalRace = viewModel::enterNearbyPortalRace
+                                    )
+                                }
+
+                                GameScreen.RESULTS -> {
+                                    val sum = raceSummary
+                                    if (sum != null) {
+                                        val hasNextGp = sum.mode == GameMode.GRAND_PRIX &&
+                                            !sum.grandPrixCompleted &&
+                                            gpSession != null
+                                        ResultsScreen(
+                                            summary = sum,
+                                            profile = profile,
+                                            hasNextGrandPrixRace = hasNextGp,
+                                            onNextGrandPrixRace = viewModel::advanceGrandPrixNextRace,
+                                            onPlayAgain = {
+                                                when (sum.mode) {
+                                                    GameMode.TIME_TRIAL -> viewModel.startTimeTrial(sum.trackId)
+                                                    GameMode.PRACTICE -> viewModel.startPractice(sum.trackId)
+                                                    else -> viewModel.startQuickRace(sum.trackId, sum.difficulty)
+                                                }
+                                            },
+                                            onReturnOnlineLobby = viewModel::rematchOnlineRoom,
+                                            onBackToMenu = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                        )
                                     } else {
                                         viewModel.navigateTo(GameScreen.MAIN_MENU)
                                     }
                                 }
-                            )
-                        }
-
-                        GameScreen.QUICK_RACE_SETUP -> {
-                            RaceSetupScreen(
-                                title = "Quick Race",
-                                mode = GameMode.QUICK_RACE,
-                                isCollectionPreviewOnly = false,
-                                profile = profile,
-                                selectedTrack = selectedTrack,
-                                selectedDifficulty = selectedDifficulty,
-                                onSelectTrack = viewModel::selectTrack,
-                                onSelectDifficulty = viewModel::selectDifficulty,
-                                onStart = { viewModel.startQuickRace() },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.GRAND_PRIX_SETUP -> {
-                            RaceSetupScreen(
-                                title = "Grand Prix Cup",
-                                mode = GameMode.GRAND_PRIX,
-                                isCollectionPreviewOnly = false,
-                                profile = profile,
-                                selectedTrack = selectedTrack,
-                                selectedDifficulty = selectedDifficulty,
-                                onSelectTrack = viewModel::selectTrack,
-                                onSelectDifficulty = viewModel::selectDifficulty,
-                                onStart = { viewModel.startGrandPrix() },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.TIME_TRIAL_SETUP -> {
-                            RaceSetupScreen(
-                                title = "Time Trial",
-                                mode = GameMode.TIME_TRIAL,
-                                isCollectionPreviewOnly = false,
-                                profile = profile,
-                                selectedTrack = selectedTrack,
-                                selectedDifficulty = selectedDifficulty,
-                                onSelectTrack = viewModel::selectTrack,
-                                onSelectDifficulty = viewModel::selectDifficulty,
-                                onStart = { viewModel.startTimeTrial() },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.PRACTICE_SETUP -> {
-                            RaceSetupScreen(
-                                title = "Free Practice",
-                                mode = GameMode.PRACTICE,
-                                isCollectionPreviewOnly = false,
-                                profile = profile,
-                                selectedTrack = selectedTrack,
-                                selectedDifficulty = selectedDifficulty,
-                                onSelectTrack = viewModel::selectTrack,
-                                onSelectDifficulty = viewModel::selectDifficulty,
-                                onStart = { viewModel.startPractice() },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.TRACK_COLLECTION -> {
-                            RaceSetupScreen(
-                                title = "Track Collection",
-                                mode = GameMode.QUICK_RACE,
-                                isCollectionPreviewOnly = true,
-                                profile = profile,
-                                selectedTrack = selectedTrack,
-                                selectedDifficulty = selectedDifficulty,
-                                onSelectTrack = viewModel::selectTrack,
-                                onSelectDifficulty = viewModel::selectDifficulty,
-                                onStart = { viewModel.startQuickRace() },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.CHALLENGES -> {
-                            ChallengesScreen(
-                                profile = profile,
-                                onStartChallenge = viewModel::startChallenge,
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.CHARACTER_SELECT, GameScreen.GARAGE -> {
-                            GarageAndCharacterScreen(
-                                initialTab = if (screen == GameScreen.CHARACTER_SELECT) 0 else 1,
-                                profile = profile,
-                                statusMessage = statusBanner,
-                                onSelectRacer = viewModel::selectOrUnlockRacer,
-                                onSelectKart = viewModel::selectOrUnlockKart,
-                                onSelectPaint = viewModel::selectOrUnlockPaint,
-                                onSelectWheel = viewModel::selectOrUnlockWheel,
-                                onSelectExhaust = viewModel::selectOrUnlockExhaust,
-                                onSelectDecoration = viewModel::selectOrUnlockDecoration,
-                                onUpgradeStat = viewModel::upgradeKartStat,
-                                onZoomIn = { viewModel.adjustShowroomZoom(-0.8f) },
-                                onZoomOut = { viewModel.adjustShowroomZoom(0.8f) },
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.SETTINGS -> {
-                            SettingsScreen(
-                                profile = profile,
-                                statusMessage = statusBanner,
-                                onUpdateSettings = viewModel::updateSettings,
-                                onRestoreDefaults = viewModel::restoreDefaultSettings,
-                                onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                            )
-                        }
-
-                        GameScreen.RACE -> {
-                            RaceHudScreen(
-                                mode = activeMode,
-                                hud = raceHud,
-                                settings = profile.settings,
-                                isPaused = isPaused,
-                                notification = raceNotification,
-                                onControlsChanged = viewModel::updateTouchControls,
-                                onJump = viewModel::triggerJump,
-                                onUsePowerUp = viewModel::triggerPowerUp,
-                                onPauseToggle = viewModel::togglePause,
-                                onRestart = {
-                                    when (activeMode) {
-                                        GameMode.FREE_ROAM -> viewModel.startFreeRoam(raceHud.currentRegion)
-                                        GameMode.TIME_TRIAL -> viewModel.startTimeTrial(selectedTrack)
-                                        GameMode.PRACTICE -> viewModel.startPractice(selectedTrack)
-                                        else -> viewModel.startQuickRace(selectedTrack, selectedDifficulty)
-                                    }
-                                },
-                                onFinishSession = viewModel::finishTimeTrialOrPractice,
-                                onQuitToMenu = { viewModel.navigateTo(GameScreen.MAIN_MENU) },
-                                onToggleDebug = viewModel::toggleDebugTelemetry,
-                                onOpenWorldMap = { viewModel.navigateTo(GameScreen.WORLD_MAP) },
-                                onEnterPortalRace = viewModel::enterNearbyPortalRace
-                            )
-                        }
-
-                        GameScreen.RESULTS -> {
-                            val sum = raceSummary
-                            if (sum != null) {
-                                val hasNextGp = sum.mode == GameMode.GRAND_PRIX &&
-                                    !sum.grandPrixCompleted &&
-                                    gpSession != null
-                                ResultsScreen(
-                                    summary = sum,
-                                    profile = profile,
-                                    hasNextGrandPrixRace = hasNextGp,
-                                    onNextGrandPrixRace = viewModel::advanceGrandPrixNextRace,
-                                    onPlayAgain = {
-                                        when (sum.mode) {
-                                            GameMode.TIME_TRIAL -> viewModel.startTimeTrial(sum.trackId)
-                                            GameMode.PRACTICE -> viewModel.startPractice(sum.trackId)
-                                            else -> viewModel.startQuickRace(sum.trackId, sum.difficulty)
-                                        }
-                                    },
-                                    onBackToMenu = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
-                                )
-                            } else {
-                                viewModel.navigateTo(GameScreen.MAIN_MENU)
                             }
                         }
                     }
@@ -286,9 +461,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            // In landscape mode, tilting left/right maps to sensor Y-axis
             val rawTilt = (event.values[1] / 5.5f).coerceIn(-1f, 1f)
-            viewModel.updateTiltSteer(rawTilt)
+            activeViewModel?.updateTiltSteer(rawTilt)
         }
     }
 

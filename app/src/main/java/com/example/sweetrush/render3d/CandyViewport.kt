@@ -19,10 +19,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 fun CandyViewport3D(
     renderer: CandyWorldRenderer,
     allowOrbitDrag: Boolean,
+    allowRaceCameraDrag: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val currentAllowOrbit = androidx.compose.runtime.rememberUpdatedState(allowOrbitDrag)
+    val currentAllowRaceDrag = androidx.compose.runtime.rememberUpdatedState(allowRaceCameraDrag)
 
     val glView = remember {
         GLSurfaceView(context).apply {
@@ -54,20 +58,34 @@ fun CandyViewport3D(
                 ctx,
                 object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     override fun onScale(detector: ScaleGestureDetector): Boolean {
-                        if (!allowOrbitDrag) return false
-                        renderer.showroomZoom = (renderer.showroomZoom / detector.scaleFactor).coerceIn(3.2f, 8.5f)
-                        return true
+                        if (currentAllowOrbit.value) {
+                            renderer.showroomZoom = (renderer.showroomZoom / detector.scaleFactor).coerceIn(3.2f, 8.5f)
+                            return true
+                        }
+                        if (currentAllowRaceDrag.value) {
+                            val zoomDelta = (1f - detector.scaleFactor) * 4.2f
+                            renderer.raceCamZoomOffset = (renderer.raceCamZoomOffset + zoomDelta).coerceIn(-3.0f, 5.5f)
+                            return true
+                        }
+                        return false
                     }
                 }
             )
             glView.setOnTouchListener { _, ev ->
-                if (!allowOrbitDrag) return@setOnTouchListener false
+                val showroom = currentAllowOrbit.value
+                val raceDrag = currentAllowRaceDrag.value
+                if (!showroom && !raceDrag) return@setOnTouchListener false
+
                 scaleDetector.onTouchEvent(ev)
                 when (ev.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         lastX = ev.x
                         lastY = ev.y
-                        renderer.showroomAutoRotate = false
+                        if (showroom) {
+                            renderer.showroomAutoRotate = false
+                        } else if (raceDrag) {
+                            renderer.isDraggingRaceCam = true
+                        }
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -76,9 +94,18 @@ fun CandyViewport3D(
                             val dy = ev.y - lastY
                             lastX = ev.x
                             lastY = ev.y
-                            renderer.showroomOrbitYaw -= dx * 0.01f
-                            renderer.showroomOrbitPitch = (renderer.showroomOrbitPitch + dy * 0.008f).coerceIn(0.08f, 0.78f)
+                            if (showroom) {
+                                renderer.showroomOrbitYaw -= dx * 0.01f
+                                renderer.showroomOrbitPitch = (renderer.showroomOrbitPitch + dy * 0.008f).coerceIn(0.08f, 0.78f)
+                            } else if (raceDrag) {
+                                renderer.raceCamYawOffset = (renderer.raceCamYawOffset - dx * 0.0065f).coerceIn(-3.14f, 3.14f)
+                                renderer.raceCamPitchOffset = (renderer.raceCamPitchOffset + dy * 0.0048f).coerceIn(-0.42f, 0.92f)
+                            }
                         }
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        renderer.isDraggingRaceCam = false
                         true
                     }
                     else -> false
@@ -90,7 +117,11 @@ fun CandyViewport3D(
             if (!allowOrbitDrag) {
                 renderer.showroomAutoRotate = true
             }
+            if (!allowRaceCameraDrag) {
+                renderer.isDraggingRaceCam = false
+            }
         },
         modifier = modifier
     )
 }
+

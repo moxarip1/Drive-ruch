@@ -1,0 +1,357 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.friendCode is string && data.friendCode.size() >= 4 && data.friendCode.size() <= 16 &&
+             data.level is int && data.level >= 1 && data.level <= 999 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 1000000 &&
+             data.credits is int && data.credits >= 0 && data.credits <= 10000000 &&
+             data.racesWon is int && data.racesWon >= 0 &&
+             data.racesCompleted is int && data.racesCompleted >= 0 &&
+             data.selectedKartId is string && data.selectedKartId.size() >= 1 && data.selectedKartId.size() <= 48 &&
+             data.selectedRacerId is string && data.selectedRacerId.size() >= 1 && data.selectedRacerId.size() <= 48 &&
+             data.profileJson is string && data.profileJson.size() >= 2 && data.profileJson.size() <= 40000;
+    }
+
+    function isValidFriendEntry(data) {
+      return data.friendUid is string && data.friendUid.size() >= 1 && data.friendUid.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.friendCode is string && data.friendCode.size() >= 4 && data.friendCode.size() <= 16 &&
+             data.selectedKartId is string && data.selectedKartId.size() >= 1 && data.selectedKartId.size() <= 48 &&
+             data.selectedRacerId is string && data.selectedRacerId.size() >= 1 && data.selectedRacerId.size() <= 48 &&
+             data.level is int && data.level >= 1 && data.level <= 999;
+    }
+
+    function isValidRacerDirectoryEntry(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.friendCode is string && data.friendCode.size() >= 4 && data.friendCode.size() <= 16 &&
+             data.selectedKartId is string && data.selectedKartId.size() >= 1 && data.selectedKartId.size() <= 48 &&
+             data.selectedRacerId is string && data.selectedRacerId.size() >= 1 && data.selectedRacerId.size() <= 48 &&
+             data.level is int && data.level >= 1 && data.level <= 999;
+    }
+
+    function isValidRoom(data) {
+      return data.hostUid is string && data.hostUid.size() >= 1 && data.hostUid.size() <= 128 &&
+             data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 16 &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 40 &&
+             data.status in ['WAITING', 'COUNTDOWN', 'RACING', 'FINISHED'] &&
+             data.mode in ['QUICK_RACE', 'FREE_ROAM'] &&
+             data.trackId in ['PEPPERMINT_PLAZA', 'CUPCAKE_COAST', 'CHOCOLATE_VOLCANO', 'GUMDROP_GARDEN'] &&
+             data.teamSize in [1, 2, 4] &&
+             data.maxPlayers is int && data.maxPlayers >= 2 && data.maxPlayers <= 8 &&
+             data.fillWithAi is bool &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 8 &&
+             data.memberUids[0] is string;
+    }
+
+    function isValidRoomPlayer(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.racerId is string && data.racerId.size() >= 1 && data.racerId.size() <= 48 &&
+             data.kartId is string && data.kartId.size() >= 1 && data.kartId.size() <= 48 &&
+             data.paintId is string && data.paintId.size() >= 1 && data.paintId.size() <= 48 &&
+             data.wheelId is string && data.wheelId.size() >= 1 && data.wheelId.size() <= 48 &&
+             data.exhaustId is string && data.exhaustId.size() >= 1 && data.exhaustId.size() <= 48 &&
+             data.decoId is string && data.decoId.size() >= 1 && data.decoId.size() <= 48 &&
+             data.teamIndex is int && data.teamIndex >= 0 && data.teamIndex <= 3 &&
+             data.ready is bool &&
+             data.x is number && data.y is number && data.z is number &&
+             data.yawRad is number && data.speed is number && data.steerVisualRad is number &&
+             data.lap is int && data.lap >= 1 && data.lap <= 99 &&
+             data.raceScore is number &&
+             data.finished is bool &&
+             data.finishTimeMs is int && data.finishTimeMs >= 0 &&
+             data.drifting is bool &&
+             data.nitroActive is bool &&
+             data.visibleToUids is list && data.visibleToUids.size() >= 1 && data.visibleToUids.size() <= 8 &&
+             data.visibleToUids[0] is string;
+    }
+
+    function isValidRoomMessage(data) {
+      return data.senderUid is string && data.senderUid.size() >= 1 && data.senderUid.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 40 &&
+             data.teamIndex is int && data.teamIndex >= 0 && data.teamIndex <= 3 &&
+             data.targetTeamOnly is bool &&
+             data.msgType in ['TEXT', 'QUICK', 'VOICE'] &&
+             data.text is string && data.text.size() <= 240 &&
+             (!('audioB64' in data) || (data.audioB64 is string && data.audioB64.size() <= 72000)) &&
+             data.durationMs is int && data.durationMs >= 0 && data.durationMs <= 6000 &&
+             data.clientSeq is int && data.clientSeq >= 0 &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 8 &&
+             data.memberUids[0] is string;
+    }
+
+    // 1. User Cloud Profile (Strict Owner Isolation)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'friendCode', 'level', 'xp', 'credits',
+                         'racesWon', 'racesCompleted', 'selectedKartId', 'selectedRacerId',
+                         'profileJson', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'photoUrl', 'friendCode', 'level', 'xp', 'credits',
+                         'racesWon', 'racesCompleted', 'selectedKartId', 'selectedRacerId',
+                         'profileJson', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'photoUrl', 'friendCode', 'level', 'xp', 'credits',
+                         'racesWon', 'racesCompleted', 'selectedKartId', 'selectedRacerId',
+                         'profileJson', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      // 1b. User-Scoped Friends Subcollection
+      match /friends/{friendUid} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(friendUid) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(friendUid) &&
+                         request.auth.uid == userId &&
+                         friendUid != userId &&
+                         incoming().friendUid == friendUid &&
+                         incoming().keys().hasAll([
+                           'friendUid', 'displayName', 'friendCode', 'selectedKartId',
+                           'selectedRacerId', 'level', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'friendUid', 'displayName', 'friendCode', 'selectedKartId',
+                           'selectedRacerId', 'level', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidFriendEntry(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(friendUid) &&
+                         request.auth.uid == userId &&
+                         incoming().friendUid == existing().friendUid &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidFriendEntry(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'friendCode', 'selectedKartId', 'selectedRacerId', 'level', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(friendUid) && request.auth.uid == userId;
+      }
+    }
+
+    // 2. Non-PII Public Friend Code Directory (Lookup by exact code, list restricted to owner)
+    match /racerDirectory/{friendCode} {
+      allow get: if isSignedIn() && isValidId(friendCode);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(friendCode) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().friendCode == friendCode &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'friendCode', 'selectedKartId',
+                         'selectedRacerId', 'level', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'friendCode', 'selectedKartId',
+                         'selectedRacerId', 'level', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRacerDirectoryEntry(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(friendCode) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().friendCode == existing().friendCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRacerDirectoryEntry(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'selectedKartId', 'selectedRacerId', 'level', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(friendCode) && existing().userId == request.auth.uid;
+    }
+
+    // 3. Online Multiplayer Rooms (Teams of 1, 2, or 4)
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().hostUid == request.auth.uid &&
+                       incoming().roomCode == roomId &&
+                       incoming().status == 'WAITING' &&
+                       incoming().memberUids is list &&
+                       incoming().memberUids.size() == 1 &&
+                       request.auth.uid in incoming().memberUids &&
+                       incoming().keys().hasAll([
+                         'hostUid', 'roomCode', 'roomName', 'status', 'mode', 'trackId',
+                         'teamSize', 'maxPlayers', 'fillWithAi', 'memberUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'hostUid', 'roomCode', 'roomName', 'status', 'mode', 'trackId',
+                         'teamSize', 'maxPlayers', 'fillWithAi', 'memberUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidRoom(incoming()) &&
+                       incoming().hostUid == existing().hostUid &&
+                       incoming().roomCode == existing().roomCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         // Action 1: Host updates settings, transitions status, or resets for rematch
+                         (
+                           existing().hostUid == request.auth.uid &&
+                           (existing().status != 'FINISHED' || incoming().status == 'WAITING') &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'roomName', 'status', 'mode', 'trackId', 'teamSize',
+                             'maxPlayers', 'fillWithAi', 'memberUids', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 2: Friend joins an open WAITING room
+                         (
+                           !(request.auth.uid in existing().memberUids) &&
+                           request.auth.uid in incoming().memberUids &&
+                           existing().status == 'WAITING' &&
+                           existing().memberUids.size() < existing().maxPlayers &&
+                           incoming().memberUids.size() == existing().memberUids.size() + 1 &&
+                           incoming().memberUids.hasAll(existing().memberUids) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                         ) ||
+                         // Action 3: Non-host member leaves room cleanly
+                         (
+                           (request.auth.uid in existing().memberUids) &&
+                           !(request.auth.uid in incoming().memberUids) &&
+                           incoming().memberUids.size() >= 1 &&
+                           existing().memberUids.hasAll(incoming().memberUids) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(roomId) && existing().hostUid == request.auth.uid;
+
+      // 3a. Live Squad Member Status & 3D Kart Telemetry
+      match /players/{playerUid} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(playerUid) &&
+                      (request.auth.uid == playerUid || request.auth.uid in resource.data.visibleToUids);
+        allow list: if isSignedIn() && request.auth.uid in resource.data.visibleToUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(playerUid) &&
+                         request.auth.uid == playerUid &&
+                         incoming().userId == request.auth.uid &&
+                         request.auth.uid in incoming().visibleToUids &&
+                         incoming().keys().hasAll([
+                           'userId', 'displayName', 'racerId', 'kartId', 'paintId', 'wheelId',
+                           'exhaustId', 'decoId', 'teamIndex', 'ready', 'x', 'y', 'z', 'yawRad',
+                           'speed', 'steerVisualRad', 'lap', 'raceScore', 'finished', 'finishTimeMs',
+                           'drifting', 'nitroActive', 'visibleToUids', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'displayName', 'racerId', 'kartId', 'paintId', 'wheelId',
+                           'exhaustId', 'decoId', 'teamIndex', 'ready', 'x', 'y', 'z', 'yawRad',
+                           'speed', 'steerVisualRad', 'lap', 'raceScore', 'finished', 'finishTimeMs',
+                           'drifting', 'nitroActive', 'visibleToUids', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRoomPlayer(incoming()) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberUids;
+
+        allow update: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(playerUid) &&
+                         request.auth.uid == playerUid &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         request.auth.uid in incoming().visibleToUids &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRoomPlayer(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'racerId', 'kartId', 'paintId', 'wheelId',
+                           'exhaustId', 'decoId', 'teamIndex', 'ready', 'x', 'y', 'z', 'yawRad',
+                           'speed', 'steerVisualRad', 'lap', 'raceScore', 'finished', 'finishTimeMs',
+                           'drifting', 'nitroActive', 'visibleToUids', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(playerUid) && request.auth.uid == playerUid;
+      }
+
+      // 3b. In-Game Text, Quick Radio & Push-to-Talk Voice Messages
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(messageId) &&
+                      request.auth.uid in resource.data.memberUids;
+        allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(messageId) &&
+                         incoming().senderUid == request.auth.uid &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().keys().hasAll([
+                           'senderUid', 'senderName', 'teamIndex', 'targetTeamOnly', 'msgType',
+                           'text', 'durationMs', 'clientSeq', 'memberUids', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'senderUid', 'senderName', 'teamIndex', 'targetTeamOnly', 'msgType',
+                           'text', 'audioB64', 'durationMs', 'clientSeq', 'memberUids', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidRoomMessage(incoming()) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.memberUids;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

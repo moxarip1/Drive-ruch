@@ -3,10 +3,12 @@ package com.example.sweetrush.render3d
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
+import com.example.sweetrush.model.CameraPreset
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.GraphicsQuality
 import com.example.sweetrush.model.KartCustomization
 import com.example.sweetrush.model.PowerUpType
+import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.VehicleDebugTelemetry
 import com.example.sweetrush.model.WorldRegion
@@ -56,11 +58,15 @@ data class RacerMapDot(
     val x: Float,
     val z: Float,
     val isPlayer: Boolean,
-    val colorHex: Long
+    val colorHex: Long,
+    val teamIndex: Int = 0,
+    val isTeammate: Boolean = false,
+    val isRemote: Boolean = false
 )
 
 data class RaceHudSnapshot(
     val position: Int = 8,
+    val totalRacers: Int = 8,
     val currentLap: Int = 1,
     val totalLaps: Int = 3,
     val elapsedMs: Long = 0L,
@@ -77,6 +83,8 @@ data class RaceHudSnapshot(
     val raceStarted: Boolean = false,
     val finished: Boolean = false,
     val isFreeRoam: Boolean = false,
+    val isOnlineSession: Boolean = false,
+    val localTeamIndex: Int = 0,
     val currentRegion: WorldRegion = WorldRegion.CANDY_CITY,
     val nearbyPortalTitle: String? = null,
     val nearbyPortalTrackId: TrackId? = null,
@@ -86,6 +94,8 @@ data class RaceHudSnapshot(
     val playerWorldZ: Float = 0f,
     val isBoostOrNitroActive: Boolean = false,
     val isGrounded: Boolean = true,
+    val cameraPreset: CameraPreset = CameraPreset.DYNAMIC_CHASE,
+    val hasCustomCameraAngle: Boolean = false,
     val telemetry: VehicleDebugTelemetry = VehicleDebugTelemetry(),
     val mapDots: List<RacerMapDot> = emptyList(),
     val trackMinX: Float = -100f,
@@ -102,8 +112,23 @@ class CandyWorldRenderer(
     @Volatile var sceneMode: RenderSceneMode = RenderSceneMode.MENU_KINGDOM
     @Volatile var graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH
     @Volatile var cameraSensitivity: Float = 1.0f
+    @Volatile var cameraPreset: CameraPreset = CameraPreset.DYNAMIC_CHASE
+    @Volatile var cameraDistanceScale: Float = 1.0f
+    @Volatile var cameraHeightOffset: Float = 0.0f
+    @Volatile var cameraFovOffset: Float = 0.0f
+    @Volatile var raceCamYawOffset: Float = 0.0f
+    @Volatile var raceCamPitchOffset: Float = 0.0f
+    @Volatile var raceCamZoomOffset: Float = 0.0f
+    @Volatile var isDraggingRaceCam: Boolean = false
     @Volatile var targetFps: Int = 60
     @Volatile var isPaused: Boolean = false
+
+    fun resetRaceCameraOffsets() {
+        raceCamYawOffset = 0f
+        raceCamPitchOffset = 0f
+        raceCamZoomOffset = 0f
+        isDraggingRaceCam = false
+    }
 
     // Showroom state
     @Volatile var showroomKartId: String = "strawberry_rocket"
@@ -480,58 +505,81 @@ class CandyWorldRenderer(
             camTargetX = p.x; camTargetY = p.y + 1.2f; camTargetZ = p.z
             currentFov += (54f - currentFov) * 4f * dt
         } else {
-            val speedNorm = (abs(p.speed) / 62f).coerceIn(0f, 1.25f)
-            val nitroBoostActive = (p.boostTimer > 0f || p.isNitroActive || p.starTimer > 0f)
-            val targetFov = 58f + speedNorm * 13f + (if (nitroBoostActive) 7f else 0f)
-            currentFov += (targetFov - currentFov) * 6.5f * dt
-
-            // Subtle drift & cornering camera swing
-            val driftCamSwing = if (p.isDrifting) p.driftDir * 0.22f else 0f
-            val steerCamSwing = -p.steerVisualRad * 0.25f
-            val camYaw = p.yawRad + driftCamSwing + steerCamSwing
-
-            val followDist = 6.9f + speedNorm * 1.7f + (if (nitroBoostActive) 0.55f else 0f)
-            val followHeight = 3.15f + speedNorm * 0.35f - (if (!p.isGrounded) 0.22f else 0f) - p.landingImpulse * 0.36f
-
-            val desiredCamX = p.x - sin(camYaw) * followDist
-            val desiredCamY = p.y + followHeight
-            val desiredCamZ = p.z - cos(camYaw) * followDist
-
-            // Critically damped spring chase physics
-            val stiffness = 58f * cameraSensitivity.coerceIn(0.6f, 1.5f)
-            val damping = 13.5f
-            val ax = (desiredCamX - camX) * stiffness - camVelX * damping
-            val ay = (desiredCamY - camY) * stiffness - camVelY * damping
-            val az = (desiredCamZ - camZ) * stiffness - camVelZ * damping
-            camVelX += ax * dt
-            camVelY += ay * dt
-            camVelZ += az * dt
-            camX += camVelX * dt
-            camY += camVelY * dt
-            camZ += camVelZ * dt
-
-            // Camera Terrain & Midpoint Ridge Collision Avoidance — NEVER clips below terrain or road!
-            val camGroundH = engine.surfaceSampler.sampleSurface(camX, camZ, p.y).height
-            val midGroundH = engine.surfaceSampler.sampleSurface((camX + p.x) * 0.5f, (camZ + p.z) * 0.5f, p.y).height
-            val minCamY = maxOf(camGroundH + 1.85f, midGroundH + 1.45f)
-            if (camY < minCamY) {
-                camY = minCamY
-                if (camVelY < 0f) camVelY = 0f
+            val preset = cameraPreset
+            // Spring back manual glance angles after touch release unless FREE_ORBIT is active
+            if (!isDraggingRaceCam && preset != CameraPreset.FREE_ORBIT) {
+                val springRate = (2.8f * dt).coerceAtMost(1f)
+                raceCamYawOffset += (0f - raceCamYawOffset) * springRate
+                raceCamPitchOffset += (0f - raceCamPitchOffset) * springRate
             }
 
-            // Look-ahead targeting aligned with velocity & kart heading + landing dip
+            val speedNorm = (abs(p.speed) / 62f).coerceIn(0f, 1.25f)
+            val nitroBoostActive = (p.boostTimer > 0f || p.isNitroActive || p.starTimer > 0f)
+            val targetFov = (preset.baseFov + cameraFovOffset + speedNorm * 11f + (if (nitroBoostActive) 7f else 0f)).coerceIn(42f, 92f)
+            currentFov += (targetFov - currentFov) * 6.5f * dt
+
             val shakeAmt = engine.cameraShake * 0.34f
             val shakeX = if (shakeAmt > 0.01f) (rng.nextFloat() - 0.5f) * shakeAmt else 0f
             val shakeY = if (shakeAmt > 0.01f) (rng.nextFloat() - 0.5f) * shakeAmt else 0f
 
-            val lookAhead = 5.4f + speedNorm * 2.2f
-            val aimTargetX = p.x + sin(p.yawRad) * lookAhead + shakeX
-            val aimTargetY = p.y + 1.38f - p.landingImpulse * 0.22f + shakeY
-            val aimTargetZ = p.z + cos(p.yawRad) * lookAhead
-            val targetLerp = (dt * 16f).coerceIn(0.1f, 0.95f)
-            camTargetX += (aimTargetX - camTargetX) * targetLerp
-            camTargetY += (aimTargetY - camTargetY) * targetLerp
-            camTargetZ += (aimTargetZ - camTargetZ) * targetLerp
+            if (preset == CameraPreset.HOOD_CAM) {
+                val hoodYaw = p.yawRad + raceCamYawOffset * 0.65f
+                camX = p.x + sin(p.yawRad) * 0.45f + shakeX
+                camY = p.y + (preset.followHeight + cameraHeightOffset).coerceIn(1.05f, 3.0f) + shakeY
+                camZ = p.z + cos(p.yawRad) * 0.45f
+                camVelX = 0f; camVelY = 0f; camVelZ = 0f
+                val pitchLook = -raceCamPitchOffset * 4.5f
+                camTargetX = camX + sin(hoodYaw) * preset.lookAhead
+                camTargetY = camY - 0.25f + pitchLook
+                camTargetZ = camZ + cos(hoodYaw) * preset.lookAhead
+            } else {
+                val driftCamSwing = if (p.isDrifting) p.driftDir * 0.22f else 0f
+                val steerCamSwing = -p.steerVisualRad * 0.25f
+                val baseYaw = if (preset == CameraPreset.FREE_ORBIT) {
+                    p.yawRad + raceCamYawOffset
+                } else {
+                    p.yawRad + driftCamSwing + steerCamSwing + raceCamYawOffset
+                }
+
+                val followDist = (preset.followDist * cameraDistanceScale + raceCamZoomOffset + speedNorm * 1.45f + (if (nitroBoostActive) 0.55f else 0f)).coerceIn(3.1f, 15.5f)
+                val pitchHeightDelta = sin(raceCamPitchOffset.coerceIn(-0.45f, 0.95f)) * followDist * 0.68f
+                val followHeight = (preset.followHeight + cameraHeightOffset + pitchHeightDelta + speedNorm * 0.30f - (if (!p.isGrounded) 0.18f else 0f) - p.landingImpulse * 0.32f).coerceIn(1.1f, 9.5f)
+
+                val desiredCamX = p.x - sin(baseYaw) * followDist
+                val desiredCamY = p.y + followHeight
+                val desiredCamZ = p.z - cos(baseYaw) * followDist
+
+                val stiffness = (if (isDraggingRaceCam || preset == CameraPreset.FREE_ORBIT) 115f else 58f) * cameraSensitivity.coerceIn(0.6f, 1.6f)
+                val damping = if (isDraggingRaceCam || preset == CameraPreset.FREE_ORBIT) 18.5f else 13.5f
+                val ax = (desiredCamX - camX) * stiffness - camVelX * damping
+                val ay = (desiredCamY - camY) * stiffness - camVelY * damping
+                val az = (desiredCamZ - camZ) * stiffness - camVelZ * damping
+                camVelX += ax * dt
+                camVelY += ay * dt
+                camVelZ += az * dt
+                camX += camVelX * dt
+                camY += camVelY * dt
+                camZ += camVelZ * dt
+
+                // Camera Terrain & Midpoint Ridge Collision Avoidance — NEVER clips below terrain or road!
+                val camGroundH = engine.surfaceSampler.sampleSurface(camX, camZ, p.y).height
+                val midGroundH = engine.surfaceSampler.sampleSurface((camX + p.x) * 0.5f, (camZ + p.z) * 0.5f, p.y).height
+                val minCamY = maxOf(camGroundH + 1.55f, midGroundH + 1.25f)
+                if (camY < minCamY) {
+                    camY = minCamY
+                    if (camVelY < 0f) camVelY = 0f
+                }
+
+                val lookAhead = preset.lookAhead + speedNorm * 1.8f
+                val lookYaw = if (preset == CameraPreset.FREE_ORBIT) baseYaw else p.yawRad
+                val aimTargetX = p.x + sin(lookYaw) * lookAhead + shakeX
+                val aimTargetY = p.y + 1.38f - p.landingImpulse * 0.22f + shakeY
+                val aimTargetZ = p.z + cos(lookYaw) * lookAhead
+                val targetLerp = (dt * 16f).coerceIn(0.1f, 0.95f)
+                camTargetX += (aimTargetX - camTargetX) * targetLerp
+                camTargetY += (aimTargetY - camTargetY) * targetLerp
+                camTargetZ += (aimTargetZ - camTargetZ) * targetLerp
+            }
         }
 
         val farPlane = when (graphicsQuality) {
@@ -595,6 +643,7 @@ class CandyWorldRenderer(
         val track = engine.track
         val snap = RaceHudSnapshot(
             position = p.position,
+            totalRacers = engine.karts.size.coerceAtLeast(1),
             currentLap = p.currentLap.coerceAtMost(engine.totalLaps),
             totalLaps = engine.totalLaps,
             elapsedMs = engine.raceElapsedMs,
@@ -616,6 +665,8 @@ class CandyWorldRenderer(
             raceStarted = engine.raceStarted,
             finished = engine.playerFinished,
             isFreeRoam = engine.isFreeRoam,
+            isOnlineSession = engine.isOnlineSession,
+            localTeamIndex = engine.localTeamIndex,
             currentRegion = engine.currentRegion,
             nearbyPortalTitle = engine.nearbyRacePortal?.title,
             nearbyPortalTrackId = engine.nearbyRacePortal?.trackId,
@@ -625,8 +676,26 @@ class CandyWorldRenderer(
             playerWorldZ = p.z,
             isBoostOrNitroActive = (p.boostTimer > 0f || p.isNitroActive || p.starTimer > 0f),
             isGrounded = p.isGrounded,
+            cameraPreset = cameraPreset,
+            hasCustomCameraAngle = abs(raceCamYawOffset) > 0.08f || abs(raceCamPitchOffset) > 0.08f || abs(raceCamZoomOffset) > 0.25f,
             telemetry = engine.latestTelemetry,
-            mapDots = engine.karts.map { RacerMapDot(it.x, it.z, it.isPlayer, it.racer.suitPrimaryHex) },
+            mapDots = engine.karts.map { k ->
+                val isTeamMate = engine.isOnlineSession && engine.teamSize > 1 && !k.isPlayer && k.teamIndex == p.teamIndex
+                val dotColor = if (engine.isOnlineSession && engine.teamSize > 1) {
+                    SquadTeam.fromIndex(k.teamIndex).colorHex
+                } else {
+                    k.racer.suitPrimaryHex
+                }
+                RacerMapDot(
+                    x = k.x,
+                    z = k.z,
+                    isPlayer = k.isPlayer,
+                    colorHex = dotColor,
+                    teamIndex = k.teamIndex,
+                    isTeammate = isTeamMate,
+                    isRemote = k.isRemotePlayer
+                )
+            },
             trackMinX = if (engine.isFreeRoam) -440f else track.minX,
             trackMaxX = if (engine.isFreeRoam) 440f else track.maxX,
             trackMinZ = if (engine.isFreeRoam) -440f else track.minZ,

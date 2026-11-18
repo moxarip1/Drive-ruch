@@ -46,6 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.sweetrush.model.AppLanguage
+import com.example.sweetrush.model.CameraPreset
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.ControlScheme
 import com.example.sweetrush.model.GameMode
@@ -53,6 +54,7 @@ import com.example.sweetrush.model.GameSettings
 import com.example.sweetrush.model.GraphicsQuality
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.RaceSummary
+import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.physics.KartPhysicsEngine
 import com.example.ui.theme.BerryCard
 import com.example.ui.theme.BerryDeep
@@ -65,6 +67,7 @@ import com.example.ui.theme.FrostingWhite
 import com.example.ui.theme.MintCream
 import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
+import com.example.ui.theme.StrawberryRed
 
 @Composable
 fun ResultsScreen(
@@ -73,6 +76,7 @@ fun ResultsScreen(
     hasNextGrandPrixRace: Boolean,
     onNextGrandPrixRace: () -> Unit,
     onPlayAgain: () -> Unit,
+    onReturnOnlineLobby: () -> Unit = {},
     onBackToMenu: () -> Unit
 ) {
     BackHandler(onBack = onBackToMenu)
@@ -168,6 +172,17 @@ fun ResultsScreen(
                             textColor = BerryDeep,
                             modifier = Modifier.fillMaxWidth()
                         )
+                    } else if (summary.isOnlineMatch) {
+                        CandyButton(
+                            text = "SQUAD REMATCH",
+                            onClick = onReturnOnlineLobby,
+                            testTag = "online_rematch_button",
+                            icon = Icons.Filled.Refresh,
+                            topColor = MintCream,
+                            bottomColor = MintDark,
+                            textColor = BerryDeep,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     } else {
                         CandyButton(
                             text = "RACE AGAIN",
@@ -192,7 +207,7 @@ fun ResultsScreen(
                 }
             }
 
-            // Right: Race Standings or Grand Prix Championship Standings
+            // Right: Race Standings or Squad Standings
             Column(
                 modifier = Modifier
                     .weight(1.25f)
@@ -203,10 +218,37 @@ fun ResultsScreen(
                     .padding(14.dp)
             ) {
                 Text(
-                    text = if (summary.mode == GameMode.GRAND_PRIX) "RACE & CHAMPIONSHIP STANDINGS" else "RACE STANDINGS",
+                    text = if (summary.isOnlineMatch && summary.teamSize > 1) "SQUAD & RACER STANDINGS"
+                    else if (summary.mode == GameMode.GRAND_PRIX) "RACE & CHAMPIONSHIP STANDINGS"
+                    else "RACE STANDINGS",
                     style = MaterialTheme.typography.titleLarge,
                     color = FrostingWhite
                 )
+
+                if (summary.teamStandings.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        summary.teamStandings.forEachIndexed { rank, (teamIdx, pts) ->
+                            val team = SquadTeam.fromIndex(teamIdx)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(team.colorHex).copy(alpha = 0.25f))
+                                    .border(1.5.dp, Color(team.colorHex), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("#${rank + 1} ${team.teamName}", style = MaterialTheme.typography.labelSmall, color = Color(team.colorHex))
+                                Text("$pts PTS", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                            }
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn(
@@ -214,6 +256,7 @@ fun ResultsScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(summary.standings) { entry ->
+                        val team = SquadTeam.fromIndex(entry.teamIndex)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -221,7 +264,7 @@ fun ResultsScreen(
                                 .background(if (entry.isPlayer) CandyPink.copy(alpha = 0.38f) else BerryDeep.copy(alpha = 0.65f))
                                 .border(
                                     1.5.dp,
-                                    if (entry.isPlayer) CaramelGold else Color.White.copy(alpha = 0.18f),
+                                    if (entry.isPlayer) CaramelGold else if (summary.teamSize > 1) Color(team.colorHex).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.18f),
                                     RoundedCornerShape(14.dp)
                                 )
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -241,12 +284,16 @@ fun ResultsScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                         color = FrostingWhite
                                     )
-                                    Text(entry.kartName, style = MaterialTheme.typography.labelSmall, color = SkyCandy)
+                                    Text(
+                                        text = if (summary.teamSize > 1) "${team.teamName} • ${entry.kartName}" else entry.kartName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (summary.teamSize > 1) Color(team.colorHex) else SkyCandy
+                                    )
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(KartPhysicsEngine.formatTime(entry.totalTimeMs), style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
-                                if (summary.mode == GameMode.GRAND_PRIX) {
+                                if (summary.mode == GameMode.GRAND_PRIX || summary.teamSize > 1) {
                                     Text("+${entry.grandPrixPointsAwarded} PTS", style = MaterialTheme.typography.labelSmall, color = MintCream)
                                 }
                             }
@@ -270,9 +317,12 @@ fun ResultsScreen(
 @Composable
 fun SettingsScreen(
     profile: PlayerProfile,
+    userDisplayName: String = "Candy Racer",
+    friendCode: String = "",
     statusMessage: String?,
     onUpdateSettings: ((GameSettings) -> GameSettings) -> Unit,
     onRestoreDefaults: () -> Unit,
+    onSignOutClick: () -> Unit = {},
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -354,6 +404,40 @@ fun SettingsScreen(
                         value = s.sfxVolume,
                         onValueChange = { v -> onUpdateSettings { it.copy(sfxVolume = v) } },
                         colors = SliderDefaults.colors(thumbColor = CaramelGold, activeTrackColor = CaramelGold)
+                    )
+
+                    Text("CAMERA ANGLE PRESET (زاوية الكاميرا)", style = MaterialTheme.typography.titleLarge, color = CaramelGold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        CameraPreset.entries.forEach { preset ->
+                            SettingChip(
+                                text = preset.label,
+                                selected = s.cameraPreset == preset,
+                                onClick = { onUpdateSettings { it.copy(cameraPreset = preset) } },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Text("CAMERA DISTANCE (${String.format("%.2f", s.cameraDistanceScale)}x)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                    Slider(
+                        value = s.cameraDistanceScale,
+                        valueRange = 0.65f..1.45f,
+                        onValueChange = { v -> onUpdateSettings { it.copy(cameraDistanceScale = v) } },
+                        colors = SliderDefaults.colors(thumbColor = SkyCandy, activeTrackColor = SkyCandy)
+                    )
+
+                    Text("CAMERA HEIGHT (${String.format("%+.2f", s.cameraHeightOffset)}m)  •  FOV (${String.format("%+.0f", s.cameraFovOffset)}°)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                    Slider(
+                        value = s.cameraHeightOffset,
+                        valueRange = -1.0f..2.0f,
+                        onValueChange = { v -> onUpdateSettings { it.copy(cameraHeightOffset = v) } },
+                        colors = SliderDefaults.colors(thumbColor = MintCream, activeTrackColor = MintCream)
+                    )
+                    Slider(
+                        value = s.cameraFovOffset,
+                        valueRange = -8f..14f,
+                        onValueChange = { v -> onUpdateSettings { it.copy(cameraFovOffset = v) } },
+                        colors = SliderDefaults.colors(thumbColor = CandyPink, activeTrackColor = CandyPink)
                     )
                 }
 
@@ -454,6 +538,16 @@ fun SettingsScreen(
                         onClick = onRestoreDefaults,
                         testTag = "restore_defaults_button",
                         topColor = Butterscotch,
+                        bottomColor = CandyPinkDark,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("GOOGLE ACCOUNT: $userDisplayName ($friendCode)", style = MaterialTheme.typography.labelSmall, color = SkyCandy)
+                    CandyButton(
+                        text = "SIGN OUT GOOGLE",
+                        onClick = onSignOutClick,
+                        testTag = "settings_sign_out_button",
+                        topColor = StrawberryRed,
                         bottomColor = CandyPinkDark,
                         modifier = Modifier.fillMaxWidth()
                     )

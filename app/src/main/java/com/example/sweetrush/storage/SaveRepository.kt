@@ -2,6 +2,7 @@ package com.example.sweetrush.storage
 
 import android.content.Context
 import com.example.sweetrush.model.AppLanguage
+import com.example.sweetrush.model.CameraPreset
 import com.example.sweetrush.model.ControlScheme
 import com.example.sweetrush.model.ExhaustStyle
 import com.example.sweetrush.model.GameSettings
@@ -113,6 +114,10 @@ class SaveRepository(private val context: Context) {
         sObj.put("controlScheme", p.settings.controlScheme.name)
         sObj.put("steeringSensitivity", p.settings.steeringSensitivity.toDouble())
         sObj.put("cameraSensitivity", p.settings.cameraSensitivity.toDouble())
+        sObj.put("cameraPreset", p.settings.cameraPreset.name)
+        sObj.put("cameraDistanceScale", p.settings.cameraDistanceScale.toDouble())
+        sObj.put("cameraHeightOffset", p.settings.cameraHeightOffset.toDouble())
+        sObj.put("cameraFovOffset", p.settings.cameraFovOffset.toDouble())
         sObj.put("tiltSteeringEnabled", p.settings.tiltSteeringEnabled)
         sObj.put("language", p.settings.language.name)
         sObj.put("showDebugTelemetry", p.settings.showDebugTelemetry)
@@ -132,6 +137,10 @@ class SaveRepository(private val context: Context) {
                 controlScheme = enumValueOrDefault(sObj.optString("controlScheme"), ControlScheme.TOUCH_BUTTONS),
                 steeringSensitivity = sObj.optDouble("steeringSensitivity", 1.0).toFloat().coerceIn(0.4f, 1.8f),
                 cameraSensitivity = sObj.optDouble("cameraSensitivity", 1.0).toFloat().coerceIn(0.4f, 1.8f),
+                cameraPreset = enumValueOrDefault(sObj.optString("cameraPreset"), CameraPreset.DYNAMIC_CHASE),
+                cameraDistanceScale = sObj.optDouble("cameraDistanceScale", 1.0).toFloat().coerceIn(0.65f, 1.5f),
+                cameraHeightOffset = sObj.optDouble("cameraHeightOffset", 0.0).toFloat().coerceIn(-1.2f, 2.5f),
+                cameraFovOffset = sObj.optDouble("cameraFovOffset", 0.0).toFloat().coerceIn(-10f, 16f),
                 tiltSteeringEnabled = sObj.optBoolean("tiltSteeringEnabled", false),
                 language = enumValueOrDefault(sObj.optString("language"), AppLanguage.EN),
                 showDebugTelemetry = sObj.optBoolean("showDebugTelemetry", false)

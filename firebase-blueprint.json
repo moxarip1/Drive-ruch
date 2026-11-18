@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated Sweet Rush racer cloud profile and save backup.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "Public racer display name." },
+        "photoUrl": { "type": "string", "description": "Optional Google avatar photo URL." },
+        "friendCode": { "type": "string", "description": "6-12 character friend invite code." },
+        "level": { "type": "integer", "description": "Racer progression level." },
+        "xp": { "type": "integer", "description": "Current level XP." },
+        "credits": { "type": "integer", "description": "Candy Credits balance." },
+        "racesWon": { "type": "integer", "description": "Total wins." },
+        "racesCompleted": { "type": "integer", "description": "Total races completed." },
+        "selectedKartId": { "type": "string", "description": "Active kart catalog ID." },
+        "selectedRacerId": { "type": "string", "description": "Active racer catalog ID." },
+        "profileJson": { "type": "string", "description": "Serialized PlayerProfile cloud backup." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId", "displayName", "friendCode", "level", "xp", "credits",
+        "racesWon", "racesCompleted", "selectedKartId", "selectedRacerId",
+        "profileJson", "createdAt", "updatedAt"
+      ]
+    },
+    "FriendEntry": {
+      "title": "FriendEntry",
+      "description": "Added friend racer card stored under the owner user document.",
+      "type": "object",
+      "properties": {
+        "friendUid": { "type": "string", "description": "Friend Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Friend display name." },
+        "friendCode": { "type": "string", "description": "Friend lookup code." },
+        "selectedKartId": { "type": "string", "description": "Friend kart ID." },
+        "selectedRacerId": { "type": "string", "description": "Friend racer ID." },
+        "level": { "type": "integer", "description": "Friend progression level." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "friendUid", "displayName", "friendCode", "selectedKartId",
+        "selectedRacerId", "level", "createdAt", "updatedAt"
+      ]
+    },
+    "RacerDirectoryEntry": {
+      "title": "RacerDirectoryEntry",
+      "description": "Public non-PII friend-code directory entry for looking up friends by code.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Racer display name." },
+        "friendCode": { "type": "string", "description": "Unique uppercase alphanumeric friend code." },
+        "selectedKartId": { "type": "string", "description": "Active kart ID." },
+        "selectedRacerId": { "type": "string", "description": "Active racer ID." },
+        "level": { "type": "integer", "description": "Racer level." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId", "displayName", "friendCode", "selectedKartId",
+        "selectedRacerId", "level", "createdAt", "updatedAt"
+      ]
+    },
+    "OnlineRoom": {
+      "title": "OnlineRoom",
+      "description": "Online multiplayer racing or free-roam lobby supporting squads of 1, 2, or 4.",
+      "type": "object",
+      "properties": {
+        "hostUid": { "type": "string", "description": "Room host Firebase Auth UID." },
+        "roomCode": { "type": "string", "description": "Short join code." },
+        "roomName": { "type": "string", "description": "Lobby title." },
+        "status": { "type": "string", "enum": ["WAITING", "COUNTDOWN", "RACING", "FINISHED"], "description": "Lifecycle status." },
+        "mode": { "type": "string", "enum": ["QUICK_RACE", "FREE_ROAM"], "description": "Online game mode." },
+        "trackId": { "type": "string", "enum": ["PEPPERMINT_PLAZA", "CUPCAKE_COAST", "CHOCOLATE_VOLCANO", "GUMDROP_GARDEN"], "description": "Selected track ID." },
+        "teamSize": { "type": "integer", "description": "Squad size per team: 1, 2, or 4." },
+        "maxPlayers": { "type": "integer", "description": "Maximum human players in room (2..8)." },
+        "fillWithAi": { "type": "boolean", "description": "Whether empty grid slots are filled with AI racers." },
+        "memberUids": { "type": "array", "description": "Joined member UIDs (max 8)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "hostUid", "roomCode", "roomName", "status", "mode", "trackId",
+        "teamSize", "maxPlayers", "fillWithAi", "memberUids", "createdAt", "updatedAt"
+      ]
+    },
+    "RoomPlayer": {
+      "title": "RoomPlayer",
+      "description": "Player squad membership, customization, and real-time 3D kart telemetry inside a room.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Player Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Player display name." },
+        "racerId": { "type": "string", "description": "Racer catalog ID." },
+        "kartId": { "type": "string", "description": "Kart catalog ID." },
+        "paintId": { "type": "string", "description": "Kart paint ID." },
+        "wheelId": { "type": "string", "description": "Wheel design enum name." },
+        "exhaustId": { "type": "string", "description": "Exhaust style enum name." },
+        "decoId": { "type": "string", "description": "Kart decoration enum name." },
+        "teamIndex": { "type": "integer", "description": "Squad team index 0..3." },
+        "ready": { "type": "boolean", "description": "Lobby ready flag." },
+        "x": { "type": "number", "description": "World X position." },
+        "y": { "type": "number", "description": "World Y position." },
+        "z": { "type": "number", "description": "World Z position." },
+        "yawRad": { "type": "number", "description": "Kart heading yaw in radians." },
+        "speed": { "type": "number", "description": "Forward velocity magnitude." },
+        "steerVisualRad": { "type": "number", "description": "Visual front wheel steer angle." },
+        "lap": { "type": "integer", "description": "Current lap number." },
+        "raceScore": { "type": "number", "description": "Race progress score for live standings." },
+        "finished": { "type": "boolean", "description": "Whether player crossed finish line." },
+        "finishTimeMs": { "type": "integer", "description": "Elapsed finish time in milliseconds." },
+        "drifting": { "type": "boolean", "description": "Active drift state." },
+        "nitroActive": { "type": "boolean", "description": "Active nitro/boost state." },
+        "visibleToUids": { "type": "array", "description": "Denormalized room member UIDs permitted to read telemetry." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId", "displayName", "racerId", "kartId", "paintId", "wheelId",
+        "exhaustId", "decoId", "teamIndex", "ready", "x", "y", "z", "yawRad",
+        "speed", "steerVisualRad", "lap", "raceScore", "finished", "finishTimeMs",
+        "drifting", "nitroActive", "visibleToUids", "createdAt", "updatedAt"
+      ]
+    },
+    "RoomMessage": {
+      "title": "RoomMessage",
+      "description": "Real-time text, quick-radio, or push-to-talk audio message inside a multiplayer room.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "description": "Sender Firebase Auth UID." },
+        "senderName": { "type": "string", "description": "Sender display name." },
+        "teamIndex": { "type": "integer", "description": "Sender team index 0..3." },
+        "targetTeamOnly": { "type": "boolean", "description": "True if restricted to squad teammates." },
+        "msgType": { "type": "string", "enum": ["TEXT", "QUICK", "VOICE"], "description": "Message format." },
+        "text": { "type": "string", "description": "Message text or voice label." },
+        "audioB64": { "type": "string", "description": "Optional Base64-encoded compressed 8kHz voice clip." },
+        "durationMs": { "type": "integer", "description": "Voice clip duration in ms." },
+        "clientSeq": { "type": "integer", "description": "Client monotonic timestamp for ordering." },
+        "memberUids": { "type": "array", "description": "Denormalized room member UIDs permitted to read." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." }
+      },
+      "required": [
+        "senderUid", "senderName", "teamIndex", "targetTeamOnly", "msgType",
+        "text", "durationMs", "clientSeq", "memberUids", "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private authenticated user cloud profile and save backup."
+    },
+    "/users/{userId}/friends/{friendUid}": {
+      "schema": { "$ref": "#/entities/FriendEntry" },
+      "description": "User-scoped friends roster."
+    },
+    "/racerDirectory/{friendCode}": {
+      "schema": { "$ref": "#/entities/RacerDirectoryEntry" },
+      "description": "Non-PII friend-code directory for finding friends by invite code."
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/OnlineRoom" },
+      "description": "Multiplayer rooms supporting teams of 1, 2, or 4."
+    },
+    "/rooms/{roomId}/players/{playerUid}": {
+      "schema": { "$ref": "#/entities/RoomPlayer" },
+      "description": "Live squad member status and 3D kart telemetry inside a room."
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/RoomMessage" },
+      "description": "Real-time text, quick comms, and push-to-talk voice clips inside a room."
+    }
+  }
+}

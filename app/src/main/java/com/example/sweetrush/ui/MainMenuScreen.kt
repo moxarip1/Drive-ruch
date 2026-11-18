@@ -62,9 +62,18 @@ import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
 import kotlin.math.sin
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+
 @Composable
 fun MainMenuScreen(
     profile: PlayerProfile,
+    userDisplayName: String = "Candy Racer",
+    userPhotoUrl: String? = null,
+    friendCode: String = "",
+    activeRoomCode: String? = null,
     onNavigate: (GameScreen) -> Unit,
     onStartFreeRoam: () -> Unit = {}
 ) {
@@ -117,7 +126,7 @@ fun MainMenuScreen(
                 .padding(horizontal = 18.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Compact Top Bar: Brand Logo (Left) + Player Progression & Setup Pill (Right)
+            // Compact Top Bar: Brand Logo (Left) + Google Account & Player Progression Pill (Right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -126,7 +135,64 @@ fun MainMenuScreen(
                 SweetRushLogo(compact = true)
 
                 Column(horizontalAlignment = Alignment.End) {
-                    PlayerProfilePill(profile = profile)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Google Account Racer Chip
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(BerryPurple.copy(alpha = 0.84f))
+                                .border(1.5.dp, MintCream.copy(alpha = 0.7f), RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (!userPhotoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = userPhotoUrl,
+                                    contentDescription = "Google Avatar",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .width(24.dp)
+                                        .height(24.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .width(24.dp)
+                                        .height(24.dp)
+                                        .clip(CircleShape)
+                                        .background(CandyPink),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = userDisplayName.firstOrNull()?.uppercase() ?: "R",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = FrostingWhite
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = userDisplayName.take(18),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite
+                                )
+                                if (friendCode.isNotBlank()) {
+                                    Text(
+                                        text = if (activeRoomCode != null) "ROOM #$activeRoomCode" else "ID: $friendCode",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = CaramelGold
+                                    )
+                                }
+                            }
+                        }
+
+                        PlayerProfilePill(profile = profile)
+                    }
                     Spacer(Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
@@ -153,13 +219,25 @@ fun MainMenuScreen(
                 // Bottom-Left Racing Dock
                 Column(
                     modifier = Modifier
-                        .width(344.dp)
+                        .width(362.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(BerryDeep.copy(alpha = 0.56f))
                         .border(1.5.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(24.dp))
                         .padding(8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    CandyButton(
+                        text = if (activeRoomCode != null) "${CatalogData.localized(lang, "online")} • #$activeRoomCode"
+                        else CatalogData.localized(lang, "online"),
+                        onClick = { onNavigate(GameScreen.ONLINE_LOBBY) },
+                        testTag = "menu_online_button",
+                        icon = Icons.Filled.Groups,
+                        topColor = CaramelGold,
+                        bottomColor = Color(0xFFFF6D00),
+                        textColor = BerryDeep,
+                        height = 50.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -171,7 +249,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.PlayArrow,
                             topColor = Color(0xFFFF4D94),
                             bottomColor = CandyPinkDark,
-                            height = 54.dp,
+                            height = 50.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -182,7 +260,7 @@ fun MainMenuScreen(
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 54.dp,
+                            height = 50.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }

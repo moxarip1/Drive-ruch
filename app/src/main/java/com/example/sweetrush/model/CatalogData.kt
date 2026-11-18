@@ -408,6 +408,7 @@ object CatalogData {
             AppLanguage.EN -> when (key) {
                 "free_roam" -> "FREE ROAM"
                 "play" -> "QUICK RACE"
+                "online" -> "ONLINE SQUADS"
                 "grand_prix" -> "GRAND PRIX"
                 "time_trial" -> "TIME TRIAL"
                 "practice" -> "PRACTICE"
@@ -419,9 +420,25 @@ object CatalogData {
                 "challenges" -> "CHALLENGES"
                 else -> key
             }
+            AppLanguage.AR -> when (key) {
+                "free_roam" -> "جولة حرة"
+                "play" -> "سباق سريع"
+                "online" -> "أونلاين وفرق"
+                "grand_prix" -> "الجائزة الكبرى"
+                "time_trial" -> "ضد الوقت"
+                "practice" -> "تدريب"
+                "characters" -> "الشخصيات"
+                "garage" -> "الكراج"
+                "world_map" -> "خريطة العالم"
+                "tracks" -> "المضامير"
+                "settings" -> "الإعدادات"
+                "challenges" -> "التحديات"
+                else -> key
+            }
             AppLanguage.ES -> when (key) {
                 "free_roam" -> "MUNDO LIBRE"
                 "play" -> "CARRERA RÁPIDA"
+                "online" -> "EQUIPOS ONLINE"
                 "grand_prix" -> "GRAN PREMIO"
                 "time_trial" -> "CONTRARRELOJ"
                 "practice" -> "PRÁCTICA"
@@ -436,6 +453,7 @@ object CatalogData {
             AppLanguage.FR -> when (key) {
                 "free_roam" -> "EXPLORATION"
                 "play" -> "COURSE RAPIDE"
+                "online" -> "ÉQUIPES EN LIGNE"
                 "grand_prix" -> "GRAND PRIX"
                 "time_trial" -> "CONTRE-LA-MONTRE"
                 "practice" -> "ENTRAÎNEMENT"

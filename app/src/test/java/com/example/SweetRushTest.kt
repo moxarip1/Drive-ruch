@@ -230,4 +230,77 @@ class SweetRushTest {
         assertNotNull(recovered)
         assertTrue(recovered.level >= 1)
     }
+
+    @Test
+    fun `camera settings and arabic localization persist and resolve properly`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SaveRepository(context)
+        val settings = GameSettings(
+            cameraPreset = com.example.sweetrush.model.CameraPreset.FREE_ORBIT,
+            cameraDistanceScale = 1.25f,
+            cameraHeightOffset = 0.8f,
+            cameraFovOffset = 6f,
+            language = com.example.sweetrush.model.AppLanguage.AR
+        )
+        repo.saveProfile(PlayerProfile(settings = settings))
+        val loaded = repo.loadProfile()
+        assertEquals(com.example.sweetrush.model.CameraPreset.FREE_ORBIT, loaded.settings.cameraPreset)
+        assertEquals(1.25f, loaded.settings.cameraDistanceScale, 0.01f)
+        assertEquals(0.8f, loaded.settings.cameraHeightOffset, 0.01f)
+        assertEquals(6f, loaded.settings.cameraFovOffset, 0.01f)
+        assertEquals(com.example.sweetrush.model.AppLanguage.AR, loaded.settings.language)
+        assertEquals("أونلاين وفرق", CatalogData.localized(com.example.sweetrush.model.AppLanguage.AR, "online"))
+    }
+
+    @Test
+    fun `online squad session interpolates remote karts and computes team standings for 2v2 and 4v4`() {
+        val remoteFriend = com.example.sweetrush.physics.OnlineRacerParticipant(
+            userId = "friend_uid_1",
+            displayName = "Ali",
+            racerId = "coco_dash",
+            kartId = "chocolate_cruiser",
+            customization = KartCustomization(),
+            teamIndex = 0
+        )
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.QUICK_RACE,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            isOnlineSession = true,
+            teamSize = 2,
+            localTeamIndex = 0,
+            localDisplayName = "Noor",
+            onlineParticipants = listOf(remoteFriend),
+            fillWithAi = true
+        )
+        assertEquals(8, engine.karts.size)
+        val remoteKart = engine.karts.first { it.isRemotePlayer }
+        assertEquals("friend_uid_1", remoteKart.remoteUid)
+        assertEquals(0, remoteKart.teamIndex)
+
+        engine.raceStarted = true
+        val startX = remoteKart.x
+        engine.updateRemoteStates(
+            listOf(
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_uid_1",
+                    x = (startX + 8.0),
+                    y = remoteKart.y.toDouble(),
+                    z = (remoteKart.z + 10.0),
+                    yawRad = 0.25,
+                    speed = 32.0,
+                    teamIndex = 0L
+                )
+            )
+        )
+        engine.step(1f / 30f, PlayerInputState(throttle = true))
+        assertNotEquals(startX, remoteKart.x, 0.001f)
+
+        val standings = engine.buildResults()
+        val teamStandings = engine.buildTeamStandings(standings)
+        assertTrue("2v2 squads should produce team standings", teamStandings.size >= 2)
+    }
 }

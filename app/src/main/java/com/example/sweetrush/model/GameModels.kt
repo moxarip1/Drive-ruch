@@ -2,6 +2,7 @@ package com.example.sweetrush.model
 
 enum class GameScreen {
     MAIN_MENU,
+    ONLINE_LOBBY,
     QUICK_RACE_SETUP,
     GRAND_PRIX_SETUP,
     TIME_TRIAL_SETUP,
@@ -143,8 +144,35 @@ enum class ControlScheme(val label: String) {
 
 enum class AppLanguage(val code: String, val displayName: String) {
     EN("en", "English"),
+    AR("ar", "العربية"),
     ES("es", "Español"),
     FR("fr", "Français")
+}
+
+enum class CameraPreset(
+    val label: String,
+    val labelAr: String,
+    val followDist: Float,
+    val followHeight: Float,
+    val lookAhead: Float,
+    val baseFov: Float
+) {
+    DYNAMIC_CHASE("Dynamic", "ديناميكي", 6.9f, 3.15f, 5.4f, 58f),
+    CLOSE_ARCADE("Close", "قريب", 4.9f, 2.25f, 4.6f, 62f),
+    WIDE_CINEMATIC("Wide", "واسع", 9.6f, 4.45f, 6.8f, 65f),
+    HOOD_CAM("Hood", "المقدمة", 0.35f, 1.38f, 11.5f, 68f),
+    FREE_ORBIT("Orbit 360°", "حر 360°", 7.4f, 3.35f, 1.5f, 58f)
+}
+
+enum class SquadTeam(val index: Int, val teamName: String, val colorHex: Long) {
+    PINK(0, "Pink Panthers", 0xFFFF3D8B),
+    MINT(1, "Mint Comets", 0xFF3CE8B5),
+    GOLD(2, "Gold Chargers", 0xFFFFB800),
+    SKY(3, "Sky Rockets", 0xFF5CE1E6);
+
+    companion object {
+        fun fromIndex(idx: Int): SquadTeam = entries.firstOrNull { it.index == idx } ?: PINK
+    }
 }
 
 data class KartStats(
@@ -268,6 +296,10 @@ data class GameSettings(
     val controlScheme: ControlScheme = ControlScheme.TOUCH_BUTTONS,
     val steeringSensitivity: Float = 1.0f,
     val cameraSensitivity: Float = 1.0f,
+    val cameraPreset: CameraPreset = CameraPreset.DYNAMIC_CHASE,
+    val cameraDistanceScale: Float = 1.0f,
+    val cameraHeightOffset: Float = 0.0f,
+    val cameraFovOffset: Float = 0.0f,
     val tiltSteeringEnabled: Boolean = false,
     val language: AppLanguage = AppLanguage.EN,
     val showDebugTelemetry: Boolean = false
@@ -320,7 +352,8 @@ data class RacerResultEntry(
     val position: Int,
     val totalTimeMs: Long,
     val bestLapMs: Long,
-    val grandPrixPointsAwarded: Int
+    val grandPrixPointsAwarded: Int,
+    val teamIndex: Int = 0
 )
 
 data class RaceSummary(
@@ -336,7 +369,10 @@ data class RaceSummary(
     val challengeCompletedId: String?,
     val standings: List<RacerResultEntry>,
     val grandPrixCompleted: Boolean = false,
-    val grandPrixTotalStandings: List<Pair<String, Int>> = emptyList()
+    val grandPrixTotalStandings: List<Pair<String, Int>> = emptyList(),
+    val isOnlineMatch: Boolean = false,
+    val teamSize: Int = 1,
+    val teamStandings: List<Pair<Int, Int>> = emptyList()
 )
 
 data class GrandPrixSession(

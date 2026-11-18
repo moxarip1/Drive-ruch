@@ -1,17 +1,17 @@
 package com.example.sweetrush
 
-import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sweetrush.audio.CandyAudioEngine
 import com.example.sweetrush.audio.MusicTrack
 import com.example.sweetrush.audio.SoundEffect
-import com.example.sweetrush.model.AppLanguage
+import com.example.sweetrush.audio.VoiceChatEngine
+import com.example.sweetrush.model.CameraPreset
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.ChallengeSpec
 import com.example.sweetrush.model.ChallengeTargetType
@@ -22,16 +22,23 @@ import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.GameScreen
 import com.example.sweetrush.model.GameSettings
 import com.example.sweetrush.model.GrandPrixSession
-import com.example.sweetrush.model.GraphicsQuality
 import com.example.sweetrush.model.KartCustomization
 import com.example.sweetrush.model.KartDecoration
 import com.example.sweetrush.model.PlayerProfile
-import com.example.sweetrush.model.PowerUpType
 import com.example.sweetrush.model.RaceSummary
+import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.WheelDesign
 import com.example.sweetrush.model.WorldRegion
+import com.example.sweetrush.online.FriendRosterEntry
+import com.example.sweetrush.online.OnlineMultiplayerRepository
+import com.example.sweetrush.online.OnlineRoomDoc
+import com.example.sweetrush.online.OperationType
+import com.example.sweetrush.online.RoomMessageDoc
+import com.example.sweetrush.online.RoomPlayerDoc
+import com.example.sweetrush.online.handleFirestoreError
 import com.example.sweetrush.physics.KartPhysicsEngine
+import com.example.sweetrush.physics.OnlineRacerParticipant
 import com.example.sweetrush.physics.PlayerInputState
 import com.example.sweetrush.physics.RaceEvent
 import com.example.sweetrush.physics.RaceEventType
@@ -39,11 +46,22 @@ import com.example.sweetrush.render3d.CandyWorldRenderer
 import com.example.sweetrush.render3d.RaceHudSnapshot
 import com.example.sweetrush.render3d.RenderSceneMode
 import com.example.sweetrush.storage.SaveRepository
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 data class ToastNotification(
     val title: String,
@@ -52,10 +70,19 @@ data class ToastNotification(
     val id: Long = System.nanoTime()
 )
 
-class SweetRushViewModel(application: Application) : AndroidViewModel(application) {
+@OptIn(ExperimentalCoroutinesApi::class)
+class SweetRushViewModel(
+    appContext: Context,
+    private val onlineRepo: OnlineMultiplayerRepository,
+    val currentUserId: String,
+    val userDisplayName: String,
+    val userPhotoUrl: String?
+) : ViewModel() {
 
-    private val saveRepo = SaveRepository(application)
+    private val context = appContext.applicationContext
+    private val saveRepo = SaveRepository(context)
     val audioEngine = CandyAudioEngine()
+    val voiceChatEngine = VoiceChatEngine(context)
 
     private val _profile = MutableStateFlow(saveRepo.loadProfile())
     val profile: StateFlow<PlayerProfile> = _profile.asStateFlow()
@@ -93,12 +120,92 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
     private val _statusBanner = MutableStateFlow<String?>(null)
     val statusBanner: StateFlow<String?> = _statusBanner.asStateFlow()
 
-    // Track single-frame impulses safely
+    // Online Multiplayer, Friends, Squads & Voice Comms State
+    private val _friendCode = MutableStateFlow(onlineRepo.computeFriendCode(currentUserId))
+    val friendCode: StateFlow<String> = _friendCode.asStateFlow()
+
+    private val _activeRoomCode = MutableStateFlow<String?>(null)
+    val activeRoomCode: StateFlow<String?> = _activeRoomCode.asStateFlow()
+
+    private val _isOnlineBusy = MutableStateFlow(false)
+    val isOnlineBusy: StateFlow<Boolean> = _isOnlineBusy.asStateFlow()
+
+    private val _isRecordingVoice = MutableStateFlow(false)
+    val isRecordingVoice: StateFlow<Boolean> = _isRecordingVoice.asStateFlow()
+
+    private val _isVoiceMuted = MutableStateFlow(false)
+    val isVoiceMuted: StateFlow<Boolean> = _isVoiceMuted.asStateFlow()
+
+    val friends: StateFlow<List<FriendRosterEntry>> = onlineRepo.observeFriends(currentUserId)
+        .catch { e ->
+            val fsEx = findFirestoreException(e)
+            if (fsEx != null) {
+                handleFirestoreError(fsEx, OperationType.LIST, "users/$currentUserId/friends")
+                emit(emptyList())
+            } else {
+                throw e
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
+    val onlineRoom: StateFlow<OnlineRoomDoc?> = _activeRoomCode
+        .flatMapLatest { code ->
+            if (code == null) flowOf(null)
+            else onlineRepo.observeRoom(code).catch { e ->
+                val fsEx = findFirestoreException(e)
+                if (fsEx != null) {
+                    handleFirestoreError(fsEx, OperationType.GET, "rooms/$code")
+                    emit(null)
+                } else {
+                    throw e
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), null)
+
+    val roomPlayers: StateFlow<List<RoomPlayerDoc>> = _activeRoomCode
+        .flatMapLatest { code ->
+            if (code == null) flowOf(emptyList())
+            else onlineRepo.observeRoomPlayers(code, currentUserId).catch { e ->
+                val fsEx = findFirestoreException(e)
+                if (fsEx != null) {
+                    handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/players")
+                    emit(emptyList())
+                } else {
+                    throw e
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
+    val roomMessages: StateFlow<List<RoomMessageDoc>> = _activeRoomCode
+        .flatMapLatest { code ->
+            if (code == null) flowOf(emptyList())
+            else onlineRepo.observeRoomMessages(code, currentUserId).catch { e ->
+                val fsEx = findFirestoreException(e)
+                if (fsEx != null) {
+                    handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/messages")
+                    emit(emptyList())
+                } else {
+                    throw e
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
+    // Single-frame impulses & online runtime bookkeeping
     private var pendingJumpImpulse = false
     private var pendingPowerUpImpulse = false
     private var lastTouchInput = PlayerInputState()
     private var tiltSteerValue = 0f
     private var finishingRaceHandled = false
+
+    private var onlineMatchStartedForStatus = false
+    private var joinedRoomEpochMs = System.currentTimeMillis()
+    private val playedVoiceIds = HashSet<String>()
+    private var lastSyncedMembersSignature: List<String> = emptyList()
+    private var telemetryLoopJob: Job? = null
+    private var cloudSyncDebounceJob: Job? = null
 
     val renderer = CandyWorldRenderer { snap, events ->
         _raceHud.value = snap
@@ -106,7 +213,6 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         if (snap.finished && !finishingRaceHandled) {
             finishingRaceHandled = true
             viewModelScope.launch {
-                // Let victory orbit camera & fireworks play briefly before Results screen
                 delay(2200L)
                 finalizeRaceResults()
             }
@@ -117,12 +223,109 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         syncRendererWithProfile(_profile.value)
         audioEngine.setVolumes(_profile.value.settings.musicVolume, _profile.value.settings.sfxVolume)
         audioEngine.playMusic(MusicTrack.MENU)
+        bootstrapCloudProfile()
+        observeOnlineRoomCoordinators()
+    }
+
+    private fun findFirestoreException(t: Throwable?): FirebaseFirestoreException? {
+        var cur = t
+        while (cur != null) {
+            if (cur is FirebaseFirestoreException) return cur
+            if (cur is CancellationException && cur.cause == null) return null
+            cur = cur.cause
+        }
+        return null
+    }
+
+    private fun bootstrapCloudProfile() {
+        viewModelScope.launch {
+            val local = _profile.value
+            val localJson = saveRepo.serializeProfile(local).toString()
+            val res = onlineRepo.ensureUserProfileAndDirectory(
+                uid = currentUserId,
+                displayName = userDisplayName,
+                photoUrl = userPhotoUrl,
+                localProfile = local,
+                localProfileJson = localJson
+            )
+            res.onSuccess { cloud ->
+                _friendCode.value = cloud.friendCode.ifBlank { _friendCode.value }
+                if (cloud.profileJson.length > 10 && cloud.racesCompleted > local.racesCompleted) {
+                    try {
+                        val parsed = saveRepo.parseProfile(JSONObject(cloud.profileJson))
+                        _profile.value = parsed
+                        saveRepo.saveProfile(parsed)
+                        syncRendererWithProfile(parsed)
+                        audioEngine.setVolumes(parsed.settings.musicVolume, parsed.settings.sfxVolume)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeOnlineRoomCoordinators() {
+        viewModelScope.launch {
+            onlineRoom.collect { room ->
+                val activeCode = _activeRoomCode.value
+                if (room == null) {
+                    if (activeCode != null && _currentScreen.value == GameScreen.ONLINE_LOBBY) {
+                        // Room deleted by host or missing
+                        onlineMatchStartedForStatus = false
+                    }
+                    return@collect
+                }
+
+                // Ensure local player's visibleToUids matches room.memberUids so allow list succeeds cleanly
+                if (room.memberUids != lastSyncedMembersSignature && room.memberUids.contains(currentUserId)) {
+                    lastSyncedMembersSignature = room.memberUids
+                    onlineRepo.syncVisibleToUids(room.roomCode, currentUserId, room.memberUids)
+                }
+
+                if (room.status == "RACING" && !onlineMatchStartedForStatus) {
+                    onlineMatchStartedForStatus = true
+                    launchOnlineSessionFromRoom(room, roomPlayers.value)
+                } else if (room.status == "WAITING") {
+                    onlineMatchStartedForStatus = false
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            roomPlayers.collect { players ->
+                val engine = renderer.physicsEngine
+                if (engine != null && engine.isOnlineSession) {
+                    engine.updateRemoteStates(players.filter { it.userId != currentUserId })
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            roomMessages.collect { messages ->
+                val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+                for (msg in messages) {
+                    if (msg.msgType == "VOICE" &&
+                        msg.senderUid != currentUserId &&
+                        !msg.audioB64.isNullOrBlank() &&
+                        msg.clientSeq >= joinedRoomEpochMs - 2000L &&
+                        (!msg.targetTeamOnly || msg.teamIndex.toInt() == localTeam) &&
+                        playedVoiceIds.add(msg.id)
+                    ) {
+                        voiceChatEngine.playVoiceBase64(msg.audioB64)
+                    }
+                }
+            }
+        }
     }
 
     private fun syncRendererWithProfile(p: PlayerProfile) {
         renderer.graphicsQuality = p.settings.graphicsQuality
         renderer.targetFps = p.settings.targetFps
         renderer.cameraSensitivity = p.settings.cameraSensitivity
+        renderer.cameraPreset = p.settings.cameraPreset
+        renderer.cameraDistanceScale = p.settings.cameraDistanceScale
+        renderer.cameraHeightOffset = p.settings.cameraHeightOffset
+        renderer.cameraFovOffset = p.settings.cameraFovOffset
         renderer.showroomKartId = p.selectedKartId
         renderer.showroomRacerId = p.selectedRacerId
         renderer.showroomCustom = p.kartCustomizations[p.selectedKartId] ?: KartCustomization()
@@ -151,6 +354,28 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // Camera Viewing Angle Controls
+    fun cycleCameraPreset() {
+        val all = CameraPreset.entries
+        val cur = _profile.value.settings.cameraPreset
+        val next = all[(cur.ordinal + 1) % all.size]
+        selectCameraPreset(next)
+    }
+
+    fun selectCameraPreset(preset: CameraPreset) {
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        renderer.resetRaceCameraOffsets()
+        updateSettings { it.copy(cameraPreset = preset) }
+        val lang = _profile.value.settings.language
+        val title = if (lang == com.example.sweetrush.model.AppLanguage.AR) "الكاميرا: ${preset.labelAr}" else "CAM: ${preset.label.uppercase()}"
+        showRaceToast(title, if (preset == CameraPreset.FREE_ORBIT) "Drag 3D view freely" else "View angle updated", 0xFF5CE1E6)
+    }
+
+    fun resetRaceCameraAngle() {
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        renderer.resetRaceCameraOffsets()
+    }
+
     fun adjustShowroomZoom(delta: Float) {
         renderer.showroomAutoRotate = false
         renderer.showroomZoom = (renderer.showroomZoom + delta).coerceIn(3.2f, 8.5f)
@@ -170,9 +395,347 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         _selectedDifficulty.value = diff
     }
 
+    // ===================================================================
+    // ONLINE MULTIPLAYER, SQUADS (1 / 2 / 4), FRIENDS & VOICE/TEXT COMMS
+    // ===================================================================
+
+    fun addFriendByCode(code: String) {
+        viewModelScope.launch {
+            _isOnlineBusy.value = true
+            val res = onlineRepo.addFriendByCode(currentUserId, code)
+            _isOnlineBusy.value = false
+            res.onSuccess { friend ->
+                audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                flashStatus("Added ${friend.displayName} (${friend.friendCode})!")
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Could not add friend")
+            }
+        }
+    }
+
+    fun removeFriend(friendUid: String) {
+        viewModelScope.launch {
+            onlineRepo.removeFriend(currentUserId, friendUid)
+        }
+    }
+
+    fun createOnlineRoom(teamSize: Int = 2, mode: GameMode = GameMode.QUICK_RACE, trackId: TrackId = _selectedTrack.value, fillWithAi: Boolean = true) {
+        viewModelScope.launch {
+            _isOnlineBusy.value = true
+            val prevCode = _activeRoomCode.value
+            val prevRoom = onlineRoom.value
+            if (prevCode != null && prevRoom != null) {
+                onlineRepo.leaveRoom(prevCode, currentUserId, prevRoom.hostUid == currentUserId)
+            }
+            val res = onlineRepo.createRoom(
+                uid = currentUserId,
+                displayName = userDisplayName,
+                profile = _profile.value,
+                teamSize = teamSize,
+                mode = mode,
+                trackId = trackId,
+                fillWithAi = fillWithAi
+            )
+            _isOnlineBusy.value = false
+            res.onSuccess { room ->
+                joinedRoomEpochMs = System.currentTimeMillis()
+                lastSyncedMembersSignature = room.memberUids
+                onlineMatchStartedForStatus = false
+                _activeRoomCode.value = room.roomCode
+                audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                flashStatus("Room ${room.roomCode} created!")
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Failed to create room")
+            }
+        }
+    }
+
+    fun joinOnlineRoom(roomCode: String) {
+        viewModelScope.launch {
+            _isOnlineBusy.value = true
+            val prevCode = _activeRoomCode.value
+            val prevRoom = onlineRoom.value
+            if (prevCode != null && prevRoom != null && prevCode != roomCode.trim().uppercase()) {
+                onlineRepo.leaveRoom(prevCode, currentUserId, prevRoom.hostUid == currentUserId)
+            }
+            val res = onlineRepo.joinRoomByCode(
+                uid = currentUserId,
+                displayName = userDisplayName,
+                profile = _profile.value,
+                rawRoomCode = roomCode
+            )
+            _isOnlineBusy.value = false
+            res.onSuccess { room ->
+                joinedRoomEpochMs = System.currentTimeMillis()
+                lastSyncedMembersSignature = room.memberUids
+                onlineMatchStartedForStatus = false
+                _activeRoomCode.value = room.roomCode
+                audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                flashStatus("Joined room ${room.roomCode}!")
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Could not join room")
+            }
+        }
+    }
+
+    fun leaveOnlineRoom(navigateBackToMenu: Boolean = false) {
+        val code = _activeRoomCode.value
+        val room = onlineRoom.value
+        stopTelemetryLoop()
+        _activeRoomCode.value = null
+        onlineMatchStartedForStatus = false
+        lastSyncedMembersSignature = emptyList()
+        if (code != null) {
+            viewModelScope.launch {
+                onlineRepo.leaveRoom(code, currentUserId, room?.hostUid == currentUserId)
+            }
+        }
+        if (navigateBackToMenu) {
+            navigateTo(GameScreen.MAIN_MENU)
+        }
+    }
+
+    fun updateRoomConfiguration(mode: GameMode, trackId: TrackId, teamSize: Int, fillWithAi: Boolean) {
+        val room = onlineRoom.value ?: return
+        if (room.hostUid != currentUserId) return
+        viewModelScope.launch {
+            onlineRepo.updateRoomConfig(room.roomCode, mode, trackId, teamSize, fillWithAi)
+                .onFailure { err -> flashStatus(err.message ?: "Could not update room") }
+        }
+    }
+
+    fun selectTeamAndReady(teamIndex: Int, ready: Boolean) {
+        val room = onlineRoom.value ?: return
+        viewModelScope.launch {
+            onlineRepo.upsertPlayerDoc(
+                roomCode = room.roomCode,
+                uid = currentUserId,
+                displayName = userDisplayName,
+                profile = _profile.value,
+                teamIndex = teamIndex,
+                ready = ready,
+                visibleToUids = room.memberUids
+            )
+        }
+    }
+
+    fun startOnlineMatchAsHost() {
+        val room = onlineRoom.value ?: return
+        if (room.hostUid != currentUserId) return
+        viewModelScope.launch {
+            onlineRepo.syncVisibleToUids(room.roomCode, currentUserId, room.memberUids)
+            onlineRepo.updateRoomStatus(room.roomCode, "RACING")
+                .onFailure { err -> flashStatus(err.message ?: "Failed to start match") }
+        }
+    }
+
+    fun rematchOnlineRoom() {
+        val room = onlineRoom.value
+        if (room != null && room.hostUid == currentUserId) {
+            viewModelScope.launch {
+                onlineRepo.updateRoomStatus(room.roomCode, "WAITING")
+                onlineMatchStartedForStatus = false
+                navigateTo(GameScreen.ONLINE_LOBBY)
+            }
+        } else {
+            onlineMatchStartedForStatus = false
+            navigateTo(GameScreen.ONLINE_LOBBY)
+        }
+    }
+
+    fun sendRoomTextMessage(text: String, teamOnly: Boolean) {
+        val room = onlineRoom.value ?: return
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        viewModelScope.launch {
+            onlineRepo.sendMessage(
+                roomCode = room.roomCode,
+                uid = currentUserId,
+                senderName = userDisplayName,
+                teamIndex = localTeam,
+                targetTeamOnly = teamOnly,
+                msgType = "TEXT",
+                text = clean,
+                memberUids = room.memberUids
+            )
+        }
+    }
+
+    fun sendQuickCallout(text: String, teamOnly: Boolean) {
+        val room = onlineRoom.value ?: return
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        viewModelScope.launch {
+            onlineRepo.sendMessage(
+                roomCode = room.roomCode,
+                uid = currentUserId,
+                senderName = userDisplayName,
+                teamIndex = localTeam,
+                targetTeamOnly = teamOnly,
+                msgType = "QUICK",
+                text = text,
+                memberUids = room.memberUids
+            )
+        }
+    }
+
+    fun startVoiceRecording(teamOnly: Boolean) {
+        if (!voiceChatEngine.hasRecordPermission()) {
+            flashStatus("Microphone permission needed for Voice Chat")
+            return
+        }
+        val room = onlineRoom.value ?: return
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        _isRecordingVoice.value = true
+        voiceChatEngine.startRecording { b64, durMs ->
+            _isRecordingVoice.value = false
+            viewModelScope.launch {
+                onlineRepo.sendMessage(
+                    roomCode = room.roomCode,
+                    uid = currentUserId,
+                    senderName = userDisplayName,
+                    teamIndex = localTeam,
+                    targetTeamOnly = teamOnly,
+                    msgType = "VOICE",
+                    text = "Voice (${(durMs / 1000f).let { String.format("%.1fs", it) }})",
+                    audioB64 = b64,
+                    durationMs = durMs,
+                    memberUids = room.memberUids
+                )
+            }
+        }
+    }
+
+    fun stopAndSendVoiceMessage(teamOnly: Boolean) {
+        val room = onlineRoom.value
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        _isRecordingVoice.value = false
+        viewModelScope.launch {
+            val encoded = voiceChatEngine.stopRecordingAndEncode() ?: return@launch
+            if (room == null) return@launch
+            onlineRepo.sendMessage(
+                roomCode = room.roomCode,
+                uid = currentUserId,
+                senderName = userDisplayName,
+                teamIndex = localTeam,
+                targetTeamOnly = teamOnly,
+                msgType = "VOICE",
+                text = "Voice (${String.format("%.1fs", encoded.second / 1000f)})",
+                audioB64 = encoded.first,
+                durationMs = encoded.second,
+                memberUids = room.memberUids
+            )
+            audioEngine.playSfx(SoundEffect.UI_CLICK)
+        }
+    }
+
+    fun toggleVoiceMute() {
+        val next = !_isVoiceMuted.value
+        _isVoiceMuted.value = next
+        voiceChatEngine.isMuted = next
+    }
+
+    private fun launchOnlineSessionFromRoom(room: OnlineRoomDoc, players: List<RoomPlayerDoc>) {
+        val p = _profile.value
+        val custom = p.kartCustomizations[p.selectedKartId] ?: KartCustomization()
+        val localPlayerDoc = players.firstOrNull { it.userId == currentUserId }
+        val localTeam = localPlayerDoc?.teamIndex?.toInt()?.coerceIn(0, 3) ?: 0
+        val remotes = players.filter { it.userId != currentUserId }.map { rp ->
+            OnlineRacerParticipant(
+                userId = rp.userId,
+                displayName = rp.displayName,
+                racerId = rp.racerId,
+                kartId = rp.kartId,
+                customization = KartCustomization(
+                    paintId = rp.paintId,
+                    wheelDesign = enumValues<WheelDesign>().firstOrNull { it.name == rp.wheelId } ?: WheelDesign.PEPPERMINT_SWIRL,
+                    exhaustStyle = enumValues<ExhaustStyle>().firstOrNull { it.name == rp.exhaustId } ?: ExhaustStyle.SUGAR_SPARK,
+                    decoration = enumValues<KartDecoration>().firstOrNull { it.name == rp.decoId } ?: KartDecoration.NONE
+                ),
+                teamIndex = rp.teamIndex.toInt().coerceIn(0, 3)
+            )
+        }
+        val mode = room.parsedMode()
+        val trackId = room.parsedTrackId()
+        val engine = KartPhysicsEngine(
+            trackId = trackId,
+            mode = mode,
+            difficulty = _selectedDifficulty.value,
+            playerRacerId = p.selectedRacerId,
+            playerKartId = p.selectedKartId,
+            playerCustomization = custom,
+            startRegion = WorldRegion.CANDY_CITY,
+            initiallyCollectedCoins = p.collectedWorldCoins,
+            initiallyCollectedStars = p.collectedWorldStars,
+            initiallyDiscoveredRegions = p.discoveredRegions,
+            isOnlineSession = true,
+            teamSize = room.teamSize.toInt().coerceIn(1, 4),
+            localTeamIndex = localTeam,
+            localDisplayName = userDisplayName,
+            onlineParticipants = remotes,
+            fillWithAi = room.fillWithAi
+        )
+        _activeMode.value = mode
+        _selectedTrack.value = trackId
+        _isRacePaused.value = false
+        finishingRaceHandled = false
+        lastTouchInput = PlayerInputState()
+        pendingJumpImpulse = false
+        pendingPowerUpImpulse = false
+
+        renderer.isPaused = false
+        renderer.resetRaceCameraOffsets()
+        renderer.physicsEngine = engine
+        navigateTo(GameScreen.RACE)
+        startTelemetryLoop(room.roomCode)
+        val team = SquadTeam.fromIndex(localTeam)
+        showRaceToast("ONLINE SQUADS", "${team.teamName} • ${room.teamSize}v${room.teamSize}", team.colorHex)
+    }
+
+    private fun startTelemetryLoop(roomCode: String) {
+        telemetryLoopJob?.cancel()
+        telemetryLoopJob = viewModelScope.launch {
+            while (isActive) {
+                val engine = renderer.physicsEngine
+                val room = onlineRoom.value
+                if (engine != null && engine.isOnlineSession && room != null && _currentScreen.value == GameScreen.RACE) {
+                    val pk = engine.playerKart
+                    onlineRepo.pushTelemetry(
+                        roomCode = roomCode,
+                        uid = currentUserId,
+                        x = pk.x.toDouble(),
+                        y = pk.y.toDouble(),
+                        z = pk.z.toDouble(),
+                        yawRad = pk.yawRad.toDouble(),
+                        speed = pk.speed.toDouble(),
+                        steerVisualRad = pk.steerVisualRad.toDouble(),
+                        lap = pk.currentLap,
+                        raceScore = pk.raceScore.toDouble(),
+                        finished = pk.finished,
+                        finishTimeMs = pk.finishTimeMs,
+                        drifting = pk.isDrifting,
+                        nitroActive = pk.isNitroActive || pk.boostTimer > 0f,
+                        visibleToUids = room.memberUids
+                    )
+                }
+                delay(110L)
+            }
+        }
+    }
+
+    private fun stopTelemetryLoop() {
+        telemetryLoopJob?.cancel()
+        telemetryLoopJob = null
+    }
+
+    // ===================================================================
+    // OFFLINE & SINGLEPLAYER MODES (PRESERVED 100%)
+    // ===================================================================
+
     fun startFreeRoam(startRegion: WorldRegion = WorldRegion.CANDY_CITY) {
         val curEngine = renderer.physicsEngine
-        if (curEngine != null && curEngine.isFreeRoam && _activeMode.value == GameMode.FREE_ROAM) {
+        if (curEngine != null && curEngine.isFreeRoam && _activeMode.value == GameMode.FREE_ROAM && !curEngine.isOnlineSession) {
             curEngine.teleportPlayerToRegion(startRegion)
             _isRacePaused.value = false
             renderer.isPaused = false
@@ -241,6 +804,7 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         difficulty: Difficulty,
         startRegion: WorldRegion = WorldRegion.CANDY_CITY
     ) {
+        stopTelemetryLoop()
         val p = _profile.value
         val custom = p.kartCustomizations[p.selectedKartId] ?: KartCustomization()
         val engine = KartPhysicsEngine(
@@ -265,13 +829,16 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         pendingPowerUpImpulse = false
 
         renderer.isPaused = false
+        renderer.resetRaceCameraOffsets()
         renderer.physicsEngine = engine
         navigateTo(GameScreen.RACE)
     }
 
     fun togglePause(paused: Boolean) {
         _isRacePaused.value = paused
-        renderer.isPaused = paused
+        // Keep online simulation running in background; pause only pauses offline solo physics
+        val isOnline = renderer.physicsEngine?.isOnlineSession == true
+        renderer.isPaused = paused && !isOnline
     }
 
     fun finishTimeTrialOrPractice() {
@@ -424,10 +991,21 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun finalizeRaceResults() {
+        stopTelemetryLoop()
         val engine = renderer.physicsEngine ?: return
         val standings = engine.buildResults()
+        val teamStandings = engine.buildTeamStandings(standings)
         val playerEntry = standings.first { it.isPlayer }
         val mode = engine.mode
+
+        if (engine.isOnlineSession) {
+            val room = onlineRoom.value
+            if (room != null && room.hostUid == currentUserId) {
+                viewModelScope.launch {
+                    onlineRepo.updateRoomStatus(room.roomCode, "FINISHED")
+                }
+            }
+        }
 
         var profile = _profile.value
         val prevBest = profile.bestLapMsByTrack[engine.trackId] ?: Long.MAX_VALUE
@@ -439,21 +1017,21 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
             updatedBestLaps[engine.trackId] = bestLap
         }
 
-        // Rewards based on mode & position
         var xpEarned = when (mode) {
             GameMode.PRACTICE -> 25
             GameMode.TIME_TRIAL -> if (isNewBest) 120 else 60
             else -> (160 - (playerEntry.position - 1) * 16).coerceAtLeast(35) +
-                (engine.difficulty.ordinal * 25)
+                (engine.difficulty.ordinal * 25) +
+                if (engine.isOnlineSession) 45 else 0
         }
         var creditsEarned = when (mode) {
             GameMode.PRACTICE -> 20
             GameMode.TIME_TRIAL -> if (isNewBest) 100 else 45
             else -> (140 - (playerEntry.position - 1) * 15).coerceAtLeast(25) +
-                (engine.difficulty.ordinal * 20)
+                (engine.difficulty.ordinal * 20) +
+                if (engine.isOnlineSession) 40 else 0
         }
 
-        // Check challenge completion
         var completedChallengeId: String? = null
         val ch = _activeChallenge.value
         if (mode == GameMode.CHALLENGE && ch != null) {
@@ -472,7 +1050,6 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // Grand Prix standings update
         var gpFinished = false
         var gpStandingsList: List<Pair<String, Int>> = emptyList()
         val currentGp = _grandPrixSession.value
@@ -503,7 +1080,6 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // Level progression
         var newXp = profile.xp + xpEarned
         var newLevel = profile.level
         while (newXp >= CatalogData.xpForLevel(newLevel)) {
@@ -538,7 +1114,10 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
             challengeCompletedId = completedChallengeId,
             standings = standings,
             grandPrixCompleted = gpFinished,
-            grandPrixTotalStandings = gpStandingsList
+            grandPrixTotalStandings = gpStandingsList,
+            isOnlineMatch = engine.isOnlineSession,
+            teamSize = engine.teamSize,
+            teamStandings = teamStandings
         )
 
         navigateTo(GameScreen.RESULTS)
@@ -725,7 +1304,6 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         saveAndSync(p.copy(credits = p.credits - cost, kartCustomizations = map))
     }
 
-    // Settings
     fun updateSettings(transform: (GameSettings) -> GameSettings) {
         val updated = transform(_profile.value.settings)
         audioEngine.setVolumes(updated.musicVolume, updated.sfxVolume)
@@ -736,6 +1314,7 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         audioEngine.playSfx(SoundEffect.UI_CLICK)
         val defaults = GameSettings()
         audioEngine.setVolumes(defaults.musicVolume, defaults.sfxVolume)
+        renderer.resetRaceCameraOffsets()
         saveAndSync(_profile.value.copy(settings = defaults))
         flashStatus("Settings restored to defaults")
     }
@@ -744,6 +1323,13 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         _profile.value = updated
         syncRendererWithProfile(updated)
         saveRepo.saveProfile(updated)
+
+        cloudSyncDebounceJob?.cancel()
+        cloudSyncDebounceJob = viewModelScope.launch {
+            delay(800L)
+            val json = saveRepo.serializeProfile(updated).toString()
+            onlineRepo.syncCloudProfile(currentUserId, userDisplayName, userPhotoUrl, updated, json)
+        }
     }
 
     private fun flashStatus(msg: String) {
@@ -756,13 +1342,12 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun vibrateShort(ms: Long) {
         try {
-            val app = getApplication<Application>()
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = app.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 vm?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                app.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -771,8 +1356,21 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    suspend fun onPreSignOutCleanup() {
+        stopTelemetryLoop()
+        val code = _activeRoomCode.value
+        val room = onlineRoom.value
+        _activeRoomCode.value = null
+        if (code != null) {
+            onlineRepo.leaveRoom(code, currentUserId, room?.hostUid == currentUserId)
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
+        stopTelemetryLoop()
+        cloudSyncDebounceJob?.cancel()
         audioEngine.release()
+        voiceChatEngine.release()
     }
 }

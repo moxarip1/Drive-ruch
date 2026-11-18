@@ -2,15 +2,19 @@ package com.example.sweetrush.physics
 
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.Difficulty
+import com.example.sweetrush.model.ExhaustStyle
 import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.KartCustomization
+import com.example.sweetrush.model.KartDecoration
 import com.example.sweetrush.model.KartSpec
 import com.example.sweetrush.model.PowerUpType
 import com.example.sweetrush.model.RacerResultEntry
 import com.example.sweetrush.model.RacerSpec
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.VehicleDebugTelemetry
+import com.example.sweetrush.model.WheelDesign
 import com.example.sweetrush.model.WorldRegion
+import com.example.sweetrush.online.RoomPlayerDoc
 import com.example.sweetrush.track.GeneratedTrack
 import com.example.sweetrush.track.OpenWorldKingdom
 import com.example.sweetrush.track.SurfaceType
@@ -109,7 +113,29 @@ data class KartRuntimeState(
     var aiTargetLaneOffset: Float = 0f,
     var aiLaneTimer: Float = 0f,
     var aiStuckTimer: Float = 0f,
-    var aiPowerUpDelay: Float = 1.5f
+    var aiPowerUpDelay: Float = 1.5f,
+    // Online Multiplayer & Squads (1 / 2 / 4)
+    val isRemotePlayer: Boolean = false,
+    val remoteUid: String = "",
+    val displayName: String = racer.name,
+    var teamIndex: Int = 0,
+    var remoteTargetX: Float = x,
+    var remoteTargetY: Float = y,
+    var remoteTargetZ: Float = z,
+    var remoteTargetYawRad: Float = yawRad,
+    var remoteTargetSpeed: Float = 0f,
+    var remoteTargetSteerRad: Float = 0f,
+    var remoteHasUpdate: Boolean = false,
+    var remoteSyncAgeSec: Float = 0f
+)
+
+data class OnlineRacerParticipant(
+    val userId: String,
+    val displayName: String,
+    val racerId: String,
+    val kartId: String,
+    val customization: KartCustomization,
+    val teamIndex: Int
 )
 
 enum class RaceEventType {
@@ -149,7 +175,13 @@ class KartPhysicsEngine(
     startRegion: WorldRegion = WorldRegion.CANDY_CITY,
     initiallyCollectedCoins: Set<String> = emptySet(),
     initiallyCollectedStars: Set<String> = emptySet(),
-    initiallyDiscoveredRegions: Set<WorldRegion> = setOf(WorldRegion.CANDY_CITY)
+    initiallyDiscoveredRegions: Set<WorldRegion> = setOf(WorldRegion.CANDY_CITY),
+    val isOnlineSession: Boolean = false,
+    val teamSize: Int = 1,
+    val localTeamIndex: Int = 0,
+    val localDisplayName: String = "",
+    val onlineParticipants: List<OnlineRacerParticipant> = emptyList(),
+    val fillWithAi: Boolean = true
 ) {
     val isFreeRoam: Boolean = (mode == GameMode.FREE_ROAM)
     val track: GeneratedTrack = TrackGenerator.getTrack(trackId)
@@ -195,6 +227,9 @@ class KartPhysicsEngine(
         val pKartSpec = CatalogData.kartById(playerKartId)
         val aiRacers = CatalogData.racers.filter { it.id != playerRacerId }.shuffled(Random(trackId.ordinal * 31 + 7))
         val roster = mutableListOf<KartRuntimeState>()
+        val resolvedPlayerName = localDisplayName.ifBlank { playerRacer.name }
+        val validTeamSize = if (teamSize in listOf(1, 2, 4)) teamSize else 1
+        val numTeams = (8 / validTeamSize).coerceIn(1, 4)
 
         if (isFreeRoam) {
             val spawnPos = freeRoamSpawnForRegion(startRegion)
@@ -213,31 +248,62 @@ class KartPhysicsEngine(
                     z = spawnPos.z,
                     yawRad = spawnYaw,
                     totalLapsToFinish = 99,
-                    position = 1
+                    position = 1,
+                    displayName = resolvedPlayerName,
+                    teamIndex = localTeamIndex.coerceIn(0, numTeams - 1)
                 )
             )
-            // 4 Roaming AI Candy Drivers cruising the Grand Ring Highway!
-            val ringPts = OpenWorldKingdom.ringRoad.points
-            for (slot in 0 until 4) {
-                val pIdx = ((slot * ringPts.size) / 4) % ringPts.size
-                val pt = ringPts[pIdx]
-                val r = aiRacers[slot]
-                val ks = CatalogData.kartById(r.favoriteKartId)
+            // Online friends join near the local player in Open World Free Roam!
+            onlineParticipants.forEachIndexed { idx, part ->
+                val offsetSide = ((idx % 2) * 2 - 1) * (4.2f + (idx / 2) * 2.5f)
+                val offsetBack = 4.5f + (idx / 2) * 5.2f
+                val rx = spawnPos.x + cos(spawnYaw) * offsetSide - sin(spawnYaw) * offsetBack
+                val rz = spawnPos.z - sin(spawnYaw) * offsetSide - cos(spawnYaw) * offsetBack
+                val ry = OpenWorldKingdom.sampleSurface(rx, rz).height
                 roster.add(
                     KartRuntimeState(
-                        racer = r,
-                        kart = ks,
-                        customization = KartCustomization(),
+                        racer = CatalogData.racerById(part.racerId),
+                        kart = CatalogData.kartById(part.kartId),
+                        customization = part.customization,
                         isPlayer = false,
-                        x = pt.pos.x,
-                        y = pt.pos.y,
-                        z = pt.pos.z,
-                        yawRad = atan2(pt.forward.x, pt.forward.z),
-                        nodeHintIndex = pIdx,
+                        x = rx,
+                        y = ry,
+                        z = rz,
+                        yawRad = spawnYaw,
                         totalLapsToFinish = 99,
-                        position = slot + 2
+                        position = idx + 2,
+                        isRemotePlayer = true,
+                        remoteUid = part.userId,
+                        displayName = part.displayName,
+                        teamIndex = part.teamIndex.coerceIn(0, numTeams - 1)
                     )
                 )
+            }
+            // Roaming AI Candy Drivers cruising the Grand Ring Highway
+            if (!isOnlineSession || fillWithAi) {
+                val ringPts = OpenWorldKingdom.ringRoad.points
+                for (slot in 0 until 4) {
+                    val pIdx = ((slot * ringPts.size) / 4) % ringPts.size
+                    val pt = ringPts[pIdx]
+                    val r = aiRacers[slot]
+                    val ks = CatalogData.kartById(r.favoriteKartId)
+                    roster.add(
+                        KartRuntimeState(
+                            racer = r,
+                            kart = ks,
+                            customization = KartCustomization(),
+                            isPlayer = false,
+                            x = pt.pos.x,
+                            y = pt.pos.y,
+                            z = pt.pos.z,
+                            yawRad = atan2(pt.forward.x, pt.forward.z),
+                            nodeHintIndex = pIdx,
+                            totalLapsToFinish = 99,
+                            position = roster.size + 1,
+                            teamIndex = (slot % numTeams)
+                        )
+                    )
+                }
             }
             itemBoxes = mutableListOf()
         } else {
@@ -257,9 +323,103 @@ class KartPhysicsEngine(
                         z = pos.z,
                         yawRad = baseYaw,
                         totalLapsToFinish = totalLaps,
-                        position = 1
+                        position = 1,
+                        displayName = resolvedPlayerName,
+                        teamIndex = localTeamIndex.coerceIn(0, numTeams - 1)
                     )
                 )
+            } else if (isOnlineSession) {
+                // Build balanced squad grid: human remote players + local player + optional AI bots
+                val totalSlots = if (fillWithAi) 8 else (1 + onlineParticipants.size).coerceAtMost(8)
+                val teamCounts = IntArray(numTeams)
+                val humanTeam = localTeamIndex.coerceIn(0, numTeams - 1)
+                teamCounts[humanTeam]++
+                onlineParticipants.take(7).forEach { part ->
+                    val t = part.teamIndex.coerceIn(0, numTeams - 1)
+                    teamCounts[t]++
+                }
+
+                // Helper to assign AI bots to least-populated teams so squads are balanced
+                fun nextAiTeam(): Int {
+                    var bestTeam = 0
+                    var bestCount = Int.MAX_VALUE
+                    for (t in 0 until numTeams) {
+                        if (teamCounts[t] < bestCount) {
+                            bestCount = teamCounts[t]
+                            bestTeam = t
+                        }
+                    }
+                    teamCounts[bestTeam]++
+                    return bestTeam
+                }
+
+                val humansSorted = (listOf(null) + onlineParticipants.take(7)) // null marks local player
+                for (slot in 0 until totalSlots) {
+                    val row = slot / 2
+                    val col = if (slot % 2 == 0) -3.8f else 3.8f
+                    val backDist = 5f + row * 7.5f
+                    val spawnPos = startNode.center - startNode.forward * backDist + startNode.right * col
+
+                    val humanIndex = totalSlots - 1 - slot
+                    if (humanIndex in humansSorted.indices) {
+                        val part = humansSorted[humanIndex]
+                        if (part == null) {
+                            roster.add(
+                                KartRuntimeState(
+                                    racer = playerRacer,
+                                    kart = pKartSpec,
+                                    customization = playerCustomization,
+                                    isPlayer = true,
+                                    x = spawnPos.x,
+                                    y = spawnPos.y,
+                                    z = spawnPos.z,
+                                    yawRad = baseYaw,
+                                    totalLapsToFinish = totalLaps,
+                                    position = slot + 1,
+                                    displayName = resolvedPlayerName,
+                                    teamIndex = humanTeam
+                                )
+                            )
+                        } else {
+                            roster.add(
+                                KartRuntimeState(
+                                    racer = CatalogData.racerById(part.racerId),
+                                    kart = CatalogData.kartById(part.kartId),
+                                    customization = part.customization,
+                                    isPlayer = false,
+                                    x = spawnPos.x,
+                                    y = spawnPos.y,
+                                    z = spawnPos.z,
+                                    yawRad = baseYaw,
+                                    totalLapsToFinish = totalLaps,
+                                    position = slot + 1,
+                                    isRemotePlayer = true,
+                                    remoteUid = part.userId,
+                                    displayName = part.displayName,
+                                    teamIndex = part.teamIndex.coerceIn(0, numTeams - 1)
+                                )
+                            )
+                        }
+                    } else {
+                        val aiSpec = aiRacers[slot % aiRacers.size]
+                        roster.add(
+                            KartRuntimeState(
+                                racer = aiSpec,
+                                kart = CatalogData.kartById(aiSpec.favoriteKartId),
+                                customization = KartCustomization(),
+                                isPlayer = false,
+                                x = spawnPos.x,
+                                y = spawnPos.y,
+                                z = spawnPos.z,
+                                yawRad = baseYaw,
+                                totalLapsToFinish = totalLaps,
+                                position = slot + 1,
+                                aiTargetLaneOffset = col * 0.7f,
+                                teamIndex = nextAiTeam()
+                            )
+                        )
+                    }
+                }
             } else {
                 for (slot in 0 until 8) {
                     val isPlayerSlot = (slot == 7)
@@ -365,12 +525,16 @@ class KartPhysicsEngine(
         }
 
         for (kart in karts) {
-            val kartInput = when {
-                kart.isPlayer && !kart.finished -> input
-                isFreeRoam -> computeRoamingAiInput(kart, dt)
-                else -> computeTrackAiInput(kart, dt)
+            if (kart.isRemotePlayer) {
+                stepRemoteKart(kart, dt)
+            } else {
+                val kartInput = when {
+                    kart.isPlayer && !kart.finished -> input
+                    isFreeRoam -> computeRoamingAiInput(kart, dt)
+                    else -> computeTrackAiInput(kart, dt)
+                }
+                stepSingleKart(kart, kartInput, dt, events)
             }
-            stepSingleKart(kart, kartInput, dt, events)
         }
 
         resolveKartCollisions(events)
@@ -383,6 +547,65 @@ class KartPhysicsEngine(
 
         updateTelemetrySnapshot()
         return events
+    }
+
+    fun updateRemoteStates(remotePlayers: List<RoomPlayerDoc>) {
+        if (!isOnlineSession) return
+        val byUid = remotePlayers.associateBy { it.userId }
+        for (k in karts) {
+            if (!k.isRemotePlayer) continue
+            val doc = byUid[k.remoteUid] ?: continue
+            k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
+            k.remoteTargetX = doc.x.toFloat()
+            k.remoteTargetY = doc.y.toFloat()
+            k.remoteTargetZ = doc.z.toFloat()
+            k.remoteTargetYawRad = doc.yawRad.toFloat()
+            k.remoteTargetSpeed = doc.speed.toFloat()
+            k.remoteTargetSteerRad = doc.steerVisualRad.toFloat()
+            k.remoteSyncAgeSec = 0f
+            k.remoteHasUpdate = true
+            k.currentLap = doc.lap.toInt().coerceIn(1, totalLaps)
+            k.raceScore = doc.raceScore.toFloat()
+            k.finished = doc.finished
+            if (doc.finished && doc.finishTimeMs > 0L) {
+                k.finishTimeMs = doc.finishTimeMs
+            }
+            k.isDrifting = doc.drifting
+            k.isNitroActive = doc.nitroActive
+        }
+    }
+
+    private fun stepRemoteKart(k: KartRuntimeState, dt: Float) {
+        if (!k.remoteHasUpdate) return
+        k.remoteSyncAgeSec = (k.remoteSyncAgeSec + dt).coerceAtMost(0.45f)
+        val extrapTime = k.remoteSyncAgeSec.coerceAtMost(0.28f)
+        val predX = k.remoteTargetX + sin(k.remoteTargetYawRad) * k.remoteTargetSpeed * extrapTime
+        val predZ = k.remoteTargetZ + cos(k.remoteTargetYawRad) * k.remoteTargetSpeed * extrapTime
+        val blend = (14f * dt).coerceIn(0.05f, 0.85f)
+
+        val prevDistSq = (predX - k.x) * (predX - k.x) + (predZ - k.z) * (predZ - k.z)
+        if (prevDistSq > 400f) {
+            // Hard snap if packet was delayed over 20m
+            k.x = predX
+            k.y = k.remoteTargetY
+            k.z = predZ
+            k.yawRad = k.remoteTargetYawRad
+        } else {
+            k.x += (predX - k.x) * blend
+            k.z += (predZ - k.z) * blend
+            val groundY = surfaceSampler.sampleSurface(k.x, k.z, k.y).height
+            val targetY = maxOf(k.remoteTargetY, groundY)
+            k.y += (targetY - k.y) * blend
+            k.yawRad = lerpAngle(k.yawRad, k.remoteTargetYawRad, blend)
+        }
+
+        k.speed = k.remoteTargetSpeed
+        k.vx = sin(k.yawRad) * k.speed
+        k.vz = cos(k.yawRad) * k.speed
+        k.steerVisualRad += (k.remoteTargetSteerRad - k.steerVisualRad) * (12f * dt).coerceAtMost(1f)
+        k.wheelSpinRad += k.speed * dt * 1.45f
+        val targetRoll = (-k.steerVisualRad * 0.16f).coerceIn(-0.18f, 0.18f)
+        k.bodyRollRad += (targetRoll - k.bodyRollRad) * (10f * dt).coerceAtMost(1f)
     }
 
     private fun stepSingleKart(
@@ -1058,15 +1281,26 @@ class KartPhysicsEngine(
             val bestLap = if (k.bestLapMs < Long.MAX_VALUE) k.bestLapMs else (estTime / totalLaps.coerceAtLeast(1))
             RacerResultEntry(
                 racerId = k.racer.id,
-                racerName = k.racer.name,
+                racerName = k.displayName,
                 kartName = k.kart.name,
                 isPlayer = k.isPlayer,
                 position = idx + 1,
                 totalTimeMs = estTime,
                 bestLapMs = bestLap,
-                grandPrixPointsAwarded = if (idx < gpPoints.size) gpPoints[idx] else 0
+                grandPrixPointsAwarded = if (idx < gpPoints.size) gpPoints[idx] else 0,
+                teamIndex = k.teamIndex
             )
         }
+    }
+
+    fun buildTeamStandings(standings: List<RacerResultEntry>): List<Pair<Int, Int>> {
+        if (teamSize <= 1) return emptyList()
+        return standings
+            .groupBy { it.teamIndex }
+            .map { (teamIdx, entries) ->
+                teamIdx to entries.sumOf { it.grandPrixPointsAwarded }
+            }
+            .sortedByDescending { it.second }
     }
 
     private fun normalizeAngle(a: Float): Float {
