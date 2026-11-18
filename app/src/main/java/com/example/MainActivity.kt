@@ -11,8 +11,35 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -20,7 +47,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -48,6 +81,13 @@ import com.example.sweetrush.ui.RaceSetupScreen
 import com.example.sweetrush.ui.ResultsScreen
 import com.example.sweetrush.ui.SettingsScreen
 import com.example.sweetrush.ui.WorldMapScreen
+import com.example.ui.theme.BerryDeep
+import com.example.ui.theme.BerryPurple
+import com.example.ui.theme.CaramelGold
+import com.example.ui.theme.FrostingWhite
+import com.example.ui.theme.MintCream
+import com.example.ui.theme.SkyCandy
+import com.example.ui.theme.StrawberryRed
 import com.example.ui.theme.SweetRushTheme
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseUser
@@ -175,9 +215,18 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         val roomPlayers by viewModel.roomPlayers.collectAsStateWithLifecycle()
                         val roomMessages by viewModel.roomMessages.collectAsStateWithLifecycle()
                         val friends by viewModel.friends.collectAsStateWithLifecycle()
+                        val friendRequests by viewModel.friendRequests.collectAsStateWithLifecycle()
+                        val gameInvites by viewModel.gameInvites.collectAsStateWithLifecycle()
                         val isOnlineBusy by viewModel.isOnlineBusy.collectAsStateWithLifecycle()
                         val isRecordingVoice by viewModel.isRecordingVoice.collectAsStateWithLifecycle()
                         val isVoiceMuted by viewModel.isVoiceMuted.collectAsStateWithLifecycle()
+
+                        val pendingIncomingReqCount = friendRequests.count {
+                            it.toUid == viewModel.currentUserId && it.status == "PENDING"
+                        }
+                        val pendingInvite = gameInvites.firstOrNull {
+                            it.toUid == viewModel.currentUserId && it.status == "PENDING"
+                        }
 
                         val allowShowroomOrbit = screen == GameScreen.GARAGE ||
                             screen == GameScreen.CHARACTER_SELECT ||
@@ -200,8 +249,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         userPhotoUrl = viewModel.userPhotoUrl,
                                         friendCode = friendCode,
                                         activeRoomCode = onlineRoom?.roomCode,
+                                        pendingRequestsCount = pendingIncomingReqCount,
                                         onNavigate = { target -> viewModel.navigateTo(target) },
-                                        onStartFreeRoam = { viewModel.startFreeRoam() }
+                                        onStartFreeRoam = { viewModel.startFreeRoam() },
+                                        onEnterGatheringHub = { viewModel.enterGatheringHub(launchDirectWorld = false) }
                                     )
                                 }
 
@@ -214,22 +265,26 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         players = roomPlayers,
                                         messages = roomMessages,
                                         friends = friends,
+                                        friendRequests = friendRequests,
                                         isBusy = isOnlineBusy,
                                         isRecordingVoice = isRecordingVoice,
                                         isVoiceMuted = isVoiceMuted,
                                         statusMessage = statusBanner,
                                         onCreateRoom = viewModel::createOnlineRoom,
+                                        onEnterGatheringHub = { viewModel.enterGatheringHub(launchDirectWorld = false) },
                                         onJoinRoom = viewModel::joinOnlineRoom,
                                         onLeaveRoom = { viewModel.leaveOnlineRoom(navigateBackToMenu = false) },
                                         onUpdateRoomConfig = viewModel::updateRoomConfiguration,
                                         onSelectTeamAndReady = viewModel::selectTeamAndReady,
                                         onStartMatch = viewModel::startOnlineMatchAsHost,
-                                        onAddFriend = viewModel::addFriendByCode,
+                                        onSendFriendRequest = viewModel::sendFriendRequestByCode,
+                                        onRespondFriendRequest = viewModel::respondToFriendRequest,
+                                        onDismissFriendRequest = viewModel::dismissFriendRequest,
+                                        onInviteFriend = viewModel::inviteFriendToRoom,
                                         onRemoveFriend = viewModel::removeFriend,
                                         onSendChat = viewModel::sendRoomTextMessage,
                                         onSendQuickCallout = viewModel::sendQuickCallout,
-                                        onStartVoiceRecording = viewModel::startVoiceRecording,
-                                        onStopVoiceRecording = viewModel::stopAndSendVoiceMessage,
+                                        onToggleLiveMic = viewModel::toggleLiveMic,
                                         onToggleVoiceMute = viewModel::toggleVoiceMute,
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
@@ -386,8 +441,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onUsePowerUp = viewModel::triggerPowerUp,
                                         onCycleCameraPreset = viewModel::cycleCameraPreset,
                                         onResetCameraAngle = viewModel::resetRaceCameraAngle,
-                                        onStartVoiceRecording = viewModel::startVoiceRecording,
-                                        onStopVoiceRecording = viewModel::stopAndSendVoiceMessage,
+                                        onToggleLiveMic = viewModel::toggleLiveMic,
                                         onToggleVoiceMute = viewModel::toggleVoiceMute,
                                         onSendQuickCallout = viewModel::sendQuickCallout,
                                         onSendChat = viewModel::sendRoomTextMessage,
@@ -437,6 +491,67 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         )
                                     } else {
                                         viewModel.navigateTo(GameScreen.MAIN_MENU)
+                                    }
+                                }
+                            }
+
+                            // Global Incoming Squad / Gathering Hub Invite Overlay Banner
+                            AnimatedVisibility(
+                                visible = pendingInvite != null,
+                                enter = fadeIn() + slideInVertically { -it },
+                                exit = fadeOut() + slideOutVertically { -it },
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                                    .padding(top = 10.dp)
+                            ) {
+                                pendingInvite?.let { invite ->
+                                    Row(
+                                        modifier = Modifier
+                                            .testTag("incoming_game_invite_banner")
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(BerryPurple.copy(alpha = 0.96f))
+                                            .border(2.dp, CaramelGold, RoundedCornerShape(20.dp))
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Mail, contentDescription = null, tint = CaramelGold, modifier = Modifier.size(22.dp))
+                                        Column {
+                                            Text(
+                                                text = "SQUAD INVITE • ${invite.fromName}",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = CaramelGold,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            val modeLabel = if (invite.isGatheringHub()) "Gathering Hub" else invite.roomName
+                                            Text(
+                                                text = "$modeLabel (#${invite.roomCode})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = SkyCandy
+                                            )
+                                        }
+                                        Spacer(Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = { viewModel.respondToGameInvite(invite, true) },
+                                            modifier = Modifier
+                                                .testTag("accept_game_invite_button")
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(MintCream)
+                                        ) {
+                                            Icon(Icons.Filled.Check, contentDescription = "Join Room", tint = BerryDeep)
+                                        }
+                                        IconButton(
+                                            onClick = { viewModel.respondToGameInvite(invite, false) },
+                                            modifier = Modifier
+                                                .testTag("decline_game_invite_button")
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(StrawberryRed)
+                                        ) {
+                                            Icon(Icons.Filled.Close, contentDescription = "Decline Invite", tint = FrostingWhite)
+                                        }
                                     }
                                 }
                             }

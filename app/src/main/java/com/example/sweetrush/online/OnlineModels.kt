@@ -74,7 +74,58 @@ data class OnlineRoomDoc(
     @ServerTimestamp val updatedAt: Timestamp? = null
 ) {
     fun parsedTrackId(): TrackId = enumValues<TrackId>().firstOrNull { it.name == trackId } ?: TrackId.PEPPERMINT_PLAZA
-    fun parsedMode(): GameMode = enumValues<GameMode>().firstOrNull { it.name == mode } ?: GameMode.QUICK_RACE
+    fun parsedMode(): GameMode = when (mode) {
+        "GATHERING_HUB", "FREE_ROAM" -> GameMode.FREE_ROAM
+        else -> GameMode.QUICK_RACE
+    }
+    fun isGatheringHub(): Boolean = mode == "GATHERING_HUB"
+}
+
+@Keep
+@IgnoreExtraProperties
+data class FriendRequestDoc(
+    @DocumentId val id: String = "",
+    val fromUid: String = "",
+    val fromName: String = "",
+    val fromFriendCode: String = "",
+    val fromKartId: String = "strawberry_rocket",
+    val fromRacerId: String = "berry_blitz",
+    val fromLevel: Long = 1L,
+    val toUid: String = "",
+    val toName: String = "",
+    val toFriendCode: String = "",
+    val toKartId: String = "strawberry_rocket",
+    val toRacerId: String = "berry_blitz",
+    val toLevel: Long = 1L,
+    val status: String = "PENDING", // PENDING, ACCEPTED, DECLINED
+    val participantUids: List<String> = emptyList(),
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+@Keep
+@IgnoreExtraProperties
+data class GameInviteDoc(
+    @DocumentId val id: String = "",
+    val fromUid: String = "",
+    val fromName: String = "",
+    val toUid: String = "",
+    val roomCode: String = "",
+    val roomName: String = "",
+    val mode: String = GameMode.QUICK_RACE.name,
+    val trackId: String = TrackId.PEPPERMINT_PLAZA.name,
+    val teamSize: Long = 2L,
+    val status: String = "PENDING", // PENDING, ACCEPTED, DECLINED
+    val participantUids: List<String> = emptyList(),
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+) {
+    fun parsedTrackId(): TrackId = enumValues<TrackId>().firstOrNull { it.name == trackId } ?: TrackId.PEPPERMINT_PLAZA
+    fun parsedMode(): GameMode = when (mode) {
+        "GATHERING_HUB", "FREE_ROAM" -> GameMode.FREE_ROAM
+        else -> GameMode.QUICK_RACE
+    }
+    fun isGatheringHub(): Boolean = mode == "GATHERING_HUB"
 }
 
 @Keep

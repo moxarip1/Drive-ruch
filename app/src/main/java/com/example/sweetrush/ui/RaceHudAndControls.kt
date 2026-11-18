@@ -16,7 +16,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +47,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
@@ -60,6 +60,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +107,7 @@ import com.example.ui.theme.MintCream
 import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
 import com.example.ui.theme.StrawberryRed
+import kotlinx.coroutines.delay
 import kotlin.math.atan2
 
 @Composable
@@ -123,8 +125,7 @@ fun RaceHudScreen(
     onUsePowerUp: () -> Unit,
     onCycleCameraPreset: () -> Unit = {},
     onResetCameraAngle: () -> Unit = {},
-    onStartVoiceRecording: (teamOnly: Boolean) -> Unit = {},
-    onStopVoiceRecording: (teamOnly: Boolean) -> Unit = {},
+    onToggleLiveMic: (teamOnly: Boolean) -> Unit = {},
     onToggleVoiceMute: () -> Unit = {},
     onSendQuickCallout: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
     onSendChat: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
@@ -149,7 +150,26 @@ fun RaceHudScreen(
     }
     val micPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { granted -> hasMicPerm = granted }
+    ) { granted ->
+        hasMicPerm = granted
+        if (granted) onToggleLiveMic(teamOnlyComms)
+    }
+
+    val visibleTextSideMsgs = remember(roomMessages, hud.localTeamIndex) {
+        roomMessages.filter {
+            (it.msgType == "TEXT" || it.msgType == "QUICK") &&
+                (!it.targetTeamOnly || it.teamIndex.toInt() == hud.localTeamIndex)
+        }.takeLast(3)
+    }
+    var showSideFloatingMsgs by remember { mutableStateOf(false) }
+    val latestSideMsgKey = visibleTextSideMsgs.lastOrNull()?.let { "${it.id}_${it.clientSeq}" }
+    LaunchedEffect(latestSideMsgKey) {
+        if (latestSideMsgKey != null) {
+            showSideFloatingMsgs = true
+            delay(9000L)
+            showSideFloatingMsgs = false
+        }
+    }
 
     var steerLeft by remember { mutableStateOf(false) }
     var steerRight by remember { mutableStateOf(false) }
@@ -554,7 +574,7 @@ fun RaceHudScreen(
                 )
             }
 
-            // IN-RACE VOICE PTT & CHAT DRAWER WHEN PLAYING ONLINE WITH FRIENDS
+            // IN-RACE TOGGLEABLE VOICE MIC, CHAT DRAWER & FLOATING SIDE MESSAGES
             if (hud.isOnlineSession) {
                 Column(
                     modifier = Modifier
@@ -563,30 +583,30 @@ fun RaceHudScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (!hasMicPerm) {
+                                    micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                } else {
+                                    onToggleLiveMic(teamOnlyComms)
+                                }
+                            },
                             modifier = Modifier
-                                .testTag("hud_ptt_button")
+                                .testTag("hud_mic_toggle_button")
                                 .size(48.dp)
                                 .clip(CircleShape)
                                 .background(if (isRecordingVoice) StrawberryRed else MintDark.copy(alpha = 0.88f))
                                 .border(2.dp, if (isRecordingVoice) CaramelGold else Color.White, CircleShape)
-                                .pointerInput(teamOnlyComms, hasMicPerm) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            if (!hasMicPerm) {
-                                                micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                                return@detectTapGestures
-                                            }
-                                            onStartVoiceRecording(teamOnlyComms)
-                                            tryAwaitRelease()
-                                            onStopVoiceRecording(teamOnlyComms)
-                                        }
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Mic, contentDescription = "Push to Talk", tint = FrostingWhite)
+                            Icon(
+                                imageVector = if (isRecordingVoice) Icons.Filled.Mic else Icons.Filled.MicOff,
+                                contentDescription = if (isRecordingVoice) "Turn Mic Off" else "Turn Mic On",
+                                tint = FrostingWhite
+                            )
                         }
 
                         IconButton(
@@ -614,6 +634,48 @@ fun RaceHudScreen(
                                 .border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Race Chat", tint = FrostingWhite)
+                        }
+
+                        if (isRecordingVoice) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(StrawberryRed.copy(alpha = 0.9f))
+                                    .border(1.dp, CaramelGold, RoundedCornerShape(50))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text("MIC ON", style = MaterialTheme.typography.labelSmall, color = CaramelGold, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    // Compact Floating Side In-Match Messages (auto-appears whenever messages arrive without opening chat panel!)
+                    AnimatedVisibility(
+                        visible = !showInRaceChat && showSideFloatingMsgs && visibleTextSideMsgs.isNotEmpty(),
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .testTag("hud_floating_side_messages")
+                                .width(235.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BerryDeep.copy(alpha = 0.68f))
+                                .border(1.dp, MintCream.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            visibleTextSideMsgs.forEach { msg ->
+                                val senderColor = Color(SquadTeam.fromIndex(msg.teamIndex.toInt()).colorHex)
+                                val prefix = if (msg.targetTeamOnly) "[TEAM] " else ""
+                                Text(
+                                    text = "$prefix${msg.senderName}: ${msg.text}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = senderColor,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
 
@@ -656,7 +718,7 @@ fun RaceHudScreen(
                                     }
                                 }
                             }
-                            roomMessages.takeLast(3).forEach { msg ->
+                            visibleTextSideMsgs.forEach { msg ->
                                 Text(
                                     text = "${msg.senderName}: ${msg.text}",
                                     style = MaterialTheme.typography.labelSmall,

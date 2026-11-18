@@ -5,11 +5,11 @@ import com.example.sweetrush.model.KartCustomization
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.TrackId
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.MetadataChanges
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -259,11 +259,78 @@ class OnlineMultiplayerRepository(
             .map { snap -> snap.toObjects(FriendRosterEntry::class.java).sortedBy { it.displayName } }
     }
 
-    suspend fun addFriendByCode(uid: String, rawCode: String): Result<FriendRosterEntry> = runCatching {
+    private suspend fun upsertFriendRosterDoc(
+        ownerUid: String,
+        friendUid: String,
+        displayName: String,
+        friendCode: String,
+        kartId: String,
+        racerId: String,
+        level: Long
+    ): FriendRosterEntry {
+        val friendRef = db.collection("users").document(ownerUid).collection("friends").document(friendUid)
+        val existing = try {
+            friendRef.get().await().exists()
+        } catch (_: Exception) {
+            false
+        }
+        val safeName = cleanDisplayName(displayName)
+        val safeKart = kartId.take(48).ifBlank { "strawberry_rocket" }
+        val safeRacer = racerId.take(48).ifBlank { "berry_blitz" }
+        val safeLevel = level.coerceIn(1L, 999L)
+        val payload = mutableMapOf<String, Any>(
+            "displayName" to safeName,
+            "friendCode" to friendCode,
+            "selectedKartId" to safeKart,
+            "selectedRacerId" to safeRacer,
+            "level" to safeLevel,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        try {
+            if (existing) {
+                friendRef.update(payload).await()
+            } else {
+                payload["friendUid"] = friendUid
+                payload["createdAt"] = FieldValue.serverTimestamp()
+                friendRef.set(payload).await()
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            handleFirestoreError(e, OperationType.WRITE, "users/$ownerUid/friends/$friendUid")
+            throw e
+        }
+        return FriendRosterEntry(
+            id = friendUid,
+            friendUid = friendUid,
+            displayName = safeName,
+            friendCode = friendCode,
+            selectedKartId = safeKart,
+            selectedRacerId = safeRacer,
+            level = safeLevel
+        )
+    }
+
+    fun observeFriendRequests(uid: String): Flow<List<FriendRequestDoc>> {
+        return db.collection("friendRequests")
+            .whereArrayContains("participantUids", uid)
+            .snapshots(MetadataChanges.EXCLUDE)
+            .map { snap ->
+                snap.documents.mapNotNull {
+                    it.toObject(FriendRequestDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                }.sortedByDescending { it.updatedAt?.toDate()?.time ?: 0L }
+            }
+    }
+
+    suspend fun sendFriendRequestByCode(
+        uid: String,
+        displayName: String,
+        profile: PlayerProfile,
+        rawCode: String
+    ): Result<FriendRequestDoc> = runCatching {
         val currentUid = requireUserId()
         require(currentUid == uid && isValidDocId(uid))
         val code = rawCode.trim().uppercase()
-        require(code.length in 4..16 && isValidDocId(code)) { "Invalid friend code format" }
+        require(code.length in 4..16 && isValidDocId(code)) { "Invalid friend ID format" }
 
         val dirRef = db.collection("racerDirectory").document(code)
         val snap = try {
@@ -273,48 +340,257 @@ class OnlineMultiplayerRepository(
             handleFirestoreError(e, OperationType.GET, "racerDirectory/$code")
             throw e
         }
-        require(snap.exists()) { "No racer found with code $code" }
+        require(snap.exists()) { "No racer found with ID $code" }
         val card = snap.toObject(RacerDirectoryCard::class.java)
             ?: throw IllegalStateException("Unable to read racer card")
-        require(card.userId != uid && isValidDocId(card.userId)) { "You cannot add your own friend code" }
+        require(card.userId != uid && isValidDocId(card.userId)) { "You cannot send a friend request to yourself" }
 
-        val friendRef = db.collection("users").document(uid).collection("friends").document(card.userId)
-        val existing = try {
-            friendRef.get().await().exists()
+        val alreadyFriend = try {
+            db.collection("users").document(uid).collection("friends").document(card.userId).get().await().exists()
         } catch (_: Exception) {
             false
         }
-        val payload = mutableMapOf<String, Any>(
-            "displayName" to card.displayName.take(40),
-            "friendCode" to card.friendCode,
-            "selectedKartId" to card.selectedKartId.take(48),
-            "selectedRacerId" to card.selectedRacerId.take(48),
-            "level" to card.level.coerceIn(1L, 999L),
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
+        require(!alreadyFriend) { "${card.displayName} is already your friend" }
+
+        val reqId = "${uid}_${card.userId}"
+        require(isValidDocId(reqId)) { "Invalid request ID" }
+        val reqRef = db.collection("friendRequests").document(reqId)
+        val existing = try {
+            reqRef.get().await().exists()
+        } catch (_: Exception) {
+            false
+        }
+
+        val myName = cleanDisplayName(displayName)
+        val myCode = computeFriendCode(uid)
+        val myKart = profile.selectedKartId.take(48).ifBlank { "strawberry_rocket" }
+        val myRacer = profile.selectedRacerId.take(48).ifBlank { "berry_blitz" }
+        val myLevel = profile.level.coerceIn(1, 999).toLong()
+
         try {
             if (existing) {
-                friendRef.update(payload).await()
+                reqRef.update(
+                    mapOf(
+                        "fromName" to myName,
+                        "fromFriendCode" to myCode,
+                        "fromKartId" to myKart,
+                        "fromRacerId" to myRacer,
+                        "fromLevel" to myLevel,
+                        "status" to "PENDING",
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
             } else {
-                payload["friendUid"] = card.userId
-                payload["createdAt"] = FieldValue.serverTimestamp()
-                friendRef.set(payload).await()
+                reqRef.set(
+                    mapOf(
+                        "fromUid" to uid,
+                        "fromName" to myName,
+                        "fromFriendCode" to myCode,
+                        "fromKartId" to myKart,
+                        "fromRacerId" to myRacer,
+                        "fromLevel" to myLevel,
+                        "toUid" to card.userId,
+                        "toName" to cleanDisplayName(card.displayName),
+                        "toFriendCode" to card.friendCode,
+                        "toKartId" to card.selectedKartId.take(48).ifBlank { "strawberry_rocket" },
+                        "toRacerId" to card.selectedRacerId.take(48).ifBlank { "berry_blitz" },
+                        "toLevel" to card.level.coerceIn(1L, 999L),
+                        "status" to "PENDING",
+                        "participantUids" to listOf(uid, card.userId),
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            handleFirestoreError(e, OperationType.WRITE, "users/$uid/friends/${card.userId}")
+            handleFirestoreError(e, OperationType.WRITE, "friendRequests/$reqId")
             throw e
         }
 
-        FriendRosterEntry(
-            id = card.userId,
-            friendUid = card.userId,
-            displayName = card.displayName,
-            friendCode = card.friendCode,
-            selectedKartId = card.selectedKartId,
-            selectedRacerId = card.selectedRacerId,
-            level = card.level
+        FriendRequestDoc(
+            id = reqId,
+            fromUid = uid,
+            fromName = myName,
+            fromFriendCode = myCode,
+            fromKartId = myKart,
+            fromRacerId = myRacer,
+            fromLevel = myLevel,
+            toUid = card.userId,
+            toName = cleanDisplayName(card.displayName),
+            toFriendCode = card.friendCode,
+            toKartId = card.selectedKartId,
+            toRacerId = card.selectedRacerId,
+            toLevel = card.level,
+            status = "PENDING",
+            participantUids = listOf(uid, card.userId)
         )
+    }
+
+    suspend fun respondToFriendRequest(
+        uid: String,
+        request: FriendRequestDoc,
+        accept: Boolean
+    ): Result<FriendRosterEntry?> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && request.toUid == uid && isValidDocId(request.id))
+        val newStatus = if (accept) "ACCEPTED" else "DECLINED"
+        try {
+            db.collection("friendRequests").document(request.id).update(
+                mapOf(
+                    "status" to newStatus,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            handleFirestoreError(e, OperationType.UPDATE, "friendRequests/${request.id}")
+            throw e
+        }
+        if (accept) {
+            upsertFriendRosterDoc(
+                ownerUid = uid,
+                friendUid = request.fromUid,
+                displayName = request.fromName,
+                friendCode = request.fromFriendCode,
+                kartId = request.fromKartId,
+                racerId = request.fromRacerId,
+                level = request.fromLevel
+            )
+        } else {
+            null
+        }
+    }
+
+    suspend fun syncAcceptedFriendOnSender(uid: String, request: FriendRequestDoc): Result<Unit> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && request.fromUid == uid && request.status == "ACCEPTED" && isValidDocId(request.id))
+        upsertFriendRosterDoc(
+            ownerUid = uid,
+            friendUid = request.toUid,
+            displayName = request.toName,
+            friendCode = request.toFriendCode,
+            kartId = request.toKartId,
+            racerId = request.toRacerId,
+            level = request.toLevel
+        )
+        try {
+            db.collection("friendRequests").document(request.id).delete().await()
+        } catch (_: Exception) {
+        }
+    }
+
+    suspend fun deleteFriendRequest(uid: String, requestId: String): Result<Unit> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && isValidDocId(requestId))
+        try {
+            db.collection("friendRequests").document(requestId).delete().await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            handleFirestoreError(e, OperationType.DELETE, "friendRequests/$requestId")
+            throw e
+        }
+    }
+
+    fun observeGameInvites(uid: String): Flow<List<GameInviteDoc>> {
+        return db.collection("gameInvites")
+            .whereArrayContains("participantUids", uid)
+            .snapshots(MetadataChanges.EXCLUDE)
+            .map { snap ->
+                snap.documents.mapNotNull {
+                    it.toObject(GameInviteDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                }.sortedByDescending { it.updatedAt?.toDate()?.time ?: 0L }
+            }
+    }
+
+    suspend fun sendGameInvite(
+        uid: String,
+        senderName: String,
+        friendUid: String,
+        room: OnlineRoomDoc
+    ): Result<GameInviteDoc> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && friendUid != uid && isValidDocId(friendUid) && isValidDocId(room.roomCode))
+        val inviteId = "${uid}_${friendUid}_${room.roomCode}".take(128)
+        val invRef = db.collection("gameInvites").document(inviteId)
+        val exists = try {
+            invRef.get().await().exists()
+        } catch (_: Exception) {
+            false
+        }
+        val safeName = cleanDisplayName(senderName)
+        val safeRoomName = room.roomName.take(40).ifBlank { "Candy Squad" }
+        val safeMode = if (room.mode in listOf("QUICK_RACE", "FREE_ROAM", "GATHERING_HUB")) room.mode else "QUICK_RACE"
+        val safeTeam = if (room.teamSize.toInt() in listOf(1, 2, 4)) room.teamSize else 2L
+
+        try {
+            if (exists) {
+                invRef.update(
+                    mapOf(
+                        "fromName" to safeName,
+                        "roomCode" to room.roomCode,
+                        "roomName" to safeRoomName,
+                        "mode" to safeMode,
+                        "trackId" to room.trackId,
+                        "teamSize" to safeTeam,
+                        "status" to "PENDING",
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                invRef.set(
+                    mapOf(
+                        "fromUid" to uid,
+                        "fromName" to safeName,
+                        "toUid" to friendUid,
+                        "roomCode" to room.roomCode,
+                        "roomName" to safeRoomName,
+                        "mode" to safeMode,
+                        "trackId" to room.trackId,
+                        "teamSize" to safeTeam,
+                        "status" to "PENDING",
+                        "participantUids" to listOf(uid, friendUid),
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            handleFirestoreError(e, OperationType.WRITE, "gameInvites/$inviteId")
+            throw e
+        }
+
+        GameInviteDoc(
+            id = inviteId,
+            fromUid = uid,
+            fromName = safeName,
+            toUid = friendUid,
+            roomCode = room.roomCode,
+            roomName = safeRoomName,
+            mode = safeMode,
+            trackId = room.trackId,
+            teamSize = safeTeam,
+            status = "PENDING",
+            participantUids = listOf(uid, friendUid)
+        )
+    }
+
+    suspend fun respondToGameInvite(uid: String, invite: GameInviteDoc, accept: Boolean): Result<Unit> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && invite.toUid == uid && isValidDocId(invite.id))
+        try {
+            db.collection("gameInvites").document(invite.id).update(
+                mapOf(
+                    "status" to if (accept) "ACCEPTED" else "DECLINED",
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            handleFirestoreError(e, OperationType.UPDATE, "gameInvites/${invite.id}")
+            throw e
+        }
     }
 
     suspend fun removeFriend(uid: String, friendUid: String): Result<Unit> = runCatching {
@@ -336,14 +612,21 @@ class OnlineMultiplayerRepository(
         teamSize: Int,
         mode: GameMode,
         trackId: TrackId,
-        fillWithAi: Boolean
+        fillWithAi: Boolean,
+        isGatheringHub: Boolean = false,
+        roomCodeOverride: String? = null,
+        roomNameOverride: String? = null
     ): Result<OnlineRoomDoc> = runCatching {
         val currentUid = requireUserId()
         require(currentUid == uid && isValidDocId(uid))
         val validTeamSize = if (teamSize in listOf(1, 2, 4)) teamSize else 2
-        val validMode = if (mode == GameMode.FREE_ROAM) GameMode.FREE_ROAM else GameMode.QUICK_RACE
-        val roomCode = generateRoomCode()
-        val safeName = "${cleanDisplayName(displayName).take(22)}'s Squad".take(40)
+        val modeString = when {
+            isGatheringHub -> "GATHERING_HUB"
+            mode == GameMode.FREE_ROAM -> GameMode.FREE_ROAM.name
+            else -> GameMode.QUICK_RACE.name
+        }
+        val roomCode = roomCodeOverride?.takeIf { isValidDocId(it) && it.length in 4..16 } ?: generateRoomCode()
+        val safeName = (roomNameOverride ?: if (isGatheringHub) "Candy City Plaza" else "${cleanDisplayName(displayName).take(22)}'s Squad").take(40)
 
         val roomRef = db.collection("rooms").document(roomCode)
         val roomMap = mapOf(
@@ -351,7 +634,7 @@ class OnlineMultiplayerRepository(
             "roomCode" to roomCode,
             "roomName" to safeName,
             "status" to "WAITING",
-            "mode" to validMode.name,
+            "mode" to modeString,
             "trackId" to trackId.name,
             "teamSize" to validTeamSize.toLong(),
             "maxPlayers" to 8L,
@@ -384,13 +667,62 @@ class OnlineMultiplayerRepository(
             roomCode = roomCode,
             roomName = safeName,
             status = "WAITING",
-            mode = validMode.name,
+            mode = modeString,
             trackId = trackId.name,
             teamSize = validTeamSize.toLong(),
             maxPlayers = 8L,
             fillWithAi = fillWithAi,
             memberUids = listOf(uid)
         )
+    }
+
+    suspend fun enterGatheringHub(
+        uid: String,
+        displayName: String,
+        profile: PlayerProfile
+    ): Result<OnlineRoomDoc> = runCatching {
+        val currentUid = requireUserId()
+        require(currentUid == uid && isValidDocId(uid))
+        val plazaRef = db.collection("rooms").document("CANDYPLAZA")
+        val snap = try {
+            plazaRef.get().await()
+        } catch (_: Exception) {
+            null
+        }
+        val existing = if (snap?.exists() == true) snap.toObject(OnlineRoomDoc::class.java) else null
+        when {
+            existing == null -> {
+                createRoom(
+                    uid = uid,
+                    displayName = displayName,
+                    profile = profile,
+                    teamSize = 4,
+                    mode = GameMode.FREE_ROAM,
+                    trackId = TrackId.PEPPERMINT_PLAZA,
+                    fillWithAi = true,
+                    isGatheringHub = true,
+                    roomCodeOverride = "CANDYPLAZA",
+                    roomNameOverride = "Candy City Plaza"
+                ).getOrThrow()
+            }
+            existing.status == "WAITING" && existing.mode == "GATHERING_HUB" &&
+                (uid in existing.memberUids || existing.memberUids.size < existing.maxPlayers) -> {
+                joinRoomByCode(uid, displayName, profile, "CANDYPLAZA").getOrThrow()
+            }
+            else -> {
+                createRoom(
+                    uid = uid,
+                    displayName = displayName,
+                    profile = profile,
+                    teamSize = 4,
+                    mode = GameMode.FREE_ROAM,
+                    trackId = TrackId.PEPPERMINT_PLAZA,
+                    fillWithAi = true,
+                    isGatheringHub = true,
+                    roomNameOverride = "${cleanDisplayName(displayName).take(16)} Plaza"
+                ).getOrThrow()
+            }
+        }
     }
 
     suspend fun joinRoomByCode(
@@ -639,15 +971,20 @@ class OnlineMultiplayerRepository(
         mode: GameMode,
         trackId: TrackId,
         teamSize: Int,
-        fillWithAi: Boolean
+        fillWithAi: Boolean,
+        isGatheringHub: Boolean = false
     ): Result<Unit> = runCatching {
         requireUserId()
-        val validMode = if (mode == GameMode.FREE_ROAM) GameMode.FREE_ROAM else GameMode.QUICK_RACE
+        val modeString = when {
+            isGatheringHub -> "GATHERING_HUB"
+            mode == GameMode.FREE_ROAM -> GameMode.FREE_ROAM.name
+            else -> GameMode.QUICK_RACE.name
+        }
         val validTeamSize = if (teamSize in listOf(1, 2, 4)) teamSize else 2
         try {
             db.collection("rooms").document(roomCode).update(
                 mapOf(
-                    "mode" to validMode.name,
+                    "mode" to modeString,
                     "trackId" to trackId.name,
                     "teamSize" to validTeamSize.toLong(),
                     "maxPlayers" to 8L,
@@ -688,12 +1025,16 @@ class OnlineMultiplayerRepository(
             handleFirestoreError(e, OperationType.DELETE, "rooms/$roomCode/players/$uid")
         }
         try {
-            if (isHost) {
-                db.collection("rooms").document(roomCode).delete().await()
+            val roomRef = db.collection("rooms").document(roomCode)
+            val snap = roomRef.get().await()
+            val room = if (snap.exists()) snap.toObject(OnlineRoomDoc::class.java) else null
+            val remaining = room?.memberUids?.filter { it != uid } ?: emptyList()
+            if (room == null || remaining.isEmpty()) {
+                if (snap.exists()) roomRef.delete().await()
             } else {
-                db.collection("rooms").document(roomCode).update(
+                roomRef.update(
                     mapOf(
-                        "memberUids" to FieldValue.arrayRemove(uid),
+                        "memberUids" to remaining,
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
                 ).await()

@@ -333,11 +333,24 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 val stripeAlt = if ((i / 2) % 2 == 0) 1f else 0.72f
                 acc.addQuad(mL0.x, mL0.y + yOff + 0.02f, mL0.z, mR0.x, mR0.y + yOff + 0.02f, mR0.z, mR1.x, mR1.y + yOff + 0.02f, mR1.z, mL1.x, mL1.y + yOff + 0.02f, mL1.z, sr * stripeAlt, sg * stripeAlt, sb * stripeAlt, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_CANDY)
 
-                // Raised peppermint curbs & bridge wafer railings
+                // crisp glowing sugar lane-edge trim strips
+                val leIn0 = p0.pos - p0.right * (p0.halfWidth * 0.86f)
+                val leOut0 = p0.pos - p0.right * (p0.halfWidth * 0.92f)
+                val leIn1 = p1.pos - p1.right * (p1.halfWidth * 0.86f)
+                val leOut1 = p1.pos - p1.right * (p1.halfWidth * 0.92f)
+                acc.addQuad(leOut0.x, leOut0.y + yOff + 0.015f, leOut0.z, leIn0.x, leIn0.y + yOff + 0.015f, leIn0.z, leIn1.x, leIn1.y + yOff + 0.015f, leIn1.z, leOut1.x, leOut1.y + yOff + 0.015f, leOut1.z, 1f, 0.95f, 1f, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_EMISSIVE)
+
+                val reIn0 = p0.pos + p0.right * (p0.halfWidth * 0.86f)
+                val reOut0 = p0.pos + p0.right * (p0.halfWidth * 0.92f)
+                val reIn1 = p1.pos + p1.right * (p1.halfWidth * 0.86f)
+                val reOut1 = p1.pos + p1.right * (p1.halfWidth * 0.92f)
+                acc.addQuad(reIn0.x, reIn0.y + yOff + 0.015f, reIn0.z, reOut0.x, reOut0.y + yOff + 0.015f, reOut0.z, reOut1.x, reOut1.y + yOff + 0.015f, reOut1.z, reIn1.x, reIn1.y + yOff + 0.015f, reIn1.z, 1f, 0.95f, 1f, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_EMISSIVE)
+
+                // Raised peppermint curbs & pastel wafer sidewalks
                 val curbCol = if (i % 2 == 0) 0xFFFF2E63L else 0xFFFFFFFFL
                 val (cr, cg, cb) = MeshAccumulator.hexToRgb(curbCol)
-                val ch = if (p0.isBridge) 0.75f else 0.36f
-                val cw = 0.85f
+                val ch = if (p0.isBridge) 0.78f else 0.40f
+                val cw = 1.10f
                 val lo0 = l0 - p0.right * cw
                 val lo1 = l1 - p1.right * cw
                 val ro0 = r0 + p0.right * cw
@@ -347,6 +360,17 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 acc.addQuad(r0.x, r0.y, r0.z, r0.x, r0.y + ch, r0.z, r1.x, r1.y + ch, r1.z, r1.x, r1.y, r1.z, cr, cg, cb)
                 acc.addQuad(r0.x, r0.y + ch, r0.z, ro0.x, ro0.y + ch, ro0.z, ro1.x, ro1.y + ch, ro1.z, r1.x, r1.y + ch, r1.z, cr, cg, cb)
 
+                if (!p0.isBridge && !p1.isBridge) {
+                    val sw = 2.6f
+                    val lsw0 = lo0 - p0.right * sw
+                    val lsw1 = lo1 - p1.right * sw
+                    val rsw0 = ro0 + p0.right * sw
+                    val rsw1 = ro1 + p1.right * sw
+                    val swTone = if (i % 2 == 0) 1.0f else 0.93f
+                    acc.addQuad(lsw0.x, lsw0.y + 0.16f, lsw0.z, lo0.x, lo0.y + 0.16f, lo0.z, lo1.x, lo1.y + 0.16f, lo1.z, lsw1.x, lsw1.y + 0.16f, lsw1.z, 0.98f * swTone, 0.86f * swTone, 0.94f * swTone, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_WAFER)
+                    acc.addQuad(ro0.x, ro0.y + 0.16f, ro0.z, rsw0.x, rsw0.y + 0.16f, rsw0.z, rsw1.x, rsw1.y + 0.16f, rsw1.z, ro1.x, ro1.y + 0.16f, ro1.z, 0.98f * swTone, 0.86f * swTone, 0.94f * swTone, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_WAFER)
+                }
+
                 if (p0.isBridge || p1.isBridge) {
                     acc.addQuad(lo0.x, lo0.y + ch, lo0.z, lo1.x, lo1.y + ch, lo1.z, lo1.x, -2.5f, lo1.z, lo0.x, -2.5f, lo0.z, 0.82f, 0.56f, 0.34f)
                     acc.addQuad(ro1.x, ro1.y + ch, ro1.z, ro0.x, ro0.y + ch, ro0.z, ro0.x, -2.5f, ro0.z, ro1.x, -2.5f, ro1.z, 0.82f, 0.56f, 0.34f)
@@ -354,11 +378,12 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             }
         }
 
-        // Central Candy City Grand Plaza roundabout paving
-        val plazaR = 34f
-        val segs = 28
+        // Central Candy City Grand Plaza roundabout paving + luminous mosaic rings
+        val plazaR = 38f
+        val segs = 32
         val (pr, pg, pb) = MeshAccumulator.hexToRgb(0xFF472D5C)
         val (ar, ag, ab) = MeshAccumulator.hexToRgb(0xFFFF4D8D)
+        val (mr, mg, mb) = MeshAccumulator.hexToRgb(0xFF3CE8B5)
         for (i in 0 until segs) {
             val a0 = (i.toFloat() / segs) * (2f * PI.toFloat())
             val a1 = ((i + 1).toFloat() / segs) * (2f * PI.toFloat())
@@ -372,6 +397,14 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                     cos(a1) * 17f, 0.10f, sin(a1) * 17f,
                     cos(a0) * 17f, 0.10f, sin(a0) * 17f,
                     ar, ag, ab, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_EMISSIVE
+                )
+            } else {
+                acc.addQuad(
+                    cos(a0) * 28f, 0.10f, sin(a0) * 28f,
+                    cos(a1) * 28f, 0.10f, sin(a1) * 28f,
+                    cos(a1) * 30f, 0.10f, sin(a1) * 30f,
+                    cos(a0) * 30f, 0.10f, sin(a0) * 30f,
+                    mr, mg, mb, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_EMISSIVE
                 )
             }
         }
@@ -410,7 +443,7 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 id = "grand_ring",
                 name = "Grand Kingdom Ring",
                 ctrl = ringCtrl,
-                samplesPerSeg = 14,
+                samplesPerSeg = 20,
                 halfWidth = 10.5f,
                 closed = true,
                 roadColorHex = 0xFF3E294D,
@@ -432,7 +465,7 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 id = "ns_boulevard",
                 name = "Sugar Avenue (N-S)",
                 ctrl = nsCtrl,
-                samplesPerSeg = 12,
+                samplesPerSeg = 16,
                 halfWidth = 9.5f,
                 closed = false,
                 roadColorHex = 0xFF472D5C,
@@ -453,7 +486,7 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 id = "ew_avenue",
                 name = "Peppermint Parkway (E-W)",
                 ctrl = ewCtrl,
-                samplesPerSeg = 12,
+                samplesPerSeg = 16,
                 halfWidth = 9.5f,
                 closed = false,
                 roadColorHex = 0xFF472D5C,
@@ -738,21 +771,53 @@ object OpenWorldKingdom : WorldSurfaceSampler {
         val rng = Random(202504)
         val palette = listOf(0xFFFF3D8BL, 0xFF3CE8B5L, 0xFFFFB800L, 0xFF5CE1E6L, 0xFF9C4DFFL, 0xFFFF5252L, 0xFFFFEB3BL)
 
-        // Central Candy City Landmark Fountain & surrounding plazas
+        // Central Candy City Landmark Fountain & inner skyline ring
         decos.add(DecorationInstance(DecoType.STRAWBERRY_FOUNTAIN, Vec3(0f, 0f, 0f), 0f, 1.35f, 0xFFFF3D8B, 0xFFFFF8FF))
-        for (i in 0 until 6) {
-            val a = i * (PI.toFloat() / 3f)
-            val x = cos(a) * 42f; val z = sin(a) * 42f
-            if (!isOnAnyRoad(x, z, 13f)) {
-                val building = when (i % 4) {
-                    0 -> DecoType.GINGERBREAD_HOUSE
-                    1 -> DecoType.DONUT_BUILDING
-                    2 -> DecoType.CUPCAKE_TOWER
-                    else -> DecoType.CANDY_FACTORY
-                }
-                decos.add(DecorationInstance(building, Vec3(x, sampleHeightOnly(x, z), z), a + 1.57f, 1.25f, palette[i % palette.size], 0xFFFFFFFF))
+        val plazaSkylineTypes = listOf(
+            DecoType.ICE_CREAM_PARLOR,
+            DecoType.MACARON_TOWER,
+            DecoType.WAFFLE_SKYSCRAPER,
+            DecoType.DONUT_BUILDING,
+            DecoType.CUPCAKE_TOWER,
+            DecoType.GINGERBREAD_HOUSE,
+            DecoType.CANDY_FACTORY,
+            DecoType.PEPPERMINT_LIGHTHOUSE
+        )
+        for (i in 0 until 12) {
+            val a = i * (PI.toFloat() / 6f)
+            val rad = if (i % 2 == 0) 44f else 64f
+            val x = cos(a) * rad; val z = sin(a) * rad
+            if (!isOnAnyRoad(x, z, 15f)) {
+                val building = plazaSkylineTypes[i % plazaSkylineTypes.size]
+                decos.add(DecorationInstance(building, Vec3(x, sampleHeightOnly(x, z), z), a + 1.57f, 1.25f + (i % 3) * 0.12f, palette[i % palette.size], palette[(i + 3) % palette.size]))
             }
         }
+        // Dense Candy City Downtown Quadrants (grid of colorful Candy City storefronts & towers!)
+        val cityBlockCoords = listOf(-120f, -86f, -52f, 52f, 86f, 120f)
+        var cityIdx = 0
+        for (bx in cityBlockCoords) {
+            for (bz in cityBlockCoords) {
+                val x = bx + ((cityIdx % 3) - 1) * 5f
+                val z = bz + (((cityIdx / 3) % 3) - 1) * 5f
+                cityIdx++
+                if (isOnAnyRoad(x, z, 16.5f)) continue
+                val y = sampleHeightOnly(x, z)
+                if (y < -0.25f) continue
+                val bType = plazaSkylineTypes[cityIdx % plazaSkylineTypes.size]
+                val yawToRoad = if (abs(x) < abs(z)) (if (x > 0) -1.57f else 1.57f) else (if (z > 0) 3.14f else 0f)
+                decos.add(
+                    DecorationInstance(
+                        type = bType,
+                        pos = Vec3(x, y, z),
+                        rotY = yawToRoad,
+                        scale = 1.05f + (cityIdx % 4) * 0.14f,
+                        primaryColor = palette[cityIdx % palette.size],
+                        secondaryColor = palette[(cityIdx + 2) % palette.size]
+                    )
+                )
+            }
+        }
+
         // Spectator stands, road signs & animated billboards around Candy City intersection
         decos.add(DecorationInstance(DecoType.SPECTATOR_STAND, Vec3(24f, 0f, -34f), -0.6f, 1.1f, 0xFFFF3D8B, 0xFF3CE8B5))
         decos.add(DecorationInstance(DecoType.SPECTATOR_STAND, Vec3(-24f, 0f, 34f), 2.5f, 1.1f, 0xFFFFEB3B, 0xFF5CE1E6))
@@ -761,31 +826,64 @@ object OpenWorldKingdom : WorldSurfaceSampler {
         decos.add(DecorationInstance(DecoType.ROAD_SIGN, Vec3(14f, 0f, -18f), 0f, 1.1f, 0xFFFF3D8B, 0xFF3CE8B5))
         decos.add(DecorationInstance(DecoType.ROAD_SIGN, Vec3(-14f, 0f, 18f), 3.14f, 1.1f, 0xFF5CE1E6, 0xFFFFEB3B))
 
-        // Road-hugging lamps, arches, road signs, outer curve barriers & regional buildings along all roads
+        // Road-hugging lamps, arches, road signs, outer curve barriers & roadside candy buildings along ALL highways
+        val roadsideBuildings = listOf(
+            DecoType.GINGERBREAD_HOUSE,
+            DecoType.ICE_CREAM_PARLOR,
+            DecoType.DONUT_BUILDING,
+            DecoType.MACARON_TOWER,
+            DecoType.COOKIE_HOUSE,
+            DecoType.CUPCAKE_TOWER,
+            DecoType.CANDY_FACTORY,
+            DecoType.WAFFLE_SKYSCRAPER
+        )
         for ((rIdx, road) in roads.withIndex()) {
-            for (i in road.points.indices step 5) {
+            val step = if (road.points.size > 120) 6 else 5
+            for (i in road.points.indices step step) {
                 val pt = road.points[i]
                 val yaw = atan2(pt.forward.x, pt.forward.z)
-                if (i % 15 == 0 && !pt.isBridge) {
+                if (i % (step * 3) == 0 && !pt.isBridge) {
                     val arch = if (rIdx % 2 == 0) DecoType.CANDY_CANE_ARCH else DecoType.DONUT_ARCH
                     decos.add(DecorationInstance(arch, pt.pos, yaw, 0.85f, palette[(i + rIdx) % palette.size], 0xFFFFFFFF))
                 }
-                if (i % 10 == 0) {
+                if (i % (step * 2) == 0) {
                     for (side in listOf(-1f, 1f)) {
-                        val lp = pt.pos + pt.right * (side * (pt.halfWidth + 2.2f))
+                        val lp = pt.pos + pt.right * (side * (pt.halfWidth + 2.5f))
                         if (!isOnAnyRoad(lp.x, lp.z, pt.halfWidth + 0.5f)) {
                             decos.add(DecorationInstance(DecoType.CANDY_LAMP, lp, yaw, 0.95f, palette[i % palette.size], 0xFFFFFFFF))
                         }
                     }
                 }
-                if (i % 20 == 5 && !pt.isBridge) {
-                    val sp = pt.pos + pt.right * (pt.halfWidth + 2.8f)
+                // Place themed roadside candy shops & towers framing every avenue outside the sidewalk!
+                if (!pt.isBridge && i % (step * 2) == 0) {
+                    val side = if (((i / step) + rIdx) % 2 == 0) 1f else -1f
+                    val bPos = pt.pos + pt.right * (side * (pt.halfWidth + 14.5f))
+                    if (!isOnAnyRoad(bPos.x, bPos.z, pt.halfWidth + 6.5f)) {
+                        val by = sampleHeightOnly(bPos.x, bPos.z)
+                        if (by > -0.25f) {
+                            val bType = roadsideBuildings[(i + rIdx) % roadsideBuildings.size]
+                            val faceRoadYaw = yaw + (if (side > 0f) -1.57f else 1.57f)
+                            decos.add(
+                                DecorationInstance(
+                                    type = bType,
+                                    pos = Vec3(bPos.x, by, bPos.z),
+                                    rotY = faceRoadYaw,
+                                    scale = 1.0f + ((i % 3) * 0.12f),
+                                    primaryColor = palette[(i + rIdx) % palette.size],
+                                    secondaryColor = palette[(i + rIdx + 2) % palette.size]
+                                )
+                            )
+                        }
+                    }
+                }
+                if (i % (step * 4) == step && !pt.isBridge) {
+                    val sp = pt.pos + pt.right * (pt.halfWidth + 3.0f)
                     if (!isOnAnyRoad(sp.x, sp.z, pt.halfWidth + 0.8f)) {
                         decos.add(DecorationInstance(DecoType.ROAD_SIGN, sp, yaw, 1.0f, palette[(i + 2) % palette.size], 0xFFFFEB3B))
                     }
                 }
-                if ((rIdx == 0 || rIdx == 4) && i % 10 == 5 && !pt.isBridge) {
-                    val bp = pt.pos + pt.right * (pt.halfWidth + 2.5f)
+                if ((rIdx == 0 || rIdx == 4) && i % (step * 2) == step && !pt.isBridge) {
+                    val bp = pt.pos + pt.right * (pt.halfWidth + 2.8f)
                     if (!isOnAnyRoad(bp.x, bp.z, pt.halfWidth + 0.6f)) {
                         decos.add(DecorationInstance(DecoType.CANDY_BARRIER, bp, yaw + 1.57f, 1.0f, 0xFFFF2448, 0xFF3CE8B5))
                     }
@@ -823,23 +921,30 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             decos.add(DecorationInstance(DecoType.CANDY_FACTORY, Vec3(155f, sampleHeightOnly(155f, -135f), -135f), -0.4f, 1.45f, 0xFFFF9800, 0xFF3CE8B5))
         }
 
-        // Gumdrop Forest Giant Gummy Bears
+        // Gumdrop Forest Giant Gummy Bears & Ice Cream Parlor
         decos.add(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-260f, sampleHeightOnly(-260f, -225f), -225f), 0.7f, 1.75f, 0xFF3CE8B5, 0xFFFF3D8B))
         decos.add(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-310f, sampleHeightOnly(-310f, -180f), -180f), 1.2f, 1.55f, 0xFFFF3D8B, 0xFFFFEB3B))
+        if (!isOnAnyRoad(-210f, -135f, 16f)) {
+            decos.add(DecorationInstance(DecoType.MACARON_TOWER, Vec3(-210f, sampleHeightOnly(-210f, -135f), -135f), 0.4f, 1.45f, 0xFF3CE8B5, 0xFFFF6EB4))
+        }
 
-        // Cupcake Valley Cupcake Castles
+        // Cupcake Valley Cupcake Castles & Ice Cream Parlor
         decos.add(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(-255f, sampleHeightOnly(-255f, 235f), 235f), 0.4f, 1.7f, 0xFFD980FA, 0xFFFFF8FF))
         decos.add(DecorationInstance(DecoType.GINGERBREAD_HOUSE, Vec3(-305f, sampleHeightOnly(-305f, 210f), 210f), 1.0f, 1.45f, 0xFFFF6EB4, 0xFF3CE8B5))
+        if (!isOnAnyRoad(-155f, 155f, 16f)) {
+            decos.add(DecorationInstance(DecoType.ICE_CREAM_PARLOR, Vec3(-155f, sampleHeightOnly(-155f, 155f), 155f), -0.6f, 1.4f, 0xFFFF3D8B, 0xFF5CE1E6))
+        }
 
-        // Peppermint Coast Fountains & Stands
+        // Peppermint Coast Lighthouse, Fountains & Coastal Parlor
+        decos.add(DecorationInstance(DecoType.PEPPERMINT_LIGHTHOUSE, Vec3(315f, max(0.2f, sampleHeightOnly(315f, 275f)), 275f), -0.5f, 1.55f, 0xFF5CE1E6, 0xFFFF3D8B))
         decos.add(DecorationInstance(DecoType.STRAWBERRY_FOUNTAIN, Vec3(235f, sampleHeightOnly(235f, 185f), 185f), 0f, 1.25f, 0xFF5CE1E6, 0xFFFFF8FF))
         decos.add(DecorationInstance(DecoType.DONUT_BUILDING, Vec3(205f, sampleHeightOnly(205f, 255f), 255f), 2.1f, 1.35f, 0xFFFF6EB4, 0xFFFFFFFF))
 
-        // Scatter 260 regional trees, jellybean bushes, candy flowers, houses, factories, crystals, benches & floating balloons!
-        for (i in 0 until 260) {
+        // Scatter 320 regional candy buildings, trees, jellybean bushes, candy flowers, crystals, benches & floating balloons!
+        for (i in 0 until 320) {
             val x = (rng.nextFloat() * 2f - 1f) * 435f
             val z = (rng.nextFloat() * 2f - 1f) * 435f
-            if (isOnAnyRoad(x, z, 14f)) continue
+            if (isOnAnyRoad(x, z, 15f)) continue
             val y = sampleHeightOnly(x, z)
             if (y < -0.35f) continue // Keep dry land for buildings/trees
 
@@ -848,55 +953,62 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             val c2 = palette[rng.nextInt(palette.size)]
 
             val type = when (reg) {
-                WorldRegion.CANDY_CITY -> when (rng.nextInt(8)) {
+                WorldRegion.CANDY_CITY -> when (rng.nextInt(10)) {
                     0 -> DecoType.GINGERBREAD_HOUSE
                     1 -> DecoType.DONUT_BUILDING
-                    2 -> DecoType.CANDY_FACTORY
-                    3 -> DecoType.CANDY_BENCH
-                    4 -> DecoType.LOLLIPOP_TREE
-                    5 -> DecoType.CANDY_FLOWER
-                    6 -> DecoType.MARSHMALLOW_BUSH
+                    2 -> DecoType.ICE_CREAM_PARLOR
+                    3 -> DecoType.MACARON_TOWER
+                    4 -> DecoType.WAFFLE_SKYSCRAPER
+                    5 -> DecoType.CANDY_FACTORY
+                    6 -> DecoType.CANDY_BENCH
+                    7 -> DecoType.LOLLIPOP_TREE
+                    8 -> DecoType.CANDY_FLOWER
                     else -> DecoType.FLOATING_BALLOON
                 }
-                WorldRegion.CHOCOLATE_MOUNTAINS -> when (rng.nextInt(7)) {
+                WorldRegion.CHOCOLATE_MOUNTAINS -> when (rng.nextInt(8)) {
                     0, 1 -> DecoType.CHOCOLATE_TREE
                     2 -> DecoType.SUGAR_CRYSTAL
                     3 -> DecoType.COOKIE_HOUSE
-                    4 -> DecoType.GUMDROP_HILL
-                    5 -> DecoType.JELLYBEAN_BUSH
+                    4 -> DecoType.CHOCOLATE_CASTLE
+                    5 -> DecoType.GUMDROP_HILL
+                    6 -> DecoType.JELLYBEAN_BUSH
                     else -> DecoType.CANDY_FACTORY
                 }
-                WorldRegion.GUMDROP_FOREST -> when (rng.nextInt(8)) {
+                WorldRegion.GUMDROP_FOREST -> when (rng.nextInt(9)) {
                     0, 1 -> DecoType.LOLLIPOP_TREE
                     2 -> DecoType.GUMDROP_TREE
                     3 -> DecoType.COTTON_CANDY_TREE
                     4 -> DecoType.JELLYBEAN_BUSH
-                    5 -> DecoType.CANDY_FLOWER
-                    6 -> DecoType.MARSHMALLOW_BUSH
+                    5 -> DecoType.MACARON_TOWER
+                    6 -> DecoType.CANDY_FLOWER
+                    7 -> DecoType.MARSHMALLOW_BUSH
                     else -> DecoType.GUMMY_BEAR_STATUE
                 }
-                WorldRegion.CUPCAKE_VALLEY -> when (rng.nextInt(7)) {
+                WorldRegion.CUPCAKE_VALLEY -> when (rng.nextInt(8)) {
                     0 -> DecoType.CUPCAKE_TOWER
-                    1 -> DecoType.COTTON_CANDY_TREE
-                    2 -> DecoType.COOKIE_HOUSE
-                    3 -> DecoType.CANDY_FLOWER
-                    4 -> DecoType.JELLYBEAN_BUSH
-                    5 -> DecoType.MARSHMALLOW_BUSH
+                    1 -> DecoType.ICE_CREAM_PARLOR
+                    2 -> DecoType.COTTON_CANDY_TREE
+                    3 -> DecoType.COOKIE_HOUSE
+                    4 -> DecoType.CANDY_FLOWER
+                    5 -> DecoType.JELLYBEAN_BUSH
+                    6 -> DecoType.MARSHMALLOW_BUSH
                     else -> DecoType.FLOATING_BALLOON
                 }
-                WorldRegion.PEPPERMINT_COAST -> when (rng.nextInt(7)) {
+                WorldRegion.PEPPERMINT_COAST -> when (rng.nextInt(9)) {
                     0 -> DecoType.CANDY_CANE_PLANT
-                    1 -> DecoType.COTTON_CANDY_TREE
-                    2 -> DecoType.CANDY_BENCH
-                    3 -> DecoType.CANDY_FLOWER
-                    4 -> DecoType.JELLYBEAN_BUSH
-                    5 -> DecoType.MARSHMALLOW_BUSH
+                    1 -> DecoType.ICE_CREAM_PARLOR
+                    2 -> DecoType.PEPPERMINT_LIGHTHOUSE
+                    3 -> DecoType.COTTON_CANDY_TREE
+                    4 -> DecoType.CANDY_BENCH
+                    5 -> DecoType.CANDY_FLOWER
+                    6 -> DecoType.JELLYBEAN_BUSH
+                    7 -> DecoType.MARSHMALLOW_BUSH
                     else -> DecoType.FLOATING_BALLOON
                 }
             }
 
             val finalY = if (type == DecoType.FLOATING_BALLOON) y + 12f + rng.nextFloat() * 10f else y
-            val scale = 0.85f + rng.nextFloat() * 0.65f
+            val scale = 0.88f + rng.nextFloat() * 0.65f
             decos.add(
                 DecorationInstance(
                     type = type,

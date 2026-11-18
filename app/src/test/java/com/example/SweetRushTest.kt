@@ -74,6 +74,10 @@ class SweetRushTest {
         assertTrue(decoTypes.contains(DecoType.JELLYBEAN_BUSH))
         assertTrue(decoTypes.contains(DecoType.CANDY_FLOWER))
         assertTrue(decoTypes.contains(DecoType.CANDY_FACTORY))
+        assertTrue(decoTypes.contains(DecoType.ICE_CREAM_PARLOR))
+        assertTrue(decoTypes.contains(DecoType.MACARON_TOWER))
+        assertTrue(decoTypes.contains(DecoType.PEPPERMINT_LIGHTHOUSE))
+        assertTrue(decoTypes.contains(DecoType.WAFFLE_SKYSCRAPER))
         assertTrue(decoTypes.contains(DecoType.ROAD_SIGN))
         assertTrue(decoTypes.contains(DecoType.CANDY_BARRIER))
 
@@ -81,6 +85,27 @@ class SweetRushTest {
         for (region in WorldRegion.entries) {
             assertEquals(region, OpenWorldKingdom.regionAt(region.centerX, region.centerZ))
         }
+    }
+
+    @Test
+    fun `menu background kart spline interpolation produces continuous smooth motion`() {
+        val track = TrackGenerator.getTrack(TrackId.PEPPERMINT_PLAZA)
+        val pA = com.example.sweetrush.render3d.CandyWorldRenderer.interpolateTrackPose(track.nodes, 0.2500f)
+        val pB = com.example.sweetrush.render3d.CandyWorldRenderer.interpolateTrackPose(track.nodes, 0.2504f)
+        val delta = (pB.center - pA.center).length()
+        assertTrue("Interpolated pose should advance smoothly rather than snapping", delta > 0.01f && delta < 1.5f)
+    }
+
+    @Test
+    fun `gathering hub room doc maps cleanly to free roam hub and arabic label`() {
+        val hubRoom = com.example.sweetrush.online.OnlineRoomDoc(
+            roomCode = "CANDYPLAZA",
+            mode = "GATHERING_HUB",
+            teamSize = 4L
+        )
+        assertTrue(hubRoom.isGatheringHub())
+        assertEquals(GameMode.FREE_ROAM, hubRoom.parsedMode())
+        assertEquals("لوبي التجمع", CatalogData.localized(com.example.sweetrush.model.AppLanguage.AR, "gathering_hub"))
     }
 
     @Test

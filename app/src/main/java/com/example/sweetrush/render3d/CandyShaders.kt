@@ -86,93 +86,102 @@ object CandyShaders {
             float emissiveBoost = 0.0;
 
             if (matType > 0.5 && matType < 1.5) {
-                // Road asphalt micro-grain + sugar sparkle
-                float grain = hash21(floor(vWorldPos.xz * 3.5));
-                baseRgb *= (0.93 + grain * 0.13);
-                localGloss = 0.38;
+                // Road asphalt micro-grain + sugar crystal pavement sheen + crisp lane contrast
+                float grain = hash21(floor(vWorldPos.xz * 4.5));
+                float microBand = sin(vWorldPos.x * 0.45) * cos(vWorldPos.z * 0.45) * 0.04;
+                baseRgb *= (0.92 + grain * 0.14 + microBand);
+                localGloss = 0.54;
             } else if (matType >= 1.5 && matType < 2.5) {
                 // Tire rubber with deep chevron tread grooves & sidewall highlight
                 float tread = sin(uv.y * 48.0 + abs(uv.x - 0.5) * 14.0) * 0.5 + 0.5;
                 float sideWall = smoothstep(0.18, 0.42, abs(uv.x - 0.5));
-                baseRgb *= mix(0.78, 1.10, tread * (1.0 - sideWall * 0.52));
-                N = normalize(N + vec3(0.0, (tread - 0.5) * 0.18, 0.0));
-                localGloss = 0.18;
+                baseRgb *= mix(0.76, 1.12, tread * (1.0 - sideWall * 0.52));
+                N = normalize(N + vec3(0.0, (tread - 0.5) * 0.22, 0.0));
+                localGloss = 0.24;
             } else if (matType >= 2.5 && matType < 3.5) {
                 // Chrome / metallic alloy rim reflection
-                localGloss = 0.98;
-                float envRef = pow(clamp(reflect(-V, N).y * 0.5 + 0.5, 0.0, 1.0), 1.5);
-                baseRgb = mix(baseRgb, vec3(0.96, 0.97, 1.0), envRef * 0.48);
+                localGloss = 0.99;
+                float envRef = pow(clamp(reflect(-V, N).y * 0.5 + 0.5, 0.0, 1.0), 1.35);
+                baseRgb = mix(baseRgb, vec3(0.98, 0.98, 1.0), envRef * 0.56);
             } else if (matType >= 3.5 && matType < 4.5) {
                 // Translucent gummy / crystal fresnel glow
-                float fresnel = pow(1.0 - max(dot(N, V), 0.0), 2.1);
-                baseRgb = mix(baseRgb, baseRgb * 1.42 + vec3(0.18, 0.12, 0.24), fresnel * 0.68);
-                localGloss = 0.94;
+                float fresnel = pow(1.0 - max(dot(N, V), 0.0), 1.9);
+                baseRgb = mix(baseRgb, baseRgb * 1.48 + vec3(0.20, 0.14, 0.26), fresnel * 0.72);
+                localGloss = 0.96;
             } else if (matType >= 4.5 && matType < 5.5) {
                 // Emissive lights & signs
-                emissiveBoost = 0.85 + 0.15 * sin(uTime * 4.0 + vWorldPos.x * 0.2);
+                emissiveBoost = 0.95 + 0.18 * sin(uTime * 4.2 + vWorldPos.x * 0.2);
                 if (uv.x > 0.85) {
-                    emissiveBoost = mix(0.25, 1.38, uBrakeGlow);
-                    baseRgb = mix(baseRgb * 0.52, vec3(1.0, 0.12, 0.18), uBrakeGlow);
+                    emissiveBoost = mix(0.28, 1.48, uBrakeGlow);
+                    baseRgb = mix(baseRgb * 0.54, vec3(1.0, 0.12, 0.20), uBrakeGlow);
                 }
             } else if (matType >= 5.5 && matType < 6.5) {
                 // Flowing chocolate / caramel / cream water ripples
-                float wave = sin(uv.x * 18.0 + uTime * 3.0) * cos(uv.y * 14.0 - uTime * 2.2);
-                baseRgb *= (0.92 + wave * 0.13);
-                N = normalize(N + vec3(wave * 0.20, 0.0, wave * 0.20));
-                localGloss = 0.90;
-            } else if (matType >= 6.5 && matType < 7.5) {
-                // Glossy warm caramel coat
+                float wave = sin(uv.x * 20.0 + uTime * 3.2) * cos(uv.y * 16.0 - uTime * 2.4);
+                baseRgb *= (0.92 + wave * 0.15);
+                N = normalize(N + vec3(wave * 0.24, 0.0, wave * 0.24));
                 localGloss = 0.94;
-                float sheen = pow(1.0 - max(dot(N, V), 0.0), 2.5);
-                baseRgb = mix(baseRgb, vec3(1.0, 0.85, 0.45), sheen * 0.28);
+            } else if (matType >= 6.5 && matType < 7.5) {
+                // Glossy warm caramel / sugar-glazed roof coat
+                localGloss = 0.96;
+                float sheen = pow(1.0 - max(dot(N, V), 0.0), 2.3);
+                baseRgb = mix(baseRgb, vec3(1.0, 0.88, 0.52), sheen * 0.34);
             } else if (matType >= 7.5 && matType < 8.5) {
-                // Baked wafer grid texture & warm matte response
+                // Baked wafer grid texture & warm depth
                 float gx = abs(sin(vWorldPos.x * 2.4 + vWorldPos.y * 1.6));
                 float gz = abs(sin(vWorldPos.z * 2.4));
                 float grid = smoothstep(0.15, 0.42, min(gx, gz));
-                baseRgb *= mix(0.76, 1.06, grid);
-                N = normalize(N + vec3((gx - 0.5) * 0.12, 0.0, (gz - 0.5) * 0.12));
-                localGloss = 0.14;
+                baseRgb *= mix(0.74, 1.08, grid);
+                N = normalize(N + vec3((gx - 0.5) * 0.15, 0.0, (gz - 0.5) * 0.15));
+                localGloss = 0.18;
             } else if (matType >= 8.5) {
                 // Soft matte marshmallow / whipped frosting
-                localGloss = 0.12;
-                float wrap = pow(1.0 - max(dot(N, V), 0.0), 1.8) * 0.14;
+                localGloss = 0.16;
+                float wrap = pow(1.0 - max(dot(N, V), 0.0), 1.7) * 0.18;
                 baseRgb = mix(baseRgb, vec3(1.0, 0.98, 1.0), wrap);
             } else {
                 // Glossy candy / sugar crystal sparkle
-                float sparkle = hash21(floor(vWorldPos.xz * 7.0 + vWorldPos.y * 5.0));
-                if (sparkle > 0.965) {
-                    emissiveBoost = 0.34;
+                float sparkle = hash21(floor(vWorldPos.xz * 7.5 + vWorldPos.y * 5.5));
+                if (sparkle > 0.96) {
+                    emissiveBoost = 0.42;
                 }
+                localGloss = max(localGloss, 0.78);
             }
 
             vec3 H = normalize(L + V);
 
             // Crevice / ground-facing ambient occlusion approximation
-            float ao = clamp(0.68 + 0.32 * (N.y * 0.5 + 0.5), 0.58, 1.0);
+            float ao = clamp(0.66 + 0.34 * (N.y * 0.5 + 0.5), 0.56, 1.0);
 
             // Hemisphere candy ambient (pastel sky top + warm cream bounce bottom)
             float hemi = N.y * 0.5 + 0.5;
-            vec3 ambient = mix(vec3(0.42, 0.32, 0.46), vec3(0.86, 0.80, 0.92), hemi) * ao;
+            vec3 ambient = mix(vec3(0.44, 0.34, 0.48), vec3(0.90, 0.84, 0.96), hemi) * ao;
 
-            // Soft wrapped diffuse lighting tinted by regional sun color
-            float diff = max(dot(N, L) * 0.66 + 0.34, 0.0);
+            // Soft wrapped diffuse lighting + cool opposite fill bounce
+            float diff = max(dot(N, L) * 0.68 + 0.32, 0.0);
+            vec3 fillDir = normalize(vec3(-L.x, 0.35, -L.z));
+            float fillDiff = max(dot(N, fillDir), 0.0) * 0.18;
 
-            // Glossy clearcoat specular
-            float specPow = mix(12.0, 92.0, localGloss);
-            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.16 + 0.72 * localGloss);
+            // Dual-lobe candy clearcoat specular (broad glaze + tight sun glint)
+            float specPow = mix(14.0, 112.0, localGloss);
+            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.18 + 0.78 * localGloss);
+            float coatSpec = pow(max(dot(N, H), 0.0), 180.0) * (0.28 * localGloss);
 
-            // Soft candy rim highlight
-            float rim = pow(1.0 - max(dot(N, V), 0.0), 3.2) * 0.22;
+            // Vivid candy rim highlight
+            float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * 0.28;
 
             if (uRainbowTime > 0.0) {
                 vec3 rainbow = 0.5 + 0.5 * cos(uRainbowTime * 4.5 + vWorldPos.xyz * 0.6 + vec3(0.0, 2.09, 4.18));
                 baseRgb = mix(baseRgb, rainbow, 0.58);
             }
 
-            vec3 lit = baseRgb * (ambient * 0.55 + uSunColor * diff * 0.74 + emissiveBoost)
-                     + uSunColor * spec
-                     + vec3(1.0, 0.86, 0.96) * rim;
+            vec3 lit = baseRgb * (ambient * 0.58 + uSunColor * diff * 0.78 + vec3(0.75, 0.85, 1.0) * fillDiff + emissiveBoost)
+                     + uSunColor * (spec + coatSpec)
+                     + vec3(1.0, 0.88, 0.97) * rim;
+
+            // Gentle ACES-like saturation/highlight shoulder roll-off
+            lit = (lit * (2.51 * lit + 0.03)) / (lit * (2.43 * lit + 0.59) + 0.14);
+            lit = clamp(lit * 1.06, 0.0, 1.0);
 
             // Distance atmospheric pastel fog
             float dist = length(uCameraPos - vWorldPos);

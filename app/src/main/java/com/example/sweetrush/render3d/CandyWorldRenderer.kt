@@ -23,6 +23,8 @@ import com.example.sweetrush.track.OpenWorldKingdom
 import com.example.sweetrush.track.SurfaceType
 import com.example.sweetrush.track.TerrainChunkData
 import com.example.sweetrush.track.TrackGenerator
+import com.example.sweetrush.track.TrackNode
+import com.example.sweetrush.track.Vec3
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
@@ -30,6 +32,7 @@ import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -105,9 +108,43 @@ data class RaceHudSnapshot(
     val trackOutline: List<Pair<Float, Float>> = emptyList()
 )
 
+data class InterpolatedTrackPose(
+    val center: Vec3,
+    val forward: Vec3,
+    val yawRad: Float,
+    val curvature: Float
+)
+
 class CandyWorldRenderer(
     private val onRaceStep: (RaceHudSnapshot, List<RaceEvent>) -> Unit
 ) : GLSurfaceView.Renderer {
+
+    companion object {
+        fun interpolateTrackPose(nodes: List<TrackNode>, progress: Float): InterpolatedTrackPose {
+            if (nodes.isEmpty()) {
+                return InterpolatedTrackPose(
+                    center = Vec3(0f, 0f, 0f),
+                    forward = Vec3(0f, 0f, 1f),
+                    yawRad = 0f,
+                    curvature = 0f
+                )
+            }
+            val n = nodes.size
+            val wrapped = ((progress % 1f) + 1f) % 1f
+            val exact = wrapped * n
+            val idx0 = floor(exact).toInt().mod(n)
+            val idx1 = (idx0 + 1) % n
+            val t = exact - floor(exact)
+
+            val n0 = nodes[idx0]
+            val n1 = nodes[idx1]
+            val center = n0.center * (1f - t) + n1.center * t
+            val forward = (n0.forward * (1f - t) + n1.forward * t).normalized()
+            val curvature = n0.curvature * (1f - t) + n1.curvature * t
+            val yaw = atan2(forward.x, forward.z)
+            return InterpolatedTrackPose(center, forward, yaw, curvature)
+        }
+    }
 
     @Volatile var sceneMode: RenderSceneMode = RenderSceneMode.MENU_KINGDOM
     @Volatile var graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH
@@ -339,24 +376,23 @@ class CandyWorldRenderer(
 
         drawSky(spec.skyTopHex, spec.skyBottomHex)
 
-        val flyProgress = (totalTimeSec * 0.025f) % 1.0f
-        val nodeIdx = ((flyProgress * track.nodes.size).toInt()) % track.nodes.size
-        val node = track.nodes[nodeIdx]
-        val yaw = atan2(node.forward.x, node.forward.z)
+        val flyProgress = (totalTimeSec * 0.018f) % 1.0f
+        val pose = interpolateTrackPose(track.nodes, flyProgress)
+        val yaw = pose.yawRad
 
-        // Hero showcase sweep around the cruising kart so center screen showcases 3D kart & world
-        val heroOrbit = sin(totalTimeSec * 0.35f) * 0.55f + 0.38f
+        // Hero showcase sweep around the cruising kart so center screen showcases 3D kart & world smoothly
+        val heroOrbit = sin(totalTimeSec * 0.30f) * 0.50f + 0.38f
         val camAngle = yaw + heroOrbit
-        val camDist = 6.4f
-        camX = node.center.x - sin(camAngle) * camDist
-        camY = node.center.y + 2.65f + sin(totalTimeSec * 0.7f) * 0.25f
-        camZ = node.center.z - cos(camAngle) * camDist
+        val camDist = 6.5f
+        camX = pose.center.x - sin(camAngle) * camDist
+        camY = pose.center.y + 2.60f + sin(totalTimeSec * 0.65f) * 0.18f
+        camZ = pose.center.z - cos(camAngle) * camDist
 
         Matrix.perspectiveM(projMat, 0, 52f, aspectRatio, 0.4f, 460f)
         Matrix.setLookAtM(
             viewMat, 0,
             camX, camY, camZ,
-            node.center.x + node.forward.x * 1.4f, node.center.y + 1.05f, node.center.z + node.forward.z * 1.4f,
+            pose.center.x + pose.forward.x * 1.4f, pose.center.y + 1.05f, pose.center.z + pose.forward.z * 1.4f,
             0f, 1f, 0f
         )
         Matrix.multiplyMM(vpMat, 0, projMat, 0, viewMat, 0)
@@ -366,7 +402,7 @@ class CandyWorldRenderer(
         drawIdentityMesh(groundMesh, gloss = 0.25f)
         drawIdentityMesh(trackMesh, gloss = 0.65f)
         drawDecorationsList(track.decorations, camX, camZ)
-        drawSkyClouds(node.center.x, node.center.z)
+        drawSkyClouds(pose.center.x, pose.center.z)
 
         val kartSpec = CatalogData.kartById(showroomKartId)
         val racerSpec = CatalogData.racerById(showroomRacerId)
@@ -374,15 +410,15 @@ class CandyWorldRenderer(
             kart = kartSpec,
             racer = racerSpec,
             custom = showroomCustom,
-            x = node.center.x,
-            y = node.center.y,
-            z = node.center.z,
-            groundY = node.center.y,
+            x = pose.center.x,
+            y = pose.center.y,
+            z = pose.center.z,
+            groundY = pose.center.y,
             yawRad = yaw,
-            rollRad = node.curvature * 0.15f,
+            rollRad = pose.curvature * 0.14f,
             pitchRad = 0f,
-            wheelSpin = totalTimeSec * 14f,
-            steerVis = (node.curvature * 2.2f).coerceIn(-0.4f, 0.4f),
+            wheelSpin = totalTimeSec * 15f,
+            steerVis = (pose.curvature * 2.1f).coerceIn(-0.4f, 0.4f),
             wheelYOffsets = floatArrayOf(0f, 0f, 0f, 0f),
             isBraking = false,
             shieldActive = false,

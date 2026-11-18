@@ -725,48 +725,63 @@ object MeshFactory {
                 acc.addSphere(0f, 1.92f, 0f, 0.28f, 0.22f, 0.28f, 5, 8, 0xFFFFEA00, matType = CandyMaterials.MAT_EMISSIVE)
             }
             DecoType.GINGERBREAD_HOUSE -> {
-                acc.addBox(0f, 2.4f, 0f, 6.2f, 4.8f, 5.6f, 0xFFB86F3A, matType = CandyMaterials.MAT_WAFER)
-                acc.addCylinder(0f, 4.8f, 0f, 4.9f, 0.2f, 3.2f, 4, 0xFFFFF8FF, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addBox(0f, 4.85f, 0f, 6.6f, 0.35f, 6.0f, 0xFFFF9800, matType = CandyMaterials.MAT_CARAMEL)
-                acc.addBox(0f, 1.4f, 2.85f, 1.5f, 2.6f, 0.25f, c2)
-                acc.addBox(-1.8f, 2.7f, 2.85f, 1.1f, 1.1f, 0.2f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
-                acc.addBox(1.8f, 2.7f, 2.85f, 1.1f, 1.1f, 0.2f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                // Stone/wafer foundation + two-story spiced gingerbread walls + frosted eaves + glowing candy windows
+                acc.addBox(0f, 0.35f, 0f, 6.8f, 0.7f, 6.2f, 0xFF6D3B22, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 2.8f, 0f, 6.2f, 4.4f, 5.6f, 0xFFB86F3A, matType = CandyMaterials.MAT_WAFER)
+                acc.addCylinder(0f, 5.0f, 0f, 5.2f, 0.2f, 3.6f, 4, 0xFFFFF8FF, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(0f, 5.0f, 0f, 6.7f, 0.42f, 6.1f, 0xFFFF9800, matType = CandyMaterials.MAT_CARAMEL)
+                // Chimney with marshmallow puff
+                acc.addBox(2.0f, 6.8f, -1.2f, 0.95f, 2.2f, 0.95f, 0xFF8B4726, matType = CandyMaterials.MAT_WAFER)
+                acc.addSphere(2.0f, 8.3f, -1.2f, 0.75f, 0.55f, 0.75f, 5, 8, 0xFFFFF8FF, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Door + frosted awning + multi-facade windows
+                acc.addBox(0f, 1.6f, 2.86f, 1.6f, 2.6f, 0.25f, c2)
+                acc.addBox(0f, 3.05f, 3.15f, 2.6f, 0.35f, 1.0f, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(-1.9f, 2.9f, 2.86f, 1.15f, 1.2f, 0.2f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(1.9f, 2.9f, 2.86f, 1.15f, 1.2f, 0.2f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(-3.14f, 2.9f, 0f, 0.16f, 1.2f, 1.8f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(3.14f, 2.9f, 0f, 0.16f, 1.2f, 1.8f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
             }
             DecoType.CUPCAKE_TOWER -> {
-                acc.addCylinder(0f, 0f, 0f, 3.2f, 4.1f, 5.4f, 14, c1, 0xFFFFE0EC, matType = CandyMaterials.MAT_WAFER)
-                acc.addSphere(0f, 6.4f, 0f, 4.2f, 2.6f, 4.2f, 7, 12, 0xFFFFF8FF, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addSphere(0f, 9.2f, 0f, 1.0f, 1.0f, 1.0f, 6, 8, 0xFFFF1744, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, 0f, 0f, 3.8f, 4.4f, 5.8f, 14, c1, 0xFFFFE0EC, matType = CandyMaterials.MAT_WAFER)
+                acc.addCylinder(0f, 5.6f, 0f, 4.6f, 4.2f, 1.6f, 14, 0xFFFFF8FF, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, 7.6f, 0f, 4.1f, 2.6f, 4.1f, 7, 12, 0xFFFFF8FF, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, 10.6f, 0f, 1.05f, 1.05f, 1.05f, 6, 8, 0xFFFF1744, matType = CandyMaterials.MAT_CARAMEL)
+                // Illuminated arched shopfront
+                acc.addBox(0f, 1.6f, 3.8f, 2.2f, 2.8f, 0.4f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
             }
             DecoType.COOKIE_HOUSE -> {
-                acc.addBox(0f, 2.0f, 0f, 5.8f, 4.0f, 5.8f, 0xFFD99B52, matType = CandyMaterials.MAT_WAFER)
-                acc.addBox(0f, 4.2f, 0f, 6.4f, 0.8f, 6.4f, 0xFF4E2A1E, matType = CandyMaterials.MAT_CARAMEL)
-                acc.addSphere(0f, 2.0f, 2.95f, 0.9f, 0.9f, 0.3f, 5, 8, c1)
-                acc.addBox(-1.7f, 2.3f, 2.95f, 0.9f, 0.9f, 0.15f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(0f, 2.1f, 0f, 6.2f, 4.2f, 6.2f, 0xFFD99B52, matType = CandyMaterials.MAT_WAFER)
+                acc.addBox(0f, 4.4f, 0f, 6.8f, 0.95f, 6.8f, 0xFF4E2A1E, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addSphere(-1.8f, 4.9f, 1.6f, 0.55f, 0.35f, 0.55f, 4, 6, 0xFF3E1C10)
+                acc.addSphere(1.5f, 4.9f, -1.4f, 0.55f, 0.35f, 0.55f, 4, 6, 0xFF3E1C10)
+                acc.addSphere(0f, 2.1f, 3.15f, 1.0f, 1.0f, 0.3f, 5, 8, c1)
+                acc.addBox(-1.9f, 2.5f, 3.15f, 1.0f, 1.0f, 0.16f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(1.9f, 2.5f, 3.15f, 1.0f, 1.0f, 0.16f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
             }
             DecoType.CHOCOLATE_CASTLE -> {
-                acc.addBox(0f, 4.0f, 0f, 8.5f, 8.0f, 8.5f, 0xFF4A2518, matType = CandyMaterials.MAT_WAFER)
-                for (sx in listOf(-4.0f, 4.0f)) {
-                    for (sz in listOf(-4.0f, 4.0f)) {
-                        acc.addCylinder(sx, 0f, sz, 1.4f, 1.3f, 10.5f, 10, 0xFF6B3A26, matType = CandyMaterials.MAT_CARAMEL)
-                        acc.addCylinder(sx, 10.5f, sz, 1.7f, 0.1f, 2.6f, 10, c1)
+                acc.addBox(0f, 4.2f, 0f, 8.8f, 8.4f, 8.8f, 0xFF4A2518, matType = CandyMaterials.MAT_WAFER)
+                acc.addBox(0f, 2.4f, 4.46f, 3.0f, 4.2f, 0.25f, 0xFFFFB300, matType = CandyMaterials.MAT_CARAMEL)
+                for (sx in listOf(-4.1f, 4.1f)) {
+                    for (sz in listOf(-4.1f, 4.1f)) {
+                        acc.addCylinder(sx, 0f, sz, 1.45f, 1.3f, 11.2f, 10, 0xFF6B3A26, matType = CandyMaterials.MAT_CARAMEL)
+                        acc.addCylinder(sx, 11.2f, sz, 1.75f, 0.1f, 2.8f, 10, c1)
                     }
                 }
             }
             DecoType.DONUT_BUILDING -> {
-                acc.addCylinder(0f, 0f, 0f, 3.6f, 3.6f, 2.5f, 12, 0xFFF4B678, matType = CandyMaterials.MAT_WAFER)
-                acc.addTorus(0f, 4.8f, 0f, 2.8f, 1.25f, 16, 8, 0xFFF4B678, c1, verticalArch = true, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, 0f, 0f, 3.9f, 3.9f, 2.8f, 12, 0xFFF4B678, matType = CandyMaterials.MAT_WAFER)
+                acc.addBox(0f, 1.4f, 3.7f, 2.4f, 2.4f, 0.35f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addTorus(0f, 5.2f, 0f, 3.0f, 1.35f, 16, 8, 0xFFF4B678, c1, verticalArch = true, matType = CandyMaterials.MAT_CARAMEL)
             }
             DecoType.CANDY_FACTORY -> {
-                acc.addBox(0f, 3.2f, 0f, 10.5f, 6.4f, 7.6f, 0xFFB86F3A, matType = CandyMaterials.MAT_WAFER)
-                acc.addBox(0f, 6.7f, 0f, 11.2f, 0.9f, 8.2f, 0xFFFFF8FF, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Twin peppermint smokestacks
-                acc.addCylinder(-3.2f, 7.0f, -1.6f, 0.95f, 0.75f, 5.2f, 10, 0xFFFF2448, 0xFFFFFFFF)
-                acc.addCylinder(3.2f, 7.0f, -1.6f, 0.95f, 0.75f, 5.2f, 10, c1, 0xFFFFFFFF)
-                // Cotton candy steam puffs & glowing factory glass bay
-                acc.addSphere(-3.2f, 13.0f, -1.6f, 1.35f, 1.0f, 1.35f, 5, 8, 0xFFFFE0EC, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addSphere(3.2f, 13.4f, -1.6f, 1.35f, 1.0f, 1.35f, 5, 8, 0xFFE0FFF5, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addBox(0f, 3.2f, 3.88f, 7.2f, 2.2f, 0.2f, c2, matType = CandyMaterials.MAT_EMISSIVE)
-                acc.addBox(0f, 1.3f, 3.86f, 2.4f, 2.6f, 0.25f, 0xFF4E2A1E, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 3.4f, 0f, 11.0f, 6.8f, 8.0f, 0xFFB86F3A, matType = CandyMaterials.MAT_WAFER)
+                acc.addBox(0f, 7.0f, 0f, 11.8f, 1.0f, 8.6f, 0xFFFFF8FF, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addCylinder(-3.4f, 7.3f, -1.6f, 1.0f, 0.78f, 5.6f, 10, 0xFFFF2448, 0xFFFFFFFF)
+                acc.addCylinder(3.4f, 7.3f, -1.6f, 1.0f, 0.78f, 5.6f, 10, c1, 0xFFFFFFFF)
+                acc.addSphere(-3.4f, 13.7f, -1.6f, 1.45f, 1.05f, 1.45f, 5, 8, 0xFFFFE0EC, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(3.4f, 14.1f, -1.6f, 1.45f, 1.05f, 1.45f, 5, 8, 0xFFE0FFF5, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(0f, 3.4f, 4.08f, 7.6f, 2.3f, 0.2f, c2, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(0f, 1.3f, 4.06f, 2.6f, 2.6f, 0.25f, 0xFF4E2A1E, matType = CandyMaterials.MAT_CARAMEL)
             }
             DecoType.GUMMY_BEAR_STATUE -> {
                 acc.addSphere(0f, 2.6f, 0f, 2.1f, 2.6f, 1.7f, 7, 10, c1, matType = CandyMaterials.MAT_GUMMY)
@@ -824,7 +839,6 @@ object MeshFactory {
                 acc.addBox(0f, 9.5f, 0f, 24.0f, 0.28f, 0.45f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
             }
             DecoType.SPECTATOR_STAND -> {
-                // Tiered candy bleacher stand + seated spectators
                 acc.addBox(0f, 0.7f, 0f, 10f, 1.4f, 4.6f, 0xFF6A1B9A)
                 acc.addBox(0f, 1.9f, -0.9f, 10f, 1.2f, 2.8f, 0xFF8E24AA)
                 acc.addBox(0f, 3.0f, -1.7f, 10f, 1.0f, 1.4f, 0xFFAB47BC)
@@ -864,6 +878,53 @@ object MeshFactory {
                 acc.addBeveledBox(-0.9f, 0.65f, 0f, 1.8f, 0.68f, 0.34f, 0.92f, 0.92f, c1)
                 acc.addBeveledBox(0.9f, 0.65f, 0f, 1.8f, 0.68f, 0.34f, 0.92f, 0.92f, 0xFFFFFFFF)
                 acc.addBox(0f, 0.72f, 0.18f, 3.2f, 0.14f, 0.05f, c2, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            DecoType.ICE_CREAM_PARLOR -> {
+                // Waffle cone café base + striped canopy + giant twin ice cream scoop roof + neon parlor windows
+                acc.addBox(0f, 2.3f, 0f, 7.2f, 4.6f, 6.2f, 0xFFFFF0F6, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(0f, 4.7f, 0f, 7.8f, 0.7f, 6.8f, c1, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 3.1f, 3.45f, 6.4f, 0.55f, 1.2f, c2)
+                acc.addBox(0f, 1.5f, 3.15f, 2.2f, 2.6f, 0.2f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(-2.2f, 2.4f, 3.15f, 1.4f, 1.5f, 0.2f, 0xFF7BE8FF, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(2.2f, 2.4f, 3.15f, 1.4f, 1.5f, 0.2f, 0xFF7BE8FF, matType = CandyMaterials.MAT_EMISSIVE)
+                // Giant upside-down waffle cone & double scoop dome
+                acc.addSphere(0f, 6.6f, 0f, 2.7f, 2.2f, 2.7f, 7, 12, c1, 0xFFFFF8FF, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, 9.0f, 0f, 1.9f, 1.6f, 1.9f, 6, 10, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addCylinder(0f, 10.2f, 0f, 1.25f, 0.12f, 3.2f, 10, 0xFFD99B52, matType = CandyMaterials.MAT_WAFER)
+            }
+            DecoType.MACARON_TOWER -> {
+                // Multi-tiered pastel macaron boutique building with creamy filling rings & illuminated balcony
+                acc.addCylinder(0f, 0f, 0f, 4.4f, 4.4f, 2.0f, 16, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addCylinder(0f, 2.0f, 0f, 4.0f, 4.0f, 0.9f, 16, 0xFFFFF8FF, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, 2.9f, 0f, 3.8f, 3.8f, 2.2f, 16, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addCylinder(0f, 5.1f, 0f, 3.4f, 3.4f, 0.85f, 16, 0xFFFFF8FF, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, 5.95f, 0f, 3.1f, 3.1f, 2.0f, 16, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, 8.2f, 0f, 2.4f, 1.4f, 2.4f, 6, 12, 0xFFFFEB3B, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 1.3f, 4.28f, 2.0f, 2.2f, 0.35f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(0f, 4.0f, 3.72f, 2.4f, 1.0f, 0.25f, 0xFF80FFFF, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            DecoType.PEPPERMINT_LIGHTHOUSE -> {
+                // Tall candy-cane striped coastal & plaza landmark tower with glowing beacon lantern
+                acc.addCylinder(0f, 0f, 0f, 3.2f, 2.5f, 5.0f, 12, 0xFFFF2448, 0xFFFFFFFF)
+                acc.addCylinder(0f, 5.0f, 0f, 2.5f, 1.9f, 5.0f, 12, 0xFFFFFFFF, 0xFFFF2448)
+                acc.addCylinder(0f, 10.0f, 0f, 2.4f, 2.6f, 0.7f, 12, c1, matType = CandyMaterials.MAT_CHROME)
+                acc.addCylinder(0f, 10.7f, 0f, 1.55f, 1.55f, 2.1f, 12, 0xFFFFEA00, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addCylinder(0f, 12.8f, 0f, 2.0f, 0.1f, 2.4f, 12, c2, matType = CandyMaterials.MAT_CARAMEL)
+            }
+            DecoType.WAFFLE_SKYSCRAPER -> {
+                // Towering golden waffle high-rise with caramel trim, skybridge ribs & glowing neon windows
+                acc.addBox(0f, 6.5f, 0f, 7.6f, 13.0f, 7.6f, 0xFFD99B52, matType = CandyMaterials.MAT_WAFER)
+                acc.addBox(0f, 13.2f, 0f, 8.2f, 0.9f, 8.2f, c1, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 15.6f, 0f, 5.2f, 4.2f, 5.2f, 0xFFF4B678, matType = CandyMaterials.MAT_WAFER)
+                acc.addCylinder(0f, 17.7f, 0f, 0.45f, 0.12f, 3.8f, 8, c2, matType = CandyMaterials.MAT_EMISSIVE)
+                // Illuminated window bands on all 4 facades
+                for (floorY in listOf(3.0f, 6.5f, 10.0f)) {
+                    acc.addBox(0f, floorY, 3.86f, 5.8f, 1.35f, 0.14f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(0f, floorY, -3.86f, 5.8f, 1.35f, 0.14f, 0xFFFFF59D, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(3.86f, floorY, 0f, 0.14f, 1.35f, 5.8f, c2, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(-3.86f, floorY, 0f, 0.14f, 1.35f, 5.8f, c2, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                acc.addBox(0f, 1.4f, 3.90f, 2.8f, 2.6f, 0.22f, c1, matType = CandyMaterials.MAT_EMISSIVE)
             }
         }
         return acc.build()

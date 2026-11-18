@@ -30,7 +30,9 @@ import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.WheelDesign
 import com.example.sweetrush.model.WorldRegion
+import com.example.sweetrush.online.FriendRequestDoc
 import com.example.sweetrush.online.FriendRosterEntry
+import com.example.sweetrush.online.GameInviteDoc
 import com.example.sweetrush.online.OnlineMultiplayerRepository
 import com.example.sweetrush.online.OnlineRoomDoc
 import com.example.sweetrush.online.OperationType
@@ -148,6 +150,30 @@ class SweetRushViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
+    val friendRequests: StateFlow<List<FriendRequestDoc>> = onlineRepo.observeFriendRequests(currentUserId)
+        .catch { e ->
+            val fsEx = findFirestoreException(e)
+            if (fsEx != null) {
+                handleFirestoreError(fsEx, OperationType.LIST, "friendRequests")
+                emit(emptyList())
+            } else {
+                throw e
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
+    val gameInvites: StateFlow<List<GameInviteDoc>> = onlineRepo.observeGameInvites(currentUserId)
+        .catch { e ->
+            val fsEx = findFirestoreException(e)
+            if (fsEx != null) {
+                handleFirestoreError(fsEx, OperationType.LIST, "gameInvites")
+                emit(emptyList())
+            } else {
+                throw e
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
     val onlineRoom: StateFlow<OnlineRoomDoc?> = _activeRoomCode
         .flatMapLatest { code ->
             if (code == null) flowOf(null)
@@ -203,6 +229,7 @@ class SweetRushViewModel(
     private var onlineMatchStartedForStatus = false
     private var joinedRoomEpochMs = System.currentTimeMillis()
     private val playedVoiceIds = HashSet<String>()
+    private val syncedAcceptedReqIds = HashSet<String>()
     private var lastSyncedMembersSignature: List<String> = emptyList()
     private var telemetryLoopJob: Job? = null
     private var cloudSyncDebounceJob: Job? = null
@@ -287,6 +314,21 @@ class SweetRushViewModel(
                     launchOnlineSessionFromRoom(room, roomPlayers.value)
                 } else if (room.status == "WAITING") {
                     onlineMatchStartedForStatus = false
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            friendRequests.collect { requests ->
+                for (req in requests) {
+                    if (req.fromUid == currentUserId &&
+                        req.status == "ACCEPTED" &&
+                        syncedAcceptedReqIds.add(req.id)
+                    ) {
+                        onlineRepo.syncAcceptedFriendOnSender(currentUserId, req)
+                        audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                        flashStatus("${req.toName} accepted your friend request!")
+                    }
                 }
             }
         }
@@ -399,17 +441,42 @@ class SweetRushViewModel(
     // ONLINE MULTIPLAYER, SQUADS (1 / 2 / 4), FRIENDS & VOICE/TEXT COMMS
     // ===================================================================
 
-    fun addFriendByCode(code: String) {
+    fun sendFriendRequestByCode(code: String) {
         viewModelScope.launch {
             _isOnlineBusy.value = true
-            val res = onlineRepo.addFriendByCode(currentUserId, code)
+            val res = onlineRepo.sendFriendRequestByCode(
+                uid = currentUserId,
+                displayName = userDisplayName,
+                profile = _profile.value,
+                rawCode = code
+            )
             _isOnlineBusy.value = false
-            res.onSuccess { friend ->
+            res.onSuccess { req ->
                 audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
-                flashStatus("Added ${friend.displayName} (${friend.friendCode})!")
+                flashStatus("Friend request sent to ${req.toName} (${req.toFriendCode})!")
             }.onFailure { err ->
-                flashStatus(err.message ?: "Could not add friend")
+                flashStatus(err.message ?: "Could not send friend request")
             }
+        }
+    }
+
+    fun respondToFriendRequest(request: FriendRequestDoc, accept: Boolean) {
+        viewModelScope.launch {
+            _isOnlineBusy.value = true
+            val res = onlineRepo.respondToFriendRequest(currentUserId, request, accept)
+            _isOnlineBusy.value = false
+            res.onSuccess {
+                audioEngine.playSfx(if (accept) SoundEffect.POWERUP_PICKUP else SoundEffect.UI_CLICK)
+                flashStatus(if (accept) "${request.fromName} is now your friend!" else "Request declined")
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Could not respond to request")
+            }
+        }
+    }
+
+    fun dismissFriendRequest(requestId: String) {
+        viewModelScope.launch {
+            onlineRepo.deleteFriendRequest(currentUserId, requestId)
         }
     }
 
@@ -419,7 +486,77 @@ class SweetRushViewModel(
         }
     }
 
-    fun createOnlineRoom(teamSize: Int = 2, mode: GameMode = GameMode.QUICK_RACE, trackId: TrackId = _selectedTrack.value, fillWithAi: Boolean = true) {
+    fun inviteFriendToRoom(friend: FriendRosterEntry) {
+        val room = onlineRoom.value
+        if (room == null) {
+            flashStatus("Create or join a squad room first!")
+            return
+        }
+        viewModelScope.launch {
+            val res = onlineRepo.sendGameInvite(
+                uid = currentUserId,
+                senderName = userDisplayName,
+                friendUid = friend.friendUid,
+                room = room
+            )
+            res.onSuccess {
+                audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                flashStatus("Invited ${friend.displayName} to #${room.roomCode}!")
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Could not invite ${friend.displayName}")
+            }
+        }
+    }
+
+    fun respondToGameInvite(invite: GameInviteDoc, accept: Boolean) {
+        viewModelScope.launch {
+            onlineRepo.respondToGameInvite(currentUserId, invite, accept)
+            if (accept) {
+                joinOnlineRoom(invite.roomCode)
+                navigateTo(GameScreen.ONLINE_LOBBY)
+            }
+        }
+    }
+
+    fun enterGatheringHub(launchDirectWorld: Boolean = false) {
+        viewModelScope.launch {
+            _isOnlineBusy.value = true
+            val prevCode = _activeRoomCode.value
+            val prevRoom = onlineRoom.value
+            if (prevCode != null && prevRoom != null && !prevRoom.isGatheringHub()) {
+                onlineRepo.leaveRoom(prevCode, currentUserId, prevRoom.hostUid == currentUserId)
+            }
+            val res = onlineRepo.enterGatheringHub(
+                uid = currentUserId,
+                displayName = userDisplayName,
+                profile = _profile.value
+            )
+            _isOnlineBusy.value = false
+            res.onSuccess { room ->
+                joinedRoomEpochMs = System.currentTimeMillis()
+                lastSyncedMembersSignature = room.memberUids
+                onlineMatchStartedForStatus = false
+                _activeRoomCode.value = room.roomCode
+                audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                if (launchDirectWorld && room.hostUid == currentUserId) {
+                    onlineRepo.updateRoomStatus(room.roomCode, "RACING")
+                } else {
+                    navigateTo(GameScreen.ONLINE_LOBBY)
+                    flashStatus("Entered Gathering Hub #${room.roomCode}!")
+                }
+            }.onFailure { err ->
+                flashStatus(err.message ?: "Could not enter Gathering Hub")
+            }
+        }
+    }
+
+    fun createOnlineRoom(
+        teamSize: Int = 2,
+        mode: GameMode = GameMode.QUICK_RACE,
+        trackId: TrackId = _selectedTrack.value,
+        fillWithAi: Boolean = true,
+        isGatheringHub: Boolean = false
+    ) {
         viewModelScope.launch {
             _isOnlineBusy.value = true
             val prevCode = _activeRoomCode.value
@@ -434,7 +571,8 @@ class SweetRushViewModel(
                 teamSize = teamSize,
                 mode = mode,
                 trackId = trackId,
-                fillWithAi = fillWithAi
+                fillWithAi = fillWithAi,
+                isGatheringHub = isGatheringHub
             )
             _isOnlineBusy.value = false
             res.onSuccess { room ->
@@ -481,6 +619,7 @@ class SweetRushViewModel(
     fun leaveOnlineRoom(navigateBackToMenu: Boolean = false) {
         val code = _activeRoomCode.value
         val room = onlineRoom.value
+        stopLiveMicIfActive()
         stopTelemetryLoop()
         _activeRoomCode.value = null
         onlineMatchStartedForStatus = false
@@ -495,11 +634,17 @@ class SweetRushViewModel(
         }
     }
 
-    fun updateRoomConfiguration(mode: GameMode, trackId: TrackId, teamSize: Int, fillWithAi: Boolean) {
+    fun updateRoomConfiguration(
+        mode: GameMode,
+        trackId: TrackId,
+        teamSize: Int,
+        fillWithAi: Boolean,
+        isGatheringHub: Boolean = false
+    ) {
         val room = onlineRoom.value ?: return
         if (room.hostUid != currentUserId) return
         viewModelScope.launch {
-            onlineRepo.updateRoomConfig(room.roomCode, mode, trackId, teamSize, fillWithAi)
+            onlineRepo.updateRoomConfig(room.roomCode, mode, trackId, teamSize, fillWithAi, isGatheringHub)
                 .onFailure { err -> flashStatus(err.message ?: "Could not update room") }
         }
     }
@@ -580,54 +725,50 @@ class SweetRushViewModel(
         }
     }
 
-    fun startVoiceRecording(teamOnly: Boolean) {
+    fun toggleLiveMic(teamOnly: Boolean) {
+        if (voiceChatEngine.isMicActive) {
+            stopLiveMicIfActive()
+            audioEngine.playSfx(SoundEffect.UI_CLICK)
+            flashStatus("Mic OFF")
+            return
+        }
         if (!voiceChatEngine.hasRecordPermission()) {
             flashStatus("Microphone permission needed for Voice Chat")
             return
         }
-        val room = onlineRoom.value ?: return
-        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
-        _isRecordingVoice.value = true
-        voiceChatEngine.startRecording { b64, durMs ->
-            _isRecordingVoice.value = false
+        val room = onlineRoom.value
+        if (room == null) {
+            flashStatus("Join an online room or Gathering Hub to talk")
+            return
+        }
+        val started = voiceChatEngine.startContinuousMic { b64, durMs ->
+            val activeRoom = onlineRoom.value ?: return@startContinuousMic
+            val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
             viewModelScope.launch {
                 onlineRepo.sendMessage(
-                    roomCode = room.roomCode,
+                    roomCode = activeRoom.roomCode,
                     uid = currentUserId,
                     senderName = userDisplayName,
                     teamIndex = localTeam,
                     targetTeamOnly = teamOnly,
                     msgType = "VOICE",
-                    text = "Voice (${(durMs / 1000f).let { String.format("%.1fs", it) }})",
+                    text = "Voice (${String.format("%.1fs", durMs / 1000f)})",
                     audioB64 = b64,
                     durationMs = durMs,
-                    memberUids = room.memberUids
+                    memberUids = activeRoom.memberUids
                 )
             }
         }
+        _isRecordingVoice.value = started
+        if (started) {
+            audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+            flashStatus("Mic ON — stays open until turned OFF")
+        }
     }
 
-    fun stopAndSendVoiceMessage(teamOnly: Boolean) {
-        val room = onlineRoom.value
-        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+    private fun stopLiveMicIfActive() {
+        voiceChatEngine.stopContinuousMic()
         _isRecordingVoice.value = false
-        viewModelScope.launch {
-            val encoded = voiceChatEngine.stopRecordingAndEncode() ?: return@launch
-            if (room == null) return@launch
-            onlineRepo.sendMessage(
-                roomCode = room.roomCode,
-                uid = currentUserId,
-                senderName = userDisplayName,
-                teamIndex = localTeam,
-                targetTeamOnly = teamOnly,
-                msgType = "VOICE",
-                text = "Voice (${String.format("%.1fs", encoded.second / 1000f)})",
-                audioB64 = encoded.first,
-                durationMs = encoded.second,
-                memberUids = room.memberUids
-            )
-            audioEngine.playSfx(SoundEffect.UI_CLICK)
-        }
     }
 
     fun toggleVoiceMute() {
@@ -1357,6 +1498,7 @@ class SweetRushViewModel(
     }
 
     suspend fun onPreSignOutCleanup() {
+        stopLiveMicIfActive()
         stopTelemetryLoop()
         val code = _activeRoomCode.value
         val room = onlineRoom.value
@@ -1368,6 +1510,7 @@ class SweetRushViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        stopLiveMicIfActive()
         stopTelemetryLoop()
         cloudSyncDebounceJob?.cancel()
         audioEngine.release()

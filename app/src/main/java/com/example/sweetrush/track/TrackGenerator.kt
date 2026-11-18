@@ -49,7 +49,11 @@ enum class DecoType {
     ANIMATED_BILLBOARD,
     CANDY_BENCH,
     ROAD_SIGN,
-    CANDY_BARRIER
+    CANDY_BARRIER,
+    ICE_CREAM_PARLOR,
+    MACARON_TOWER,
+    PEPPERMINT_LIGHTHOUSE,
+    WAFFLE_SKYSCRAPER
 }
 
 enum class SurfaceType(val displayName: String, val gripMultiplier: Float) {

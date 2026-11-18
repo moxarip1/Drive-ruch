@@ -73,7 +73,7 @@
         "roomCode": { "type": "string", "description": "Short join code." },
         "roomName": { "type": "string", "description": "Lobby title." },
         "status": { "type": "string", "enum": ["WAITING", "COUNTDOWN", "RACING", "FINISHED"], "description": "Lifecycle status." },
-        "mode": { "type": "string", "enum": ["QUICK_RACE", "FREE_ROAM"], "description": "Online game mode." },
+        "mode": { "type": "string", "enum": ["QUICK_RACE", "FREE_ROAM", "GATHERING_HUB"], "description": "Online game mode." },
         "trackId": { "type": "string", "enum": ["PEPPERMINT_PLAZA", "CUPCAKE_COAST", "CHOCOLATE_VOLCANO", "GUMDROP_GARDEN"], "description": "Selected track ID." },
         "teamSize": { "type": "integer", "description": "Squad size per team: 1, 2, or 4." },
         "maxPlayers": { "type": "integer", "description": "Maximum human players in room (2..8)." },
@@ -85,6 +85,57 @@
       "required": [
         "hostUid", "roomCode", "roomName", "status", "mode", "trackId",
         "teamSize", "maxPlayers", "fillWithAi", "memberUids", "createdAt", "updatedAt"
+      ]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "PUBG-style friend request sent by Friend ID requiring recipient acceptance before mutual friendship.",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string", "description": "Sender Firebase Auth UID." },
+        "fromName": { "type": "string", "description": "Sender display name." },
+        "fromFriendCode": { "type": "string", "description": "Sender friend code." },
+        "fromKartId": { "type": "string", "description": "Sender active kart ID." },
+        "fromRacerId": { "type": "string", "description": "Sender active racer ID." },
+        "fromLevel": { "type": "integer", "description": "Sender racer level." },
+        "toUid": { "type": "string", "description": "Recipient Firebase Auth UID." },
+        "toName": { "type": "string", "description": "Recipient display name." },
+        "toFriendCode": { "type": "string", "description": "Recipient friend code." },
+        "toKartId": { "type": "string", "description": "Recipient active kart ID." },
+        "toRacerId": { "type": "string", "description": "Recipient active racer ID." },
+        "toLevel": { "type": "integer", "description": "Recipient racer level." },
+        "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "DECLINED"], "description": "Request approval status." },
+        "participantUids": { "type": "array", "description": "Both [fromUid, toUid] for query filtering." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "fromUid", "fromName", "fromFriendCode", "fromKartId", "fromRacerId", "fromLevel",
+        "toUid", "toName", "toFriendCode", "toKartId", "toRacerId", "toLevel",
+        "status", "participantUids", "createdAt", "updatedAt"
+      ]
+    },
+    "GameInvite": {
+      "title": "GameInvite",
+      "description": "Real-time squad or Gathering Hub invitation sent to an accepted friend.",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string", "description": "Inviter Firebase Auth UID." },
+        "fromName": { "type": "string", "description": "Inviter display name." },
+        "toUid": { "type": "string", "description": "Invited friend Firebase Auth UID." },
+        "roomCode": { "type": "string", "description": "Target room code to join." },
+        "roomName": { "type": "string", "description": "Target room title." },
+        "mode": { "type": "string", "enum": ["QUICK_RACE", "FREE_ROAM", "GATHERING_HUB"], "description": "Target room mode." },
+        "trackId": { "type": "string", "enum": ["PEPPERMINT_PLAZA", "CUPCAKE_COAST", "CHOCOLATE_VOLCANO", "GUMDROP_GARDEN"], "description": "Target track." },
+        "teamSize": { "type": "integer", "description": "Squad team size: 1, 2, or 4." },
+        "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "DECLINED"], "description": "Invitation status." },
+        "participantUids": { "type": "array", "description": "Both [fromUid, toUid] for query filtering." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "fromUid", "fromName", "toUid", "roomCode", "roomName", "mode",
+        "trackId", "teamSize", "status", "participantUids", "createdAt", "updatedAt"
       ]
     },
     "RoomPlayer": {
@@ -127,7 +178,7 @@
     },
     "RoomMessage": {
       "title": "RoomMessage",
-      "description": "Real-time text, quick-radio, or push-to-talk audio message inside a multiplayer room.",
+      "description": "Real-time text, quick-radio, or continuous voice audio message inside a multiplayer room.",
       "type": "object",
       "properties": {
         "senderUid": { "type": "string", "description": "Sender Firebase Auth UID." },
@@ -155,15 +206,23 @@
     },
     "/users/{userId}/friends/{friendUid}": {
       "schema": { "$ref": "#/entities/FriendEntry" },
-      "description": "User-scoped friends roster."
+      "description": "User-scoped accepted friends roster."
     },
     "/racerDirectory/{friendCode}": {
       "schema": { "$ref": "#/entities/RacerDirectoryEntry" },
       "description": "Non-PII friend-code directory for finding friends by invite code."
     },
+    "/friendRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/FriendRequest" },
+      "description": "Two-party PUBG-style friend requests requiring recipient approval."
+    },
+    "/gameInvites/{inviteId}": {
+      "schema": { "$ref": "#/entities/GameInvite" },
+      "description": "Real-time squad and Gathering Hub invitations between players."
+    },
     "/rooms/{roomId}": {
       "schema": { "$ref": "#/entities/OnlineRoom" },
-      "description": "Multiplayer rooms supporting teams of 1, 2, or 4."
+      "description": "Multiplayer rooms and Gathering Hubs supporting teams of 1, 2, or 4."
     },
     "/rooms/{roomId}/players/{playerUid}": {
       "schema": { "$ref": "#/entities/RoomPlayer" },
@@ -171,7 +230,7 @@
     },
     "/rooms/{roomId}/messages/{messageId}": {
       "schema": { "$ref": "#/entities/RoomMessage" },
-      "description": "Real-time text, quick comms, and push-to-talk voice clips inside a room."
+      "description": "Real-time text, quick comms, and open-mic voice clips inside a room."
     }
   }
 }

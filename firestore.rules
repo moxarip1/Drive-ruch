@@ -54,13 +54,47 @@ service cloud.firestore {
              data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 16 &&
              data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 40 &&
              data.status in ['WAITING', 'COUNTDOWN', 'RACING', 'FINISHED'] &&
-             data.mode in ['QUICK_RACE', 'FREE_ROAM'] &&
+             data.mode in ['QUICK_RACE', 'FREE_ROAM', 'GATHERING_HUB'] &&
              data.trackId in ['PEPPERMINT_PLAZA', 'CUPCAKE_COAST', 'CHOCOLATE_VOLCANO', 'GUMDROP_GARDEN'] &&
              data.teamSize in [1, 2, 4] &&
              data.maxPlayers is int && data.maxPlayers >= 2 && data.maxPlayers <= 8 &&
              data.fillWithAi is bool &&
              data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 8 &&
              data.memberUids[0] is string;
+    }
+
+    function isValidFriendRequest(data) {
+      return data.fromUid is string && data.fromUid.size() >= 1 && data.fromUid.size() <= 128 &&
+             data.fromName is string && data.fromName.size() >= 1 && data.fromName.size() <= 40 &&
+             data.fromFriendCode is string && data.fromFriendCode.size() >= 4 && data.fromFriendCode.size() <= 16 &&
+             data.fromKartId is string && data.fromKartId.size() >= 1 && data.fromKartId.size() <= 48 &&
+             data.fromRacerId is string && data.fromRacerId.size() >= 1 && data.fromRacerId.size() <= 48 &&
+             data.fromLevel is int && data.fromLevel >= 1 && data.fromLevel <= 999 &&
+             data.toUid is string && data.toUid.size() >= 1 && data.toUid.size() <= 128 &&
+             data.toUid != data.fromUid &&
+             data.toName is string && data.toName.size() >= 1 && data.toName.size() <= 40 &&
+             data.toFriendCode is string && data.toFriendCode.size() >= 4 && data.toFriendCode.size() <= 16 &&
+             data.toKartId is string && data.toKartId.size() >= 1 && data.toKartId.size() <= 48 &&
+             data.toRacerId is string && data.toRacerId.size() >= 1 && data.toRacerId.size() <= 48 &&
+             data.toLevel is int && data.toLevel >= 1 && data.toLevel <= 999 &&
+             data.status in ['PENDING', 'ACCEPTED', 'DECLINED'] &&
+             data.participantUids is list && data.participantUids.size() == 2 &&
+             data.fromUid in data.participantUids && data.toUid in data.participantUids;
+    }
+
+    function isValidGameInvite(data) {
+      return data.fromUid is string && data.fromUid.size() >= 1 && data.fromUid.size() <= 128 &&
+             data.fromName is string && data.fromName.size() >= 1 && data.fromName.size() <= 40 &&
+             data.toUid is string && data.toUid.size() >= 1 && data.toUid.size() <= 128 &&
+             data.toUid != data.fromUid &&
+             data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 16 &&
+             data.roomName is string && data.roomName.size() >= 1 && data.roomName.size() <= 40 &&
+             data.mode in ['QUICK_RACE', 'FREE_ROAM', 'GATHERING_HUB'] &&
+             data.trackId in ['PEPPERMINT_PLAZA', 'CUPCAKE_COAST', 'CHOCOLATE_VOLCANO', 'GUMDROP_GARDEN'] &&
+             data.teamSize in [1, 2, 4] &&
+             data.status in ['PENDING', 'ACCEPTED', 'DECLINED'] &&
+             data.participantUids is list && data.participantUids.size() == 2 &&
+             data.fromUid in data.participantUids && data.toUid in data.participantUids;
     }
 
     function isValidRoomPlayer(data) {
@@ -275,7 +309,9 @@ service cloud.firestore {
                          )
                        );
 
-      allow delete: if isSignedIn() && isValidId(roomId) && existing().hostUid == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(roomId) &&
+                       (existing().hostUid == request.auth.uid ||
+                        (existing().memberUids.size() <= 1 && request.auth.uid in existing().memberUids));
 
       // 3a. Live Squad Member Status & 3D Kart Telemetry
       match /players/{playerUid} {
@@ -352,6 +388,105 @@ service cloud.firestore {
 
         allow update, delete: if false;
       }
+    }
+
+    // 4. Two-Party PUBG-Style Friend Requests
+    match /friendRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) &&
+                    (resource == null || request.auth.uid in resource.data.participantUids);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(requestId) &&
+                       requestId == incoming().fromUid + '_' + incoming().toUid &&
+                       incoming().fromUid == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll([
+                         'fromUid', 'fromName', 'fromFriendCode', 'fromKartId', 'fromRacerId', 'fromLevel',
+                         'toUid', 'toName', 'toFriendCode', 'toKartId', 'toRacerId', 'toLevel',
+                         'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'fromUid', 'fromName', 'fromFriendCode', 'fromKartId', 'fromRacerId', 'fromLevel',
+                         'toUid', 'toName', 'toFriendCode', 'toKartId', 'toRacerId', 'toLevel',
+                         'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidFriendRequest(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(requestId) &&
+                       isValidFriendRequest(incoming()) &&
+                       incoming().fromUid == existing().fromUid &&
+                       incoming().toUid == existing().toUid &&
+                       incoming().participantUids == existing().participantUids &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         (
+                           existing().toUid == request.auth.uid &&
+                           incoming().status in ['ACCEPTED', 'DECLINED'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                         ) ||
+                         (
+                           existing().fromUid == request.auth.uid &&
+                           incoming().status == 'PENDING' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'fromName', 'fromFriendCode', 'fromKartId', 'fromRacerId', 'fromLevel', 'status', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(requestId) && request.auth.uid in existing().participantUids;
+    }
+
+    // 5. Real-Time Friend Game & Gathering Hub Invitations
+    match /gameInvites/{inviteId} {
+      allow get: if isSignedIn() && isValidId(inviteId) &&
+                    (resource == null || request.auth.uid in resource.data.participantUids);
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(inviteId) &&
+                       incoming().fromUid == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll([
+                         'fromUid', 'fromName', 'toUid', 'roomCode', 'roomName',
+                         'mode', 'trackId', 'teamSize', 'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'fromUid', 'fromName', 'toUid', 'roomCode', 'roomName',
+                         'mode', 'trackId', 'teamSize', 'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidGameInvite(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(inviteId) &&
+                       isValidGameInvite(incoming()) &&
+                       incoming().fromUid == existing().fromUid &&
+                       incoming().toUid == existing().toUid &&
+                       incoming().participantUids == existing().participantUids &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         (
+                           existing().toUid == request.auth.uid &&
+                           incoming().status in ['ACCEPTED', 'DECLINED'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                         ) ||
+                         (
+                           existing().fromUid == request.auth.uid &&
+                           incoming().status == 'PENDING' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'fromName', 'roomCode', 'roomName', 'mode', 'trackId', 'teamSize', 'status', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(inviteId) && request.auth.uid in existing().participantUids;
     }
   }
 }

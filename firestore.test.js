@@ -234,3 +234,135 @@ test("Rooms support teams of 1, 2, or 4, friend joining, telemetry, and voice/te
     eveDb.collection("rooms").doc("CANDY2").collection("messages").doc("msg_1").get()
   );
 });
+
+test("PUBG-style friendRequests enforce sender/recipient approvals and participant isolation", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const eveDb = testEnv.authenticatedContext(EVE_UID).firestore();
+  const past = new Date(Date.now() - 2000);
+  const reqId = `${ALICE_UID}_${BOB_UID}`;
+
+  // Alice sends friend request to Bob
+  await assertSucceeds(
+    aliceDb.collection("friendRequests").doc(reqId).set({
+      fromUid: ALICE_UID,
+      fromName: "Alice Candy",
+      fromFriendCode: "SRALIC1",
+      fromKartId: "strawberry_rocket",
+      fromRacerId: "berry_blitz",
+      fromLevel: 3,
+      toUid: BOB_UID,
+      toName: "Bob Sugar",
+      toFriendCode: "SRBOB22",
+      toKartId: "choco_thunder",
+      toRacerId: "cocoa_king",
+      toLevel: 4,
+      status: "PENDING",
+      participantUids: [ALICE_UID, BOB_UID],
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Alice cannot self-accept her own outgoing request
+  await assertFails(
+    aliceDb.collection("friendRequests").doc(reqId).update({
+      status: "ACCEPTED",
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+
+  // Bob queries incoming/participant requests; Eve cannot read or scrape
+  await assertSucceeds(
+    bobDb.collection("friendRequests").where("participantUids", "array-contains", BOB_UID).get()
+  );
+  await assertFails(eveDb.collection("friendRequests").doc(reqId).get());
+  await assertFails(eveDb.collection("friendRequests").get());
+
+  // Bob accepts friend request
+  await assertSucceeds(
+    bobDb.collection("friendRequests").doc(reqId).update({
+      status: "ACCEPTED",
+      updatedAt: new Date(Date.now() - 300),
+    })
+  );
+
+  // Alice deletes/cleans up synced request
+  await assertSucceeds(aliceDb.collection("friendRequests").doc(reqId).delete());
+});
+
+test("GATHERING_HUB rooms and gameInvites work cleanly with strict access control", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const eveDb = testEnv.authenticatedContext(EVE_UID).firestore();
+  const past = new Date(Date.now() - 2000);
+
+  // Alice creates a GATHERING_HUB room
+  await assertSucceeds(
+    aliceDb.collection("rooms").doc("CANDYPLAZA").set({
+      hostUid: ALICE_UID,
+      roomCode: "CANDYPLAZA",
+      roomName: "Candy City Plaza",
+      status: "WAITING",
+      mode: "GATHERING_HUB",
+      trackId: "PEPPERMINT_PLAZA",
+      teamSize: 4,
+      maxPlayers: 8,
+      fillWithAi: true,
+      memberUids: [ALICE_UID],
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Alice sends game invite to Bob
+  const invId = `${ALICE_UID}_${BOB_UID}_CANDYPLAZA`;
+  await assertSucceeds(
+    aliceDb.collection("gameInvites").doc(invId).set({
+      fromUid: ALICE_UID,
+      fromName: "Alice Candy",
+      toUid: BOB_UID,
+      roomCode: "CANDYPLAZA",
+      roomName: "Candy City Plaza",
+      mode: "GATHERING_HUB",
+      trackId: "PEPPERMINT_PLAZA",
+      teamSize: 4,
+      status: "PENDING",
+      participantUids: [ALICE_UID, BOB_UID],
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Bob reads his invites and accepts
+  await assertSucceeds(
+    bobDb.collection("gameInvites").where("participantUids", "array-contains", BOB_UID).get()
+  );
+  await assertSucceeds(
+    bobDb.collection("gameInvites").doc(invId).update({
+      status: "ACCEPTED",
+      updatedAt: new Date(Date.now() - 200),
+    })
+  );
+
+  // Eve cannot access Bob's invite
+  await assertFails(eveDb.collection("gameInvites").doc(invId).get());
+  await assertFails(eveDb.collection("gameInvites").get());
+
+  // Bob joins GATHERING_HUB room, Alice leaves cleanly leaving Bob inside
+  await assertSucceeds(
+    bobDb.collection("rooms").doc("CANDYPLAZA").update({
+      memberUids: [ALICE_UID, BOB_UID],
+      updatedAt: new Date(Date.now() - 150),
+    })
+  );
+  await assertSucceeds(
+    aliceDb.collection("rooms").doc("CANDYPLAZA").update({
+      memberUids: [BOB_UID],
+      updatedAt: new Date(Date.now() - 100),
+    })
+  );
+  // Last remaining member Bob can delete room when leaving
+  await assertSucceeds(bobDb.collection("rooms").doc("CANDYPLAZA").delete());
+});
+

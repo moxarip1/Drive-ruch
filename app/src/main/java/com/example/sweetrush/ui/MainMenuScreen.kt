@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -29,12 +32,16 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +52,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.GameScreen
 import com.example.sweetrush.model.PlayerProfile
@@ -62,11 +73,6 @@ import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
 import kotlin.math.sin
 
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
-
 @Composable
 fun MainMenuScreen(
     profile: PlayerProfile,
@@ -74,8 +80,10 @@ fun MainMenuScreen(
     userPhotoUrl: String? = null,
     friendCode: String = "",
     activeRoomCode: String? = null,
+    pendingRequestsCount: Int = 0,
     onNavigate: (GameScreen) -> Unit,
-    onStartFreeRoam: () -> Unit = {}
+    onStartFreeRoam: () -> Unit = {},
+    onEnterGatheringHub: () -> Unit = {}
 ) {
     val lang = profile.settings.language
     val racer = CatalogData.racerById(profile.selectedRacerId)
@@ -90,29 +98,28 @@ fun MainMenuScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Light edge-only vertical scrims so the central 3D Candy World & cruising kart remain 100% crisp
+        // Subtle perimeter scrim so the centered smooth 3D kart & kingdom stay crisp and clear
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to BerryDeep.copy(alpha = 0.42f),
-                        0.22f to Color.Transparent,
-                        0.72f to Color.Transparent,
-                        1.0f to BerryDeep.copy(alpha = 0.56f)
+                        0.0f to BerryDeep.copy(alpha = 0.52f),
+                        0.20f to Color.Transparent,
+                        0.66f to Color.Transparent,
+                        1.0f to BerryDeep.copy(alpha = 0.68f)
                     )
                 )
         )
 
-        // Subtle drifting sugar sparkles near the outer frame
         Canvas(modifier = Modifier.fillMaxSize()) {
             val colors = listOf(CandyPink, MintCream, CaramelGold, SkyCandy, Color.White)
             for (i in 0 until 14) {
                 val xFrac = ((i * 0.173f) % 1f)
                 val yFrac = ((i * 0.291f + phase * 0.035f) % 1f)
-                val radius = 3f + (i % 3) * 1.6f + sin(phase + i) * 1.2f
+                val radius = 2.8f + (i % 3) * 1.5f + sin(phase + i) * 1.1f
                 drawCircle(
-                    color = colors[i % colors.size].copy(alpha = 0.42f),
+                    color = colors[i % colors.size].copy(alpha = 0.40f),
                     radius = radius.coerceAtLeast(1.8f),
                     center = Offset(size.width * xFrac, size.height * yFrac)
                 )
@@ -123,31 +130,76 @@ fun MainMenuScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Compact Top Bar: Brand Logo (Left) + Google Account & Player Progression Pill (Right)
+            // Organized Top Header: Brand Logo + Account / Notifications / Stats Strip
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                SweetRushLogo(compact = true)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SweetRushLogo(compact = true)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(BerryDeep.copy(alpha = 0.72f))
+                            .border(1.dp, CandyPink.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${racer.name} • ${kart.name}  |  Wins ${profile.racesWon}  •  Coins ${profile.collectedWorldCoins.size}/48  •  Stars ${profile.collectedWorldStars.size}/10",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = FrostingWhite
+                        )
+                    }
+                }
 
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (pendingRequestsCount > 0) {
+                            Row(
+                                modifier = Modifier
+                                    .testTag("menu_friend_requests_badge")
+                                    .clip(RoundedCornerShape(50))
+                                    .background(CandyPink)
+                                    .border(1.5.dp, Color.White, RoundedCornerShape(50))
+                                    .clickable { onNavigate(GameScreen.ONLINE_LOBBY) }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.NotificationsActive,
+                                    contentDescription = "Friend Requests",
+                                    tint = FrostingWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "$pendingRequestsCount REQ",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
                         // Google Account Racer Chip
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(BerryPurple.copy(alpha = 0.84f))
-                                .border(1.5.dp, MintCream.copy(alpha = 0.7f), RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                                .background(BerryPurple.copy(alpha = 0.88f))
+                                .border(1.5.dp, MintCream.copy(alpha = 0.75f), RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             if (!userPhotoUrl.isNullOrBlank()) {
                                 AsyncImage(
@@ -155,15 +207,13 @@ fun MainMenuScreen(
                                     contentDescription = "Google Avatar",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .width(24.dp)
-                                        .height(24.dp)
+                                        .size(26.dp)
                                         .clip(CircleShape)
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
-                                        .width(24.dp)
-                                        .height(24.dp)
+                                        .size(26.dp)
                                         .clip(CircleShape)
                                         .background(CandyPink),
                                     contentAlignment = Alignment.Center
@@ -193,54 +243,62 @@ fun MainMenuScreen(
 
                         PlayerProfilePill(profile = profile)
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(BerryDeep.copy(alpha = 0.66f))
-                            .border(1.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "${racer.name} • ${kart.name}  |  Wins ${profile.racesWon} • ${profile.collectedWorldCoins.size}/48 Coins • ${profile.collectedWorldStars.size}/10 Stars",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = FrostingWhite
-                        )
-                    }
                 }
             }
 
-            // Sleek Bottom Floating Docks — keeps ~75% center screen open for the 3D Candy World
+            // Bottom Dual Frosted Glass Docks — structured & uncluttered
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
-                // Bottom-Left Racing Dock
+                // LEFT DOCK: Racing & Multiplayer Modes
                 Column(
                     modifier = Modifier
-                        .width(362.dp)
+                        .width(382.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(BerryDeep.copy(alpha = 0.56f))
-                        .border(1.5.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(24.dp))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .background(BerryDeep.copy(alpha = 0.72f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.34f), RoundedCornerShape(24.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    CandyButton(
-                        text = if (activeRoomCode != null) "${CatalogData.localized(lang, "online")} • #$activeRoomCode"
-                        else CatalogData.localized(lang, "online"),
-                        onClick = { onNavigate(GameScreen.ONLINE_LOBBY) },
-                        testTag = "menu_online_button",
-                        icon = Icons.Filled.Groups,
-                        topColor = CaramelGold,
-                        bottomColor = Color(0xFFFF6D00),
-                        textColor = BerryDeep,
-                        height = 50.dp,
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        text = "RACING & SOCIAL MODES",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MintCream,
+                        fontWeight = FontWeight.Bold
                     )
+                    // Primary Social Row: Online Squads + Gathering Hub
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        CandyButton(
+                            text = if (activeRoomCode != null) "#$activeRoomCode" else CatalogData.localized(lang, "online"),
+                            onClick = { onNavigate(GameScreen.ONLINE_LOBBY) },
+                            testTag = "menu_online_button",
+                            icon = Icons.Filled.Groups,
+                            topColor = CaramelGold,
+                            bottomColor = Color(0xFFFF6D00),
+                            textColor = BerryDeep,
+                            height = 48.dp,
+                            modifier = Modifier.weight(1.05f)
+                        )
+                        CandyButton(
+                            text = CatalogData.localized(lang, "gathering_hub"),
+                            onClick = onEnterGatheringHub,
+                            testTag = "menu_gathering_hub_button",
+                            icon = Icons.Filled.Storefront,
+                            topColor = Color(0xFFFF85C1),
+                            bottomColor = CandyPinkDark,
+                            height = 48.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // Primary Play Row: Quick Race + Open World Free Roam
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "play"),
@@ -249,7 +307,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.PlayArrow,
                             topColor = Color(0xFFFF4D94),
                             bottomColor = CandyPinkDark,
-                            height = 50.dp,
+                            height = 48.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -260,10 +318,11 @@ fun MainMenuScreen(
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 50.dp,
+                            height = 48.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    // Secondary Modes Row: Grand Prix + Time Trial + Practice
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -277,7 +336,7 @@ fun MainMenuScreen(
                             bottomColor = Butterscotch,
                             textColor = BerryDeep,
                             height = 48.dp,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.05f)
                         )
                         CandyButton(
                             text = CatalogData.localized(lang, "time_trial"),
@@ -290,11 +349,6 @@ fun MainMenuScreen(
                             height = 48.dp,
                             modifier = Modifier.weight(1f)
                         )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "practice"),
                             onClick = { onNavigate(GameScreen.PRACTICE_SETUP) },
@@ -304,37 +358,33 @@ fun MainMenuScreen(
                             bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
                             height = 48.dp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CandyButton(
-                            text = CatalogData.localized(lang, "challenges"),
-                            onClick = { onNavigate(GameScreen.CHALLENGES) },
-                            testTag = "menu_challenges_button",
-                            icon = Icons.Filled.Flag,
-                            topColor = GrapeJelly,
-                            bottomColor = Color(0xFF5E35B1),
-                            height = 48.dp,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(0.95f)
                         )
                     }
                 }
 
                 Spacer(Modifier.width(12.dp))
 
-                // Bottom-Right Garage & Kingdom Utility Dock
+                // RIGHT DOCK: Garage, Racers, Kingdom & System
                 Column(
                     modifier = Modifier
-                        .width(342.dp)
+                        .width(344.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(BerryDeep.copy(alpha = 0.56f))
-                        .border(1.5.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(24.dp))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    horizontalAlignment = Alignment.End
+                        .background(BerryDeep.copy(alpha = 0.72f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.34f), RoundedCornerShape(24.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
+                    Text(
+                        text = "GARAGE & KINGDOM",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SkyCandy,
+                        fontWeight = FontWeight.Bold
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "garage"),
@@ -370,8 +420,23 @@ fun MainMenuScreen(
                             bottomColor = MintDark,
                             textColor = BerryDeep,
                             height = 48.dp,
-                            modifier = Modifier.weight(1.1f)
+                            modifier = Modifier.weight(1.05f)
                         )
+                        CandyButton(
+                            text = CatalogData.localized(lang, "challenges"),
+                            onClick = { onNavigate(GameScreen.CHALLENGES) },
+                            testTag = "menu_challenges_button",
+                            icon = Icons.Filled.Flag,
+                            topColor = GrapeJelly,
+                            bottomColor = Color(0xFF5E35B1),
+                            height = 48.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "tracks"),
                             onClick = { onNavigate(GameScreen.TRACK_COLLECTION) },
@@ -381,7 +446,7 @@ fun MainMenuScreen(
                             bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
                             height = 48.dp,
-                            modifier = Modifier.weight(0.95f)
+                            modifier = Modifier.weight(1f)
                         )
                         CandyButton(
                             text = CatalogData.localized(lang, "settings"),
@@ -391,7 +456,7 @@ fun MainMenuScreen(
                             topColor = Color(0xFF7E57C2),
                             bottomColor = Color(0xFF311B92),
                             height = 48.dp,
-                            modifier = Modifier.weight(0.95f)
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
