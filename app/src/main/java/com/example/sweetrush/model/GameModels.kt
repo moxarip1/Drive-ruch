@@ -10,17 +10,61 @@ enum class GameScreen {
     CHARACTER_SELECT,
     GARAGE,
     TRACK_COLLECTION,
+    WORLD_MAP,
     SETTINGS,
     RACE,
     RESULTS
 }
 
 enum class GameMode {
+    FREE_ROAM,
     QUICK_RACE,
     GRAND_PRIX,
     TIME_TRIAL,
     PRACTICE,
     CHALLENGE
+}
+
+enum class WorldRegion(
+    val displayName: String,
+    val subtitle: String,
+    val centerX: Float,
+    val centerZ: Float,
+    val skyTopHex: Long,
+    val skyBottomHex: Long,
+    val fogHex: Long,
+    val accentHex: Long
+) {
+    CANDY_CITY(
+        "Candy City",
+        "Peppermint Plazas & Sugar Avenues",
+        0f, 0f,
+        0xFF4CC9FF, 0xFFFFC8E6, 0xFFFFD8EC, 0xFFFF3D8B
+    ),
+    CHOCOLATE_MOUNTAINS(
+        "Chocolate Mountains",
+        "Caramel Waterfalls & Fudge Switchbacks",
+        270f, -240f,
+        0xFF3D1338, 0xFFFF7E47, 0xFFB8544A, 0xFFFF9800
+    ),
+    GUMDROP_FOREST(
+        "Gumdrop Forest",
+        "Lollipop Groves & Secret Shortcuts",
+        -265f, -225f,
+        0xFF6A4C93, 0xFFA0F0ED, 0xFFCDEEE9, 0xFF3CE8B5
+    ),
+    CUPCAKE_VALLEY(
+        "Cupcake Valley",
+        "Frosting Hills & Wafer Bridges",
+        -255f, 235f,
+        0xFF7B4DFF, 0xFFFFD1E8, 0xFFFAD3EA, 0xFFD980FA
+    ),
+    PEPPERMINT_COAST(
+        "Peppermint Coast",
+        "Strawberry Cream Shores & Boardwalk",
+        260f, 240f,
+        0xFF29B6F6, 0xFFFFE5B8, 0xFFFFEAD2, 0xFF5CE1E6
+    )
 }
 
 enum class Difficulty(val label: String, val aiSpeedMultiplier: Float, val aiSkill: Float, val boostFreq: Float) {
@@ -104,11 +148,20 @@ enum class AppLanguage(val code: String, val displayName: String) {
 }
 
 data class KartStats(
-    val speed: Float,       // 0.0..1.0
-    val acceleration: Float,// 0.0..1.0
-    val handling: Float,    // 0.0..1.0
-    val boost: Float,       // 0.0..1.0
-    val stability: Float    // 0.0..1.0
+    val speed: Float,
+    val acceleration: Float,
+    val handling: Float,
+    val boost: Float,
+    val stability: Float
+)
+
+data class KartPhysicsTuning(
+    val massKg: Float,
+    val suspensionStiffness: Float,
+    val suspensionDamping: Float,
+    val lateralGrip: Float,
+    val driftGrip: Float,
+    val steerResponse: Float
 )
 
 data class KartSpec(
@@ -121,6 +174,7 @@ data class KartSpec(
     val defaultSecondaryHex: Long,
     val accentHex: Long,
     val baseStats: KartStats,
+    val physicsTuning: KartPhysicsTuning,
     val unlockCost: Int,
     val unlockLevel: Int
 )
@@ -215,7 +269,8 @@ data class GameSettings(
     val steeringSensitivity: Float = 1.0f,
     val cameraSensitivity: Float = 1.0f,
     val tiltSteeringEnabled: Boolean = false,
-    val language: AppLanguage = AppLanguage.EN
+    val language: AppLanguage = AppLanguage.EN,
+    val showDebugTelemetry: Boolean = false
 )
 
 data class PlayerProfile(
@@ -233,11 +288,28 @@ data class PlayerProfile(
     val kartCustomizations: Map<String, KartCustomization> = emptyMap(),
     val bestLapMsByTrack: Map<TrackId, Long> = emptyMap(),
     val completedChallenges: Set<String> = emptySet(),
+    val collectedWorldCoins: Set<String> = emptySet(),
+    val collectedWorldStars: Set<String> = emptySet(),
+    val discoveredRegions: Set<WorldRegion> = setOf(WorldRegion.CANDY_CITY),
     val racesCompleted: Int = 0,
     val racesWon: Int = 0,
     val grandPrixGoldTrophies: Int = 0,
     val grandPrixBestPoints: Int = 0,
     val settings: GameSettings = GameSettings()
+)
+
+data class VehicleDebugTelemetry(
+    val speedKmh: Float = 0f,
+    val vx: Float = 0f,
+    val vy: Float = 0f,
+    val vz: Float = 0f,
+    val wheelContacts: List<Boolean> = listOf(true, true, true, true), // FL, FR, RL, RR
+    val wheelCompression: List<Float> = listOf(0.5f, 0.5f, 0.5f, 0.5f),
+    val lateralGrip: Float = 1f,
+    val forwardGrip: Float = 1f,
+    val slipAngleDeg: Float = 0f,
+    val driftState: String = "GRIP",
+    val surfaceName: String = "Road"
 )
 
 data class RacerResultEntry(

@@ -28,11 +28,14 @@ enum class DecoType {
     COTTON_CANDY_TREE,
     CANDY_CANE_PLANT,
     CHOCOLATE_TREE,
+    JELLYBEAN_BUSH,
+    CANDY_FLOWER,
     GINGERBREAD_HOUSE,
     CUPCAKE_TOWER,
     COOKIE_HOUSE,
     CHOCOLATE_CASTLE,
     DONUT_BUILDING,
+    CANDY_FACTORY,
     GUMMY_BEAR_STATUE,
     SUGAR_CRYSTAL,
     FLOATING_BALLOON,
@@ -41,7 +44,31 @@ enum class DecoType {
     CANDY_LAMP,
     CANDY_CANE_ARCH,
     DONUT_ARCH,
-    WAFER_TUNNEL_RING
+    WAFER_TUNNEL_RING,
+    SPECTATOR_STAND,
+    ANIMATED_BILLBOARD,
+    CANDY_BENCH,
+    ROAD_SIGN,
+    CANDY_BARRIER
+}
+
+enum class SurfaceType(val displayName: String, val gripMultiplier: Float) {
+    ROAD("Paved Road", 1.0f),
+    BRIDGE("Wafer Bridge", 0.96f),
+    RAMP("Stunt Ramp", 1.04f),
+    OFFROAD("Candy Meadow", 0.78f),
+    WATER("Cream Water", 0.58f)
+}
+
+data class SurfaceSample(
+    val height: Float,
+    val normal: Vec3,
+    val surface: SurfaceType,
+    val region: com.example.sweetrush.model.WorldRegion = com.example.sweetrush.model.WorldRegion.CANDY_CITY
+)
+
+interface WorldSurfaceSampler {
+    fun sampleSurface(x: Float, z: Float, hintY: Float = 0f): SurfaceSample
 }
 
 data class TrackNode(
@@ -100,7 +127,32 @@ data class GeneratedTrack(
     val maxX: Float,
     val minZ: Float,
     val maxZ: Float
-) {
+) : WorldSurfaceSampler {
+    override fun sampleSurface(x: Float, z: Float, hintY: Float): SurfaceSample {
+        val proj = projectOntoTrack(x, z)
+        val node = nodes[proj.nodeIndex]
+        val next = nodes[(proj.nodeIndex + 1) % nodes.size]
+        val slopeY = (next.center.y - node.center.y) / ((next.center - node.center).length().coerceAtLeast(0.5f))
+        val normal = Vec3(-node.forward.x * slopeY, 1f, -node.forward.z * slopeY).normalized()
+        val surf = when {
+            node.isBridge -> SurfaceType.BRIDGE
+            abs(proj.lateralOffset) <= node.halfWidth -> SurfaceType.ROAD
+            else -> SurfaceType.OFFROAD
+        }
+        val region = when (id) {
+            TrackId.PEPPERMINT_PLAZA -> com.example.sweetrush.model.WorldRegion.CANDY_CITY
+            TrackId.CUPCAKE_COAST -> com.example.sweetrush.model.WorldRegion.PEPPERMINT_COAST
+            TrackId.CHOCOLATE_VOLCANO -> com.example.sweetrush.model.WorldRegion.CHOCOLATE_MOUNTAINS
+            TrackId.GUMDROP_GARDEN -> com.example.sweetrush.model.WorldRegion.GUMDROP_FOREST
+        }
+        return SurfaceSample(
+            height = node.center.y,
+            normal = normal,
+            surface = surf,
+            region = region
+        )
+    }
+
     fun projectOntoTrack(x: Float, z: Float, hintIndex: Int = -1): TrackProjection {
         val n = nodes.size
         var bestIdx = 0
@@ -119,7 +171,6 @@ data class GeneratedTrack(
                     bestIdx = idx
                 }
             }
-            // Fallback to global search if far away from hint
             if (bestDistSq > 1600f) {
                 for (i in 0 until n) {
                     val c = nodes[i].center
@@ -455,7 +506,7 @@ object TrackGenerator {
                 val placedPos = Vec3(pos.x, groundY, pos.z)
 
                 val type = when (id) {
-                    TrackId.PEPPERMINT_PLAZA -> when (rng.nextInt(10)) {
+                    TrackId.PEPPERMINT_PLAZA -> when (rng.nextInt(12)) {
                         0, 1 -> DecoType.LOLLIPOP_TREE
                         2 -> DecoType.GINGERBREAD_HOUSE
                         3 -> DecoType.CUPCAKE_TOWER
@@ -463,37 +514,44 @@ object TrackGenerator {
                         5 -> DecoType.GUMDROP_TREE
                         6 -> DecoType.COOKIE_HOUSE
                         7 -> DecoType.DONUT_BUILDING
-                        8 -> DecoType.MARSHMALLOW_BUSH
+                        8 -> DecoType.SPECTATOR_STAND
+                        9 -> DecoType.ANIMATED_BILLBOARD
+                        10 -> DecoType.MARSHMALLOW_BUSH
                         else -> DecoType.FLOATING_BALLOON
                     }
-                    TrackId.CUPCAKE_COAST -> when (rng.nextInt(10)) {
+                    TrackId.CUPCAKE_COAST -> when (rng.nextInt(12)) {
                         0, 1 -> DecoType.CUPCAKE_TOWER
                         2, 3 -> DecoType.COTTON_CANDY_TREE
                         4 -> DecoType.STRAWBERRY_FOUNTAIN
                         5 -> DecoType.DONUT_BUILDING
                         6 -> DecoType.MARSHMALLOW_BUSH
-                        7 -> DecoType.LOLLIPOP_TREE
-                        8 -> DecoType.COOKIE_HOUSE
+                        7 -> DecoType.SPECTATOR_STAND
+                        8 -> DecoType.ANIMATED_BILLBOARD
+                        9 -> DecoType.LOLLIPOP_TREE
+                        10 -> DecoType.COOKIE_HOUSE
                         else -> DecoType.FLOATING_BALLOON
                     }
-                    TrackId.CHOCOLATE_VOLCANO -> when (rng.nextInt(10)) {
+                    TrackId.CHOCOLATE_VOLCANO -> when (rng.nextInt(11)) {
                         0, 1 -> DecoType.CHOCOLATE_TREE
                         2, 3 -> DecoType.CHOCOLATE_CASTLE
                         4 -> DecoType.CHOCOLATE_WATERFALL
                         5 -> DecoType.SUGAR_CRYSTAL
                         6 -> DecoType.GUMDROP_HILL
                         7 -> DecoType.COOKIE_HOUSE
-                        8 -> DecoType.CANDY_CANE_PLANT
+                        8 -> DecoType.ANIMATED_BILLBOARD
+                        9 -> DecoType.CANDY_CANE_PLANT
                         else -> DecoType.SUGAR_CRYSTAL
                     }
-                    TrackId.GUMDROP_GARDEN -> when (rng.nextInt(10)) {
+                    TrackId.GUMDROP_GARDEN -> when (rng.nextInt(12)) {
                         0, 1 -> DecoType.LOLLIPOP_TREE
                         2, 3 -> DecoType.GUMDROP_HILL
                         4 -> DecoType.GUMMY_BEAR_STATUE
                         5 -> DecoType.COTTON_CANDY_TREE
                         6 -> DecoType.MARSHMALLOW_BUSH
                         7 -> DecoType.SUGAR_CRYSTAL
-                        8 -> DecoType.GUMDROP_TREE
+                        8 -> DecoType.SPECTATOR_STAND
+                        9 -> DecoType.GUMDROP_TREE
+                        10 -> DecoType.CANDY_BENCH
                         else -> DecoType.FLOATING_BALLOON
                     }
                 }

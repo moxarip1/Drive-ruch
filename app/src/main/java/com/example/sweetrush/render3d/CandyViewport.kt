@@ -3,6 +3,7 @@ package com.example.sweetrush.render3d
 import android.annotation.SuppressLint
 import android.opengl.GLSurfaceView
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -46,11 +47,22 @@ fun CandyViewport3D(
     }
 
     AndroidView(
-        factory = {
+        factory = { ctx ->
             var lastX = 0f
             var lastY = 0f
+            val scaleDetector = ScaleGestureDetector(
+                ctx,
+                object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScale(detector: ScaleGestureDetector): Boolean {
+                        if (!allowOrbitDrag) return false
+                        renderer.showroomZoom = (renderer.showroomZoom / detector.scaleFactor).coerceIn(3.2f, 8.5f)
+                        return true
+                    }
+                }
+            )
             glView.setOnTouchListener { _, ev ->
                 if (!allowOrbitDrag) return@setOnTouchListener false
+                scaleDetector.onTouchEvent(ev)
                 when (ev.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         lastX = ev.x
@@ -59,12 +71,14 @@ fun CandyViewport3D(
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val dx = ev.x - lastX
-                        val dy = ev.y - lastY
-                        lastX = ev.x
-                        lastY = ev.y
-                        renderer.showroomOrbitYaw -= dx * 0.01f
-                        renderer.showroomOrbitPitch = (renderer.showroomOrbitPitch + dy * 0.008f).coerceIn(0.08f, 0.78f)
+                        if (!scaleDetector.isInProgress) {
+                            val dx = ev.x - lastX
+                            val dy = ev.y - lastY
+                            lastX = ev.x
+                            lastY = ev.y
+                            renderer.showroomOrbitYaw -= dx * 0.01f
+                            renderer.showroomOrbitPitch = (renderer.showroomOrbitPitch + dy * 0.008f).coerceIn(0.08f, 0.78f)
+                        }
                         true
                     }
                     else -> false

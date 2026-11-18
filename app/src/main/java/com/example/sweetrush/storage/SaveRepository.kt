@@ -12,6 +12,7 @@ import com.example.sweetrush.model.KartUpgradeLevels
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.WheelDesign
+import com.example.sweetrush.model.WorldRegion
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -72,6 +73,9 @@ class SaveRepository(private val context: Context) {
         root.put("unlockedExhausts", JSONArray(p.unlockedExhausts.map { it.name }))
         root.put("unlockedDecorations", JSONArray(p.unlockedDecorations.map { it.name }))
         root.put("completedChallenges", JSONArray(p.completedChallenges.toList()))
+        root.put("collectedWorldCoins", JSONArray(p.collectedWorldCoins.toList()))
+        root.put("collectedWorldStars", JSONArray(p.collectedWorldStars.toList()))
+        root.put("discoveredRegions", JSONArray(p.discoveredRegions.map { it.name }))
         root.put("racesCompleted", p.racesCompleted)
         root.put("racesWon", p.racesWon)
         root.put("grandPrixGoldTrophies", p.grandPrixGoldTrophies)
@@ -111,6 +115,7 @@ class SaveRepository(private val context: Context) {
         sObj.put("cameraSensitivity", p.settings.cameraSensitivity.toDouble())
         sObj.put("tiltSteeringEnabled", p.settings.tiltSteeringEnabled)
         sObj.put("language", p.settings.language.name)
+        sObj.put("showDebugTelemetry", p.settings.showDebugTelemetry)
         root.put("settings", sObj)
         return root
     }
@@ -128,7 +133,8 @@ class SaveRepository(private val context: Context) {
                 steeringSensitivity = sObj.optDouble("steeringSensitivity", 1.0).toFloat().coerceIn(0.4f, 1.8f),
                 cameraSensitivity = sObj.optDouble("cameraSensitivity", 1.0).toFloat().coerceIn(0.4f, 1.8f),
                 tiltSteeringEnabled = sObj.optBoolean("tiltSteeringEnabled", false),
-                language = enumValueOrDefault(sObj.optString("language"), AppLanguage.EN)
+                language = enumValueOrDefault(sObj.optString("language"), AppLanguage.EN),
+                showDebugTelemetry = sObj.optBoolean("showDebugTelemetry", false)
             )
         } else defaults.settings
 
@@ -185,6 +191,9 @@ class SaveRepository(private val context: Context) {
             kartCustomizations = customMap,
             bestLapMsByTrack = bestLaps,
             completedChallenges = parseStringSet(root.optJSONArray("completedChallenges"), emptySet()),
+            collectedWorldCoins = parseStringSet(root.optJSONArray("collectedWorldCoins"), emptySet()),
+            collectedWorldStars = parseStringSet(root.optJSONArray("collectedWorldStars"), emptySet()),
+            discoveredRegions = parseEnumSet(root.optJSONArray("discoveredRegions"), defaults.discoveredRegions),
             racesCompleted = root.optInt("racesCompleted", 0).coerceAtLeast(0),
             racesWon = root.optInt("racesWon", 0).coerceAtLeast(0),
             grandPrixGoldTrophies = root.optInt("grandPrixGoldTrophies", 0).coerceAtLeast(0),

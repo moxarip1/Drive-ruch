@@ -31,6 +31,7 @@ import com.example.sweetrush.ui.RaceHudScreen
 import com.example.sweetrush.ui.RaceSetupScreen
 import com.example.sweetrush.ui.ResultsScreen
 import com.example.sweetrush.ui.SettingsScreen
+import com.example.sweetrush.ui.WorldMapScreen
 import com.example.ui.theme.SweetRushTheme
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -82,7 +83,24 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         GameScreen.MAIN_MENU -> {
                             MainMenuScreen(
                                 profile = profile,
-                                onNavigate = { target -> viewModel.navigateTo(target) }
+                                onNavigate = { target -> viewModel.navigateTo(target) },
+                                onStartFreeRoam = { viewModel.startFreeRoam() }
+                            )
+                        }
+
+                        GameScreen.WORLD_MAP -> {
+                            WorldMapScreen(
+                                profile = profile,
+                                hud = raceHud,
+                                onFastTravelRegion = { region -> viewModel.startFreeRoam(region) },
+                                onStartRegionRace = { trackId -> viewModel.startQuickRace(trackId, selectedDifficulty) },
+                                onBack = {
+                                    if (activeMode == GameMode.FREE_ROAM && viewModel.renderer.physicsEngine?.isFreeRoam == true) {
+                                        viewModel.navigateTo(GameScreen.RACE)
+                                    } else {
+                                        viewModel.navigateTo(GameScreen.MAIN_MENU)
+                                    }
+                                }
                             )
                         }
 
@@ -181,6 +199,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                 onSelectExhaust = viewModel::selectOrUnlockExhaust,
                                 onSelectDecoration = viewModel::selectOrUnlockDecoration,
                                 onUpgradeStat = viewModel::upgradeKartStat,
+                                onZoomIn = { viewModel.adjustShowroomZoom(-0.8f) },
+                                onZoomOut = { viewModel.adjustShowroomZoom(0.8f) },
                                 onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                             )
                         }
@@ -208,13 +228,17 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                 onPauseToggle = viewModel::togglePause,
                                 onRestart = {
                                     when (activeMode) {
+                                        GameMode.FREE_ROAM -> viewModel.startFreeRoam(raceHud.currentRegion)
                                         GameMode.TIME_TRIAL -> viewModel.startTimeTrial(selectedTrack)
                                         GameMode.PRACTICE -> viewModel.startPractice(selectedTrack)
                                         else -> viewModel.startQuickRace(selectedTrack, selectedDifficulty)
                                     }
                                 },
                                 onFinishSession = viewModel::finishTimeTrialOrPractice,
-                                onQuitToMenu = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                                onQuitToMenu = { viewModel.navigateTo(GameScreen.MAIN_MENU) },
+                                onToggleDebug = viewModel::toggleDebugTelemetry,
+                                onOpenWorldMap = { viewModel.navigateTo(GameScreen.WORLD_MAP) },
+                                onEnterPortalRace = viewModel::enterNearbyPortalRace
                             )
                         }
 

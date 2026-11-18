@@ -130,14 +130,14 @@ fun CandyButton(
 }
 
 @Composable
-fun SweetRushLogo(modifier: Modifier = Modifier) {
+fun SweetRushLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.Start
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Peppermint Swirl Emblem
-            Canvas(modifier = Modifier.size(44.dp)) {
+            Canvas(modifier = Modifier.size(if (compact) 36.dp else 44.dp)) {
                 val r = size.minDimension * 0.48f
                 val c = center
                 drawCircle(Color.White, radius = r, center = c)
@@ -155,14 +155,14 @@ fun SweetRushLogo(modifier: Modifier = Modifier) {
                 drawCircle(Color.White, radius = r * 0.24f, center = c)
                 drawCircle(Color(0xFFFFD6EC), radius = r, center = c, style = Stroke(width = 4f))
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(if (compact) 8.dp else 10.dp))
             Column {
                 Text(
                     text = "SWEET RUSH",
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 38.sp,
-                        letterSpacing = 1.5.sp,
-                        shadow = Shadow(Color(0xFF880E4F), Offset(0f, 5f), 8f)
+                        fontSize = if (compact) 30.sp else 38.sp,
+                        letterSpacing = 1.4.sp,
+                        shadow = Shadow(Color(0xFF880E4F), Offset(0f, 4f), 8f)
                     ),
                     color = FrostingWhite
                 )
@@ -171,11 +171,11 @@ fun SweetRushLogo(modifier: Modifier = Modifier) {
                         .clip(RoundedCornerShape(50))
                         .background(Brush.horizontalGradient(listOf(CaramelGold, CandyPink)))
                         .border(1.5.dp, Color.White, RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                        .padding(horizontal = if (compact) 10.dp else 12.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "CANDY WORLD 3D",
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.8.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.6.sp),
                         color = FrostingWhite
                     )
                 }
@@ -301,6 +301,11 @@ fun StatBarRow(
     color: Color = MintCream,
     modifier: Modifier = Modifier
 ) {
+    val animatedValue by animateFloatAsState(
+        targetValue = value.coerceIn(0f, 1f),
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = 340f),
+        label = "statBarAnim"
+    )
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -308,8 +313,10 @@ fun StatBarRow(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = FrostingWhite.copy(alpha = 0.9f),
-            modifier = Modifier.width(88.dp)
+            color = FrostingWhite.copy(alpha = 0.92f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(96.dp)
         )
         Box(
             modifier = Modifier
@@ -320,15 +327,15 @@ fun StatBarRow(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(value.coerceIn(0f, 1f))
+                    .fillMaxWidth(animatedValue)
                     .height(10.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Brush.horizontalGradient(listOf(color, Color.White.copy(alpha = 0.9f))))
+                    .background(Brush.horizontalGradient(listOf(color, Color.White.copy(alpha = 0.92f))))
             )
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "${(value * 100).toInt()}",
+            text = "${(animatedValue * 100).toInt()}",
             style = MaterialTheme.typography.labelSmall,
             color = color,
             fontWeight = FontWeight.Bold

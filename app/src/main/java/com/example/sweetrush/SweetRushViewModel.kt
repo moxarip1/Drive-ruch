@@ -30,6 +30,7 @@ import com.example.sweetrush.model.PowerUpType
 import com.example.sweetrush.model.RaceSummary
 import com.example.sweetrush.model.TrackId
 import com.example.sweetrush.model.WheelDesign
+import com.example.sweetrush.model.WorldRegion
 import com.example.sweetrush.physics.KartPhysicsEngine
 import com.example.sweetrush.physics.PlayerInputState
 import com.example.sweetrush.physics.RaceEvent
@@ -150,6 +151,15 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun adjustShowroomZoom(delta: Float) {
+        renderer.showroomAutoRotate = false
+        renderer.showroomZoom = (renderer.showroomZoom + delta).coerceIn(3.2f, 8.5f)
+    }
+
+    fun toggleDebugTelemetry() {
+        updateSettings { it.copy(showDebugTelemetry = !it.showDebugTelemetry) }
+    }
+
     fun selectTrack(trackId: TrackId) {
         audioEngine.playSfx(SoundEffect.UI_CLICK)
         _selectedTrack.value = trackId
@@ -158,6 +168,27 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
     fun selectDifficulty(diff: Difficulty) {
         audioEngine.playSfx(SoundEffect.UI_CLICK)
         _selectedDifficulty.value = diff
+    }
+
+    fun startFreeRoam(startRegion: WorldRegion = WorldRegion.CANDY_CITY) {
+        val curEngine = renderer.physicsEngine
+        if (curEngine != null && curEngine.isFreeRoam && _activeMode.value == GameMode.FREE_ROAM) {
+            curEngine.teleportPlayerToRegion(startRegion)
+            _isRacePaused.value = false
+            renderer.isPaused = false
+            navigateTo(GameScreen.RACE)
+            showRaceToast(startRegion.displayName, startRegion.subtitle, startRegion.accentHex)
+            return
+        }
+        _activeChallenge.value = null
+        _grandPrixSession.value = null
+        launchRace(TrackId.PEPPERMINT_PLAZA, GameMode.FREE_ROAM, Difficulty.NORMAL, startRegion)
+        showRaceToast("OPEN WORLD", "Explore all 5 Candy Regions!", startRegion.accentHex)
+    }
+
+    fun enterNearbyPortalRace() {
+        val portal = renderer.physicsEngine?.nearbyRacePortal ?: return
+        startQuickRace(portal.trackId, _selectedDifficulty.value)
     }
 
     fun startQuickRace(trackId: TrackId = _selectedTrack.value, difficulty: Difficulty = _selectedDifficulty.value) {
@@ -204,7 +235,12 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
         launchRace(challenge.trackId, GameMode.CHALLENGE, challenge.difficulty)
     }
 
-    private fun launchRace(trackId: TrackId, mode: GameMode, difficulty: Difficulty) {
+    private fun launchRace(
+        trackId: TrackId,
+        mode: GameMode,
+        difficulty: Difficulty,
+        startRegion: WorldRegion = WorldRegion.CANDY_CITY
+    ) {
         val p = _profile.value
         val custom = p.kartCustomizations[p.selectedKartId] ?: KartCustomization()
         val engine = KartPhysicsEngine(
@@ -213,7 +249,11 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
             difficulty = difficulty,
             playerRacerId = p.selectedRacerId,
             playerKartId = p.selectedKartId,
-            playerCustomization = custom
+            playerCustomization = custom,
+            startRegion = startRegion,
+            initiallyCollectedCoins = p.collectedWorldCoins,
+            initiallyCollectedStars = p.collectedWorldStars,
+            initiallyDiscoveredRegions = p.discoveredRegions
         )
         _activeMode.value = mode
         _selectedTrack.value = trackId
@@ -292,6 +332,7 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun handleRaceEvents(events: List<RaceEvent>) {
+        if (events.isEmpty()) return
         for (ev in events) {
             when (ev.type) {
                 RaceEventType.COUNTDOWN_TICK -> audioEngine.playSfx(SoundEffect.COUNTDOWN_BEEP)
@@ -330,8 +371,45 @@ class SweetRushViewModel(application: Application) : AndroidViewModel(applicatio
                     audioEngine.playSfx(SoundEffect.LAP_COMPLETE)
                     showRaceToast("FINISH!", "Checkered Sugar Flag!", 0xFFFFEB3B)
                 }
+                RaceEventType.COIN_COLLECTED -> {
+                    audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                    val cur = _profile.value
+                    saveAndSync(cur.copy(credits = cur.credits + 25, collectedWorldCoins = cur.collectedWorldCoins + ev.stringArg))
+                    showRaceToast(ev.message, "Open World Treasure", 0xFFFFD700)
+                }
+                RaceEventType.STAR_COLLECTED -> {
+                    audioEngine.playSfx(SoundEffect.LAP_COMPLETE)
+                    val cur = _profile.value
+                    saveAndSync(grantXpAndCredits(cur.copy(collectedWorldStars = cur.collectedWorldStars + ev.stringArg), 100, 120))
+                    showRaceToast("GOLDEN STAR!", "+120 CC  •  +100 XP", 0xFFFFEA00)
+                }
+                RaceEventType.REGION_DISCOVERED -> {
+                    audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                    val reg = ev.regionArg
+                    if (reg != null) {
+                        val cur = _profile.value
+                        saveAndSync(grantXpAndCredits(cur.copy(discoveredRegions = cur.discoveredRegions + reg), 60, 50))
+                        showRaceToast("NEW REGION!", reg.displayName, reg.accentHex)
+                    }
+                }
+                RaceEventType.WORLD_CHALLENGE_DONE -> {
+                    audioEngine.playSfx(SoundEffect.LAP_COMPLETE)
+                    val cur = _profile.value
+                    saveAndSync(grantXpAndCredits(cur, 120, 150))
+                    showRaceToast("CHALLENGE CLEAR!", "${ev.message} (+150 CC)", 0xFF3CE8B5)
+                }
             }
         }
+    }
+
+    private fun grantXpAndCredits(p: PlayerProfile, addXp: Int, addCredits: Int): PlayerProfile {
+        var newXp = p.xp + addXp
+        var newLevel = p.level
+        while (newXp >= CatalogData.xpForLevel(newLevel)) {
+            newXp -= CatalogData.xpForLevel(newLevel)
+            newLevel++
+        }
+        return p.copy(xp = newXp, level = newLevel, credits = p.credits + addCredits)
     }
 
     private fun showRaceToast(title: String, subtitle: String, colorHex: Long) {

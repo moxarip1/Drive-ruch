@@ -5,16 +5,21 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.Difficulty
 import com.example.sweetrush.model.GameMode
+import com.example.sweetrush.model.GameSettings
 import com.example.sweetrush.model.KartCustomization
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.PowerUpType
 import com.example.sweetrush.model.TrackId
+import com.example.sweetrush.model.WorldRegion
 import com.example.sweetrush.physics.KartPhysicsEngine
 import com.example.sweetrush.physics.PlayerInputState
 import com.example.sweetrush.storage.SaveRepository
+import com.example.sweetrush.track.DecoType
+import com.example.sweetrush.track.OpenWorldKingdom
 import com.example.sweetrush.track.TrackGenerator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -28,12 +33,18 @@ import java.io.File
 class SweetRushTest {
 
     @Test
-    fun `catalog contains 8 karts 8 racers 4 tracks and 7 powerups`() {
+    fun `catalog contains 8 karts 8 racers 4 tracks 7 powerups and distinct physics tuning`() {
         assertEquals(8, CatalogData.karts.size)
         assertEquals(8, CatalogData.racers.size)
         assertEquals(4, CatalogData.tracks.size)
         assertEquals(7, PowerUpType.entries.size)
         assertEquals(4, CatalogData.challenges.size)
+
+        val strawberry = CatalogData.kartById("strawberry_rocket")
+        val chocolate = CatalogData.kartById("chocolate_cruiser")
+        val caramel = CatalogData.kartById("caramel_thunder")
+        assertNotEquals(strawberry.physicsTuning.massKg, chocolate.physicsTuning.massKg)
+        assertNotEquals(strawberry.physicsTuning.lateralGrip, caramel.physicsTuning.lateralGrip)
     }
 
     @Test
@@ -49,7 +60,31 @@ class SweetRushTest {
     }
 
     @Test
-    fun `kart accelerates drifts charges mini turbo jumps and uses nitro`() {
+    fun `open world kingdom connects 5 regions with roads terrain chunks portals and collectibles`() {
+        assertEquals(5, WorldRegion.entries.size)
+        assertTrue("Open world should have at least 5 connected roads", OpenWorldKingdom.roads.size >= 5)
+        assertEquals(36, OpenWorldKingdom.getTerrainChunks().size)
+        assertEquals(48, OpenWorldKingdom.collectibles.count { !it.isStar })
+        assertEquals(10, OpenWorldKingdom.collectibles.count { it.isStar })
+        assertEquals(5, OpenWorldKingdom.racePortals.size)
+        assertEquals(6, OpenWorldKingdom.miniChallenges.size)
+        assertEquals(5, OpenWorldKingdom.miniChallenges.map { it.region }.toSet().size)
+        assertTrue("Open world should have >= 240 regional landmarks & props", OpenWorldKingdom.decorations.size >= 240)
+        val decoTypes = OpenWorldKingdom.decorations.map { it.type }.toSet()
+        assertTrue(decoTypes.contains(DecoType.JELLYBEAN_BUSH))
+        assertTrue(decoTypes.contains(DecoType.CANDY_FLOWER))
+        assertTrue(decoTypes.contains(DecoType.CANDY_FACTORY))
+        assertTrue(decoTypes.contains(DecoType.ROAD_SIGN))
+        assertTrue(decoTypes.contains(DecoType.CANDY_BARRIER))
+
+        // Verify each region coordinate resolves to its expected region
+        for (region in WorldRegion.entries) {
+            assertEquals(region, OpenWorldKingdom.regionAt(region.centerX, region.centerZ))
+        }
+    }
+
+    @Test
+    fun `kart accelerates drifts charges mini turbo jumps and updates 4-wheel suspension telemetry`() {
         val engine = KartPhysicsEngine(
             trackId = TrackId.PEPPERMINT_PLAZA,
             mode = GameMode.QUICK_RACE,
@@ -66,21 +101,72 @@ class SweetRushTest {
         }
         assertTrue(engine.raceStarted)
         assertTrue("Player kart should accelerate forward", engine.playerKart.speed > 20f)
+        assertTrue("Telemetry speed should be positive", engine.latestTelemetry.speedKmh > 40f)
+        assertEquals(4, engine.latestTelemetry.wheelContacts.size)
+        assertEquals(4, engine.latestTelemetry.wheelCompression.size)
+        assertTrue("Grounded wheels should have contact", engine.latestTelemetry.wheelContacts.any { it })
 
-        // Drift while steering right to charge drift boost
+        // Drift while steering right to charge drift boost and reduce lateral grip
+        val normalGrip = engine.playerKart.activeLateralGrip
         repeat(35) {
             engine.step(1f / 30f, PlayerInputState(steer = 0.85f, throttle = true, drift = true))
         }
         assertTrue("Drift charge should accumulate", engine.playerKart.driftCharge >= 0.7f)
+        assertTrue("Drifting should reduce active lateral grip vs normal grip", engine.playerKart.activeLateralGrip < normalGrip)
+        assertEquals("DRIFT", engine.latestTelemetry.driftState)
 
         // Release drift -> triggers boostTimer
         engine.step(1f / 30f, PlayerInputState(steer = 0f, throttle = true, drift = false))
         assertTrue("Releasing charged drift should trigger boost", engine.playerKart.boostTimer > 0.4f)
         assertEquals(1, engine.playerDriftBoostCount)
 
-        // Jump action
+        // Jump action & landing suspension impulse
         engine.step(1f / 30f, PlayerInputState(throttle = true, jumpPressed = true))
         assertFalse("Kart should leave ground on jump", engine.playerKart.isGrounded)
+
+        var landed = false
+        var sawLandingImpulse = false
+        repeat(60) {
+            engine.step(1f / 30f, PlayerInputState(throttle = true))
+            if (engine.playerKart.landingImpulse > 0.01f) {
+                sawLandingImpulse = true
+            }
+            if (engine.playerKart.isGrounded) {
+                landed = true
+            }
+        }
+        assertTrue("Kart should return to ground after jump", landed)
+        assertTrue("Landing from jump should trigger suspension compression impulse", sawLandingImpulse)
+
+        // Speed-sensitive smoothedSteer interpolation (does not snap instantaneously to 1.0 in 1 step)
+        engine.step(1f / 30f, PlayerInputState(steer = 0f, throttle = true))
+        val preSteer = engine.playerKart.smoothedSteer
+        engine.step(1f / 30f, PlayerInputState(steer = 1f, throttle = true))
+        val afterOneStep = engine.playerKart.smoothedSteer
+        assertTrue("smoothedSteer should move toward +1", afterOneStep > preSteer)
+        assertTrue("smoothedSteer should interpolate smoothly instead of snapping to 1.0", afterOneStep < 0.99f)
+    }
+
+    @Test
+    fun `free roam mode supports region discovery fast travel and roaming traffic`() {
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.FREE_ROAM,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            startRegion = WorldRegion.CANDY_CITY
+        )
+        assertTrue(engine.isFreeRoam)
+        assertTrue(engine.raceStarted)
+        assertEquals(5, engine.karts.size) // 1 player + 4 roaming AI drivers
+        assertEquals(WorldRegion.CANDY_CITY, engine.currentRegion)
+
+        engine.teleportPlayerToRegion(WorldRegion.CHOCOLATE_MOUNTAINS)
+        engine.step(1f / 30f, PlayerInputState(throttle = true))
+        assertEquals(WorldRegion.CHOCOLATE_MOUNTAINS, engine.currentRegion)
+        assertTrue(engine.discoveredRegions.contains(WorldRegion.CHOCOLATE_MOUNTAINS))
     }
 
     @Test
@@ -109,7 +195,7 @@ class SweetRushTest {
     }
 
     @Test
-    fun `save repository persists profile and recovers from corruption`() {
+    fun `save repository persists profile open world progress and recovers from corruption`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SaveRepository(context)
 
@@ -120,7 +206,11 @@ class SweetRushTest {
             selectedKartId = "donut_drifter",
             selectedRacerId = "glazed_gus",
             unlockedKarts = setOf("strawberry_rocket", "donut_drifter"),
-            racesWon = 7
+            collectedWorldCoins = setOf("coin_0", "coin_1"),
+            collectedWorldStars = setOf("star_0"),
+            discoveredRegions = setOf(WorldRegion.CANDY_CITY, WorldRegion.PEPPERMINT_COAST),
+            racesWon = 7,
+            settings = GameSettings(showDebugTelemetry = true)
         )
         repo.saveProfile(customProfile)
         val loaded = repo.loadProfile()
@@ -128,6 +218,10 @@ class SweetRushTest {
         assertEquals(4, loaded.level)
         assertEquals("donut_drifter", loaded.selectedKartId)
         assertEquals(7, loaded.racesWon)
+        assertTrue(loaded.collectedWorldCoins.contains("coin_1"))
+        assertTrue(loaded.collectedWorldStars.contains("star_0"))
+        assertTrue(loaded.discoveredRegions.contains(WorldRegion.PEPPERMINT_COAST))
+        assertTrue(loaded.settings.showDebugTelemetry)
 
         // Corrupt primary save and verify safe fallback to backup / defaults
         val primary = File(context.filesDir, "sweet_rush_save.json")

@@ -8,24 +8,26 @@ object CatalogData {
             name = "Strawberry Rocket",
             style = KartBodyStyle.STRAWBERRY_ROCKET,
             racingNumber = 7,
-            tagline = "Aerodynamic berry fuselage with whipped-cream fins",
+            tagline = "Sculpted berry torpedo with whipped-cream fins & twin rocket pipes",
             defaultPrimaryHex = 0xFFFF3B7F,
             defaultSecondaryHex = 0xFFFFF5F8,
             accentHex = 0xFF3CE8B5,
-            baseStats = KartStats(0.74f, 0.78f, 0.80f, 0.76f, 0.72f),
+            baseStats = KartStats(0.76f, 0.80f, 0.82f, 0.78f, 0.74f),
+            physicsTuning = KartPhysicsTuning(195f, 34f, 6.4f, 8.8f, 3.6f, 1.05f),
             unlockCost = 0,
             unlockLevel = 1
         ),
         KartSpec(
             id = "chocolate_cruiser",
-            name = "Chocolate Cruiser",
+            name = "Chocolate Thunder",
             style = KartBodyStyle.CHOCOLATE_CRUISER,
             racingNumber = 12,
-            tagline = "Heavy dark-fudge chassis with crispy wafer bumpers",
+            tagline = "Muscular dark-fudge wedge with wafer grille & quad exhausts",
             defaultPrimaryHex = 0xFF5A2E1B,
             defaultSecondaryHex = 0xFFD99B52,
             accentHex = 0xFFFFC107,
-            baseStats = KartStats(0.82f, 0.64f, 0.66f, 0.72f, 0.90f),
+            baseStats = KartStats(0.84f, 0.68f, 0.68f, 0.74f, 0.92f),
+            physicsTuning = KartPhysicsTuning(245f, 40f, 7.2f, 8.2f, 3.9f, 0.92f),
             unlockCost = 0,
             unlockLevel = 1
         ),
@@ -34,24 +36,26 @@ object CatalogData {
             name = "Peppermint Racer",
             style = KartBodyStyle.PEPPERMINT_RACER,
             racingNumber = 1,
-            tagline = "Open-wheel candy formula racer built for razor turns",
+            tagline = "Open-wheel candy formula chassis with swirled splitter & F1 wing",
             defaultPrimaryHex = 0xFFFDFDFD,
             defaultSecondaryHex = 0xFFFF2448,
             accentHex = 0xFF4AF2C5,
-            baseStats = KartStats(0.78f, 0.74f, 0.90f, 0.74f, 0.68f),
+            baseStats = KartStats(0.80f, 0.76f, 0.92f, 0.76f, 0.70f),
+            physicsTuning = KartPhysicsTuning(180f, 36f, 6.8f, 9.6f, 3.3f, 1.18f),
             unlockCost = 0,
             unlockLevel = 1
         ),
         KartSpec(
             id = "jellybean_machine",
-            name = "Jellybean Machine",
+            name = "Rainbow Jelly Kart",
             style = KartBodyStyle.JELLYBEAN_MACHINE,
             racingNumber = 24,
-            tagline = "Glossy citrus-lime bean pod with twin sugar turbos",
+            tagline = "Translucent neon-jelly canopy racer with bouncy grip suspension",
             defaultPrimaryHex = 0xFF33D9B2,
             defaultSecondaryHex = 0xFFFFFA65,
             accentHex = 0xFFFF5252,
-            baseStats = KartStats(0.70f, 0.88f, 0.82f, 0.80f, 0.74f),
+            baseStats = KartStats(0.74f, 0.88f, 0.84f, 0.82f, 0.76f),
+            physicsTuning = KartPhysicsTuning(188f, 30f, 5.8f, 9.1f, 3.4f, 1.10f),
             unlockCost = 220,
             unlockLevel = 2
         ),
@@ -60,11 +64,12 @@ object CatalogData {
             name = "Cupcake Kart",
             style = KartBodyStyle.CUPCAKE_KART,
             racingNumber = 18,
-            tagline = "Fluted cake-wrapper hull topped with cherry aero",
+            tagline = "Fluted wrapper chassis piped with whipped frosting & cherry spoiler",
             defaultPrimaryHex = 0xFFB86BFF,
             defaultSecondaryHex = 0xFFFFB8DE,
             accentHex = 0xFFFF2E55,
-            baseStats = KartStats(0.72f, 0.82f, 0.78f, 0.86f, 0.80f),
+            baseStats = KartStats(0.74f, 0.82f, 0.78f, 0.86f, 0.82f),
+            physicsTuning = KartPhysicsTuning(210f, 33f, 6.2f, 8.6f, 3.5f, 1.00f),
             unlockCost = 340,
             unlockLevel = 3
         ),
@@ -73,11 +78,12 @@ object CatalogData {
             name = "Donut Drifter",
             style = KartBodyStyle.DONUT_DRIFTER,
             racingNumber = 33,
-            tagline = "Glazed ring frame engineered for long sprinkle drifts",
+            tagline = "Glazed ring body tuned for long sprinkle-spark power slides",
             defaultPrimaryHex = 0xFFF6A95E,
             defaultSecondaryHex = 0xFFFF64B4,
             accentHex = 0xFF40E0FF,
-            baseStats = KartStats(0.76f, 0.76f, 0.88f, 0.88f, 0.74f),
+            baseStats = KartStats(0.78f, 0.78f, 0.88f, 0.88f, 0.74f),
+            physicsTuning = KartPhysicsTuning(192f, 34f, 6.2f, 8.3f, 2.8f, 1.12f),
             unlockCost = 450,
             unlockLevel = 4
         ),
@@ -86,24 +92,26 @@ object CatalogData {
             name = "Marshmallow Speedster",
             style = KartBodyStyle.MARSHMALLOW_SPEEDSTER,
             racingNumber = 9,
-            tagline = "Plush twin-mallow catamaran with cotton-candy thrusters",
+            tagline = "Twin-pontoon plush catamaran with soft-landing suspension",
             defaultPrimaryHex = 0xFFF8F4FF,
             defaultSecondaryHex = 0xFF6EC6FF,
             accentHex = 0xFFFF70A6,
-            baseStats = KartStats(0.80f, 0.86f, 0.76f, 0.82f, 0.84f),
+            baseStats = KartStats(0.82f, 0.86f, 0.76f, 0.82f, 0.86f),
+            physicsTuning = KartPhysicsTuning(205f, 29f, 5.5f, 8.7f, 3.5f, 1.02f),
             unlockCost = 580,
             unlockLevel = 5
         ),
         KartSpec(
             id = "caramel_thunder",
-            name = "Caramel Thunder",
+            name = "Caramel Speedster",
             style = KartBodyStyle.CARAMEL_THUNDER,
             racingNumber = 99,
-            tagline = "Molten-toffee super-wedge with triple nitro manifolds",
+            tagline = "Molten-toffee hyper-wedge with split-deck wing & triple manifolds",
             defaultPrimaryHex = 0xFFFF9F1A,
             defaultSecondaryHex = 0xFF3E1F0D,
             accentHex = 0xFFFFEE58,
-            baseStats = KartStats(0.92f, 0.78f, 0.74f, 0.90f, 0.86f),
+            baseStats = KartStats(0.94f, 0.80f, 0.76f, 0.90f, 0.86f),
+            physicsTuning = KartPhysicsTuning(220f, 38f, 7.0f, 9.0f, 3.4f, 1.06f),
             unlockCost = 750,
             unlockLevel = 6
         )
@@ -252,8 +260,8 @@ object CatalogData {
         TrackSpec(
             id = TrackId.PEPPERMINT_PLAZA,
             name = "Peppermint Plaza",
-            subtitle = "Royal Sugar Speedway",
-            description = "Zoom past gingerbread cottages, towering cupcake spires, candy cane arches, and swirled peppermint boulevards.",
+            subtitle = "Candy City Grand Prix",
+            description = "Zoom past gingerbread cottages, cupcake spires, candy cane arches, and swirled peppermint boulevards.",
             laps = 3,
             skyTopHex = 0xFF4CC9FF,
             skyBottomHex = 0xFFFFC8E6,
@@ -269,13 +277,13 @@ object CatalogData {
         TrackSpec(
             id = TrackId.CUPCAKE_COAST,
             name = "Cupcake Coast",
-            subtitle = "Strawberry Cream Shores",
+            subtitle = "Peppermint Coast & Valley",
             description = "Drift along marshmallow beaches, cross glazed donut bridges, dash through wafer tunnels, and dodge coastal palms.",
             laps = 3,
             skyTopHex = 0xFF29B6F6,
             skyBottomHex = 0xFFFFE0B2,
             fogHex = 0xFFFFE9CC,
-            groundHex = 0xFFFF94BA, // strawberry cream sea
+            groundHex = 0xFFFF94BA,
             roadPrimaryHex = 0xFFFFF3E0,
             roadStripeHex = 0xFFFF6EA8,
             curbPrimaryHex = 0xFF3CE8B5,
@@ -286,7 +294,7 @@ object CatalogData {
         TrackSpec(
             id = TrackId.CHOCOLATE_VOLCANO,
             name = "Chocolate Volcano",
-            subtitle = "Caramel Caldera Circuit",
+            subtitle = "Chocolate Mountains Peak",
             description = "Conquer steep cookie cliffs beside flowing chocolate waterfalls, glowing caramel rivers, and sizzling toffee hazards.",
             laps = 3,
             skyTopHex = 0xFF3D1338,
@@ -303,7 +311,7 @@ object CatalogData {
         TrackSpec(
             id = TrackId.GUMDROP_GARDEN,
             name = "Gumdrop Garden",
-            subtitle = "Enchanted Candy Forest",
+            subtitle = "Gumdrop Forest Sanctuary",
             description = "Weave through giant lollipop woods, marshmallow tunnels, gummy bear monuments, and glowing sugar crystal meadows.",
             laps = 3,
             skyTopHex = 0xFF6A4C93,
@@ -398,36 +406,42 @@ object CatalogData {
     fun localized(language: AppLanguage, key: String): String {
         return when (language) {
             AppLanguage.EN -> when (key) {
-                "play" -> "PLAY"
+                "free_roam" -> "FREE ROAM"
+                "play" -> "QUICK RACE"
                 "grand_prix" -> "GRAND PRIX"
                 "time_trial" -> "TIME TRIAL"
                 "practice" -> "PRACTICE"
                 "characters" -> "CHARACTERS"
-                "garage" -> "KART GARAGE"
-                "tracks" -> "TRACK COLLECTION"
+                "garage" -> "GARAGE"
+                "world_map" -> "WORLD MAP"
+                "tracks" -> "TRACKS"
                 "settings" -> "SETTINGS"
                 "challenges" -> "CHALLENGES"
                 else -> key
             }
             AppLanguage.ES -> when (key) {
-                "play" -> "JUGAR"
+                "free_roam" -> "MUNDO LIBRE"
+                "play" -> "CARRERA RÁPIDA"
                 "grand_prix" -> "GRAN PREMIO"
                 "time_trial" -> "CONTRARRELOJ"
                 "practice" -> "PRÁCTICA"
                 "characters" -> "PILOTOS"
                 "garage" -> "GARAJE"
+                "world_map" -> "MAPA MUNDIAL"
                 "tracks" -> "PISTAS"
                 "settings" -> "AJUSTES"
                 "challenges" -> "DESAFÍOS"
                 else -> key
             }
             AppLanguage.FR -> when (key) {
-                "play" -> "JOUER"
+                "free_roam" -> "EXPLORATION"
+                "play" -> "COURSE RAPIDE"
                 "grand_prix" -> "GRAND PRIX"
                 "time_trial" -> "CONTRE-LA-MONTRE"
                 "practice" -> "ENTRAÎNEMENT"
                 "characters" -> "PILOTES"
                 "garage" -> "GARAGE"
+                "world_map" -> "CARTE DU MONDE"
                 "tracks" -> "CIRCUITS"
                 "settings" -> "PARAMÈTRES"
                 "challenges" -> "DÉFIS"

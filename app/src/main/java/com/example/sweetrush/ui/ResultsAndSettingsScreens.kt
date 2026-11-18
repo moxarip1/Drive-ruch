@@ -404,6 +404,22 @@ fun SettingsScreen(
                         )
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Show Vehicle Debug Telemetry", style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
+                        Switch(
+                            checked = s.showDebugTelemetry,
+                            onCheckedChange = { checked ->
+                                onUpdateSettings { it.copy(showDebugTelemetry = checked) }
+                            },
+                            modifier = Modifier.testTag("settings_debug_telemetry_switch"),
+                            colors = SwitchDefaults.colors(checkedThumbColor = MintCream, checkedTrackColor = MintDark)
+                        )
+                    }
+
                     Text("STEERING SENSITIVITY (${String.format("%.1f", s.steeringSensitivity)}x)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
                     Slider(
                         value = s.steeringSensitivity,

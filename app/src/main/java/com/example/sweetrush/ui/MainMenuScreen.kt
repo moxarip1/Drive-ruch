@@ -25,15 +25,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,7 +65,8 @@ import kotlin.math.sin
 @Composable
 fun MainMenuScreen(
     profile: PlayerProfile,
-    onNavigate: (GameScreen) -> Unit
+    onNavigate: (GameScreen) -> Unit,
+    onStartFreeRoam: () -> Unit = {}
 ) {
     val lang = profile.settings.language
     val racer = CatalogData.racerById(profile.selectedRacerId)
@@ -80,31 +81,30 @@ fun MainMenuScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Subtle gradient scrim over the live 3D Candy Kingdom
+        // Light edge-only vertical scrims so the central 3D Candy World & cruising kart remain 100% crisp
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            BerryDeep.copy(alpha = 0.58f),
-                            Color.Transparent,
-                            BerryDeep.copy(alpha = 0.68f)
-                        )
+                    Brush.verticalGradient(
+                        0.0f to BerryDeep.copy(alpha = 0.42f),
+                        0.22f to Color.Transparent,
+                        0.72f to Color.Transparent,
+                        1.0f to BerryDeep.copy(alpha = 0.56f)
                     )
                 )
         )
 
-        // Floating candy sparkle particles over menu
+        // Subtle drifting sugar sparkles near the outer frame
         Canvas(modifier = Modifier.fillMaxSize()) {
             val colors = listOf(CandyPink, MintCream, CaramelGold, SkyCandy, Color.White)
-            for (i in 0 until 18) {
+            for (i in 0 until 14) {
                 val xFrac = ((i * 0.173f) % 1f)
-                val yFrac = ((i * 0.291f + phase * 0.04f) % 1f)
-                val radius = 3.5f + (i % 3) * 2f + sin(phase + i) * 1.5f
+                val yFrac = ((i * 0.291f + phase * 0.035f) % 1f)
+                val radius = 3f + (i % 3) * 1.6f + sin(phase + i) * 1.2f
                 drawCircle(
-                    color = colors[i % colors.size].copy(alpha = 0.55f),
-                    radius = radius.coerceAtLeast(2f),
+                    color = colors[i % colors.size].copy(alpha = 0.42f),
+                    radius = radius.coerceAtLeast(1.8f),
                     center = Offset(size.width * xFrac, size.height * yFrac)
                 )
             }
@@ -114,29 +114,29 @@ fun MainMenuScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 18.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top bar: Logo + Player Progression Pill
+            // Compact Top Bar: Brand Logo (Left) + Player Progression & Setup Pill (Right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                SweetRushLogo()
+                SweetRushLogo(compact = true)
 
                 Column(horizontalAlignment = Alignment.End) {
                     PlayerProfilePill(profile = profile)
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(BerryPurple.copy(alpha = 0.85f))
-                            .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(BerryDeep.copy(alpha = 0.66f))
+                            .border(1.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "${racer.name} • ${kart.name}  |  Wins: ${profile.racesWon}  •  GP Cups: ${profile.grandPrixGoldTrophies}",
+                            text = "${racer.name} • ${kart.name}  |  Wins ${profile.racesWon} • ${profile.collectedWorldCoins.size}/48 Coins • ${profile.collectedWorldStars.size}/10 Stars",
                             style = MaterialTheme.typography.labelSmall,
                             color = FrostingWhite
                         )
@@ -144,30 +144,51 @@ fun MainMenuScreen(
                 }
             }
 
-            // Bottom landscape button deck: Left (Race Modes) + Right (Garage & Kingdom)
+            // Sleek Bottom Floating Docks — keeps ~75% center screen open for the 3D Candy World
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
-                // Primary Racing Modes column
+                // Bottom-Left Racing Dock
                 Column(
-                    modifier = Modifier.width(340.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .width(344.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(BerryDeep.copy(alpha = 0.56f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(24.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    CandyButton(
-                        text = CatalogData.localized(lang, "play"),
-                        onClick = { onNavigate(GameScreen.QUICK_RACE_SETUP) },
-                        testTag = "menu_play_button",
-                        icon = Icons.Filled.PlayArrow,
-                        topColor = Color(0xFFFF4D94),
-                        bottomColor = CandyPinkDark,
-                        height = 56.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CandyButton(
+                            text = CatalogData.localized(lang, "play"),
+                            onClick = { onNavigate(GameScreen.QUICK_RACE_SETUP) },
+                            testTag = "menu_play_button",
+                            icon = Icons.Filled.PlayArrow,
+                            topColor = Color(0xFFFF4D94),
+                            bottomColor = CandyPinkDark,
+                            height = 54.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CandyButton(
+                            text = CatalogData.localized(lang, "free_roam"),
+                            onClick = onStartFreeRoam,
+                            testTag = "menu_free_roam_button",
+                            icon = Icons.Filled.Explore,
+                            topColor = MintCream,
+                            bottomColor = MintDark,
+                            textColor = BerryDeep,
+                            height = 54.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "grand_prix"),
@@ -185,8 +206,8 @@ fun MainMenuScreen(
                             onClick = { onNavigate(GameScreen.TIME_TRIAL_SETUP) },
                             testTag = "menu_time_trial_button",
                             icon = Icons.Filled.Timer,
-                            topColor = MintCream,
-                            bottomColor = MintDark,
+                            topColor = SkyCandy,
+                            bottomColor = Color(0xFF0288D1),
                             textColor = BerryDeep,
                             height = 48.dp,
                             modifier = Modifier.weight(1f)
@@ -194,15 +215,15 @@ fun MainMenuScreen(
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "practice"),
                             onClick = { onNavigate(GameScreen.PRACTICE_SETUP) },
                             testTag = "menu_practice_button",
                             icon = Icons.Filled.Speed,
-                            topColor = SkyCandy,
-                            bottomColor = Color(0xFF0288D1),
+                            topColor = Color(0xFF4DD0E1),
+                            bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
                             height = 48.dp,
                             modifier = Modifier.weight(1f)
@@ -220,28 +241,23 @@ fun MainMenuScreen(
                     }
                 }
 
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(12.dp))
 
-                // Kingdom & Customization deck
+                // Bottom-Right Garage & Kingdom Utility Dock
                 Column(
-                    modifier = Modifier.width(340.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .width(342.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(BerryDeep.copy(alpha = 0.56f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(24.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalAlignment = Alignment.End
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        CandyButton(
-                            text = CatalogData.localized(lang, "characters"),
-                            onClick = { onNavigate(GameScreen.CHARACTER_SELECT) },
-                            testTag = "menu_characters_button",
-                            icon = Icons.Filled.Face,
-                            topColor = Color(0xFFFF7EB6),
-                            bottomColor = Color(0xFFD81B60),
-                            height = 48.dp,
-                            modifier = Modifier.weight(1f)
-                        )
                         CandyButton(
                             text = CatalogData.localized(lang, "garage"),
                             onClick = { onNavigate(GameScreen.GARAGE) },
@@ -252,11 +268,32 @@ fun MainMenuScreen(
                             height = 48.dp,
                             modifier = Modifier.weight(1f)
                         )
+                        CandyButton(
+                            text = CatalogData.localized(lang, "characters"),
+                            onClick = { onNavigate(GameScreen.CHARACTER_SELECT) },
+                            testTag = "menu_characters_button",
+                            icon = Icons.Filled.Face,
+                            topColor = Color(0xFFFF7EB6),
+                            bottomColor = Color(0xFFD81B60),
+                            height = 48.dp,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        CandyButton(
+                            text = CatalogData.localized(lang, "world_map"),
+                            onClick = { onNavigate(GameScreen.WORLD_MAP) },
+                            testTag = "menu_world_map_button",
+                            icon = Icons.Filled.Public,
+                            topColor = MintCream,
+                            bottomColor = MintDark,
+                            textColor = BerryDeep,
+                            height = 48.dp,
+                            modifier = Modifier.weight(1.1f)
+                        )
                         CandyButton(
                             text = CatalogData.localized(lang, "tracks"),
                             onClick = { onNavigate(GameScreen.TRACK_COLLECTION) },
@@ -266,7 +303,7 @@ fun MainMenuScreen(
                             bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
                             height = 48.dp,
-                            modifier = Modifier.weight(1.25f)
+                            modifier = Modifier.weight(0.95f)
                         )
                         CandyButton(
                             text = CatalogData.localized(lang, "settings"),

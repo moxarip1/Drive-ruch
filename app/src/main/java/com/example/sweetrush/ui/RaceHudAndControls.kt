@@ -34,10 +34,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +73,7 @@ import com.example.sweetrush.ToastNotification
 import com.example.sweetrush.model.ControlScheme
 import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.GameSettings
+import com.example.sweetrush.model.VehicleDebugTelemetry
 import com.example.sweetrush.physics.KartPhysicsEngine
 import com.example.sweetrush.render3d.RaceHudSnapshot
 import com.example.ui.theme.BerryDeep
@@ -99,7 +103,10 @@ fun RaceHudScreen(
     onPauseToggle: (Boolean) -> Unit,
     onRestart: () -> Unit,
     onFinishSession: () -> Unit,
-    onQuitToMenu: () -> Unit
+    onQuitToMenu: () -> Unit,
+    onToggleDebug: () -> Unit = {},
+    onOpenWorldMap: () -> Unit = {},
+    onEnterPortalRace: () -> Unit = {}
 ) {
     BackHandler { onPauseToggle(!isPaused) }
 
@@ -111,6 +118,8 @@ fun RaceHudScreen(
     var driftHeld by remember { mutableStateOf(false) }
     var nitroHeld by remember { mutableStateOf(false) }
 
+    val isFreeRoam = hud.isFreeRoam || mode == GameMode.FREE_ROAM
+
     fun pushInput() {
         val btnSteer = (if (steerLeft) -1f else 0f) + (if (steerRight) 1f else 0f)
         val steer = if (settings.controlScheme == ControlScheme.VIRTUAL_WHEEL) wheelSteer else btnSteer
@@ -118,6 +127,39 @@ fun RaceHudScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Radial Speed Lines during Nitro / Boost / High Speed
+        if (hud.isBoostOrNitroActive || hud.speedKmh >= 175) {
+            val intensity = if (hud.isBoostOrNitroActive) 1f else ((hud.speedKmh - 175) / 80f).coerceIn(0.25f, 0.85f)
+            val pulseOffset = ((hud.elapsedMs % 400L) / 400f)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cx = size.width * 0.5f
+                val cy = size.height * 0.5f
+                val maxR = kotlin.math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+                val streakCount = 24
+                for (i in 0 until streakCount) {
+                    val angle = (i.toFloat() / streakCount) * 6.283185f + pulseOffset * 0.14f
+                    val cosA = kotlin.math.cos(angle)
+                    val sinA = kotlin.math.sin(angle)
+                    val innerFrac = 0.62f + ((i * 37) % 15) * 0.01f
+                    val outerFrac = 0.98f
+                    val pStart = Offset(cx + cosA * maxR * innerFrac, cy + sinA * maxR * innerFrac)
+                    val pEnd = Offset(cx + cosA * maxR * outerFrac, cy + sinA * maxR * outerFrac)
+                    val lineColor = when {
+                        hud.isBoostOrNitroActive && i % 3 == 0 -> CaramelGold
+                        hud.isBoostOrNitroActive -> MintCream
+                        else -> Color.White
+                    }
+                    drawLine(
+                        color = lineColor.copy(alpha = 0.34f * intensity),
+                        start = pStart,
+                        end = pEnd,
+                        strokeWidth = if (i % 2 == 0) 4.5f else 2.5f,
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+        }
+
         // Chocolate Smoke splatter overlay if hit by opponent's Chocolate Smoke!
         if (hud.smokeAlpha > 0.02f) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -142,7 +184,7 @@ fun RaceHudScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
-            // TOP HUD ROW: Position + Lap + Timer (Left) | Toast (Center) | Mini-Map + Pause (Right)
+            // TOP HUD ROW: Position/Region + Lap/Collectibles (Left) | Toast (Center) | Mini-Map + Debug/Map/Pause (Right)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,48 +192,80 @@ fun RaceHudScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                // Position, Lap & Time
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(BerryDeep.copy(alpha = 0.78f))
-                        .border(2.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    if (mode != GameMode.TIME_TRIAL && mode != GameMode.PRACTICE) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = KartPhysicsEngine.ordinal(hud.position),
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = if (hud.position == 1) CaramelGold else FrostingWhite
+                // Left column: Position/Lap OR Free Roam Region + Collectibles, plus optional Debug Telemetry overlay
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(BerryDeep.copy(alpha = 0.62f))
+                            .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (isFreeRoam) {
+                            Icon(
+                                imageVector = Icons.Filled.Explore,
+                                contentDescription = "Free Roam Region",
+                                tint = Color(hud.currentRegion.accentHex),
+                                modifier = Modifier.size(28.dp)
                             )
-                            Text("OF 8", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                            Column {
+                                Text(
+                                    text = hud.currentRegion.displayName.uppercase(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color(hud.currentRegion.accentHex)
+                                )
+                                Text(
+                                    text = "Coins ${hud.worldCoinsCollected}/48  •  Stars ${hud.worldStarsCollected}/10",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = CaramelGold
+                                )
+                                Text(
+                                    text = "OPEN WORLD  •  ${KartPhysicsEngine.formatTime(hud.elapsedMs)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MintCream
+                                )
+                            }
+                        } else {
+                            if (mode != GameMode.TIME_TRIAL && mode != GameMode.PRACTICE) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = KartPhysicsEngine.ordinal(hud.position),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = if (hud.position == 1) CaramelGold else FrostingWhite
+                                    )
+                                    Text("OF 8", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = if (mode == GameMode.TIME_TRIAL || mode == GameMode.PRACTICE) {
+                                        "LAP ${hud.currentLap}"
+                                    } else {
+                                        "LAP ${hud.currentLap}/${hud.totalLaps}"
+                                    },
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = CandyPink
+                                )
+                                Text(
+                                    text = KartPhysicsEngine.formatTime(hud.elapsedMs),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = FrostingWhite
+                                )
+                                if (hud.bestLapMs < Long.MAX_VALUE) {
+                                    Text(
+                                        text = "BEST ${KartPhysicsEngine.formatTime(hud.bestLapMs)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = CaramelGold
+                                    )
+                                }
+                            }
                         }
                     }
-                    Column {
-                        Text(
-                            text = if (mode == GameMode.TIME_TRIAL || mode == GameMode.PRACTICE) {
-                                "LAP ${hud.currentLap}"
-                            } else {
-                                "LAP ${hud.currentLap}/${hud.totalLaps}"
-                            },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = CandyPink
-                        )
-                        Text(
-                            text = KartPhysicsEngine.formatTime(hud.elapsedMs),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = FrostingWhite
-                        )
-                        if (hud.bestLapMs < Long.MAX_VALUE) {
-                            Text(
-                                text = "BEST ${KartPhysicsEngine.formatTime(hud.bestLapMs)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CaramelGold
-                            )
-                        }
+
+                    if (settings.showDebugTelemetry) {
+                        VehicleDebugTelemetryOverlay(telemetry = hud.telemetry)
                     }
                 }
 
@@ -229,8 +303,8 @@ fun RaceHudScreen(
                         Column(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(BerryDeep.copy(alpha = 0.76f))
-                                .border(1.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                                .background(BerryDeep.copy(alpha = 0.62f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(16.dp))
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.Bottom) {
@@ -280,26 +354,67 @@ fun RaceHudScreen(
                     }
                 }
 
-                // Right: Live Mini-Map + Pause / End Practice button
+                // Right: Live Mini-Map + Pause / Map / Debug / End Session buttons
                 Row(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TrackMiniMap(hud = hud, modifier = Modifier.size(92.dp))
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        IconButton(
-                            onClick = { onPauseToggle(true) },
-                            modifier = Modifier
-                                .testTag("pause_button")
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(BerryPurple.copy(alpha = 0.88f))
-                                .border(2.dp, Color.White.copy(alpha = 0.7f), CircleShape)
-                        ) {
-                            Icon(Icons.Filled.Pause, contentDescription = "Pause", tint = FrostingWhite)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IconButton(
+                                onClick = onToggleDebug,
+                                modifier = Modifier
+                                    .testTag("toggle_debug_button")
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (settings.showDebugTelemetry) MintDark.copy(alpha = 0.92f)
+                                        else BerryDeep.copy(alpha = 0.78f)
+                                    )
+                                    .border(
+                                        1.5.dp,
+                                        if (settings.showDebugTelemetry) MintCream else Color.White.copy(alpha = 0.45f),
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.BugReport,
+                                    contentDescription = "Toggle Vehicle Debug Telemetry",
+                                    tint = FrostingWhite
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { onPauseToggle(true) },
+                                modifier = Modifier
+                                    .testTag("pause_button")
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(BerryPurple.copy(alpha = 0.88f))
+                                    .border(2.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                            ) {
+                                Icon(Icons.Filled.Pause, contentDescription = "Pause", tint = FrostingWhite)
+                            }
                         }
-                        if (mode == GameMode.TIME_TRIAL || mode == GameMode.PRACTICE) {
+
+                        if (isFreeRoam) {
+                            CandyButton(
+                                text = "MAP",
+                                onClick = onOpenWorldMap,
+                                testTag = "hud_world_map_button",
+                                icon = Icons.Filled.Public,
+                                topColor = SkyCandy,
+                                bottomColor = Color(0xFF0288D1),
+                                textColor = BerryDeep,
+                                height = 48.dp,
+                                modifier = Modifier.width(102.dp)
+                            )
+                        } else if (mode == GameMode.TIME_TRIAL || mode == GameMode.PRACTICE) {
                             CandyButton(
                                 text = "END",
                                 onClick = onFinishSession,
@@ -307,8 +422,8 @@ fun RaceHudScreen(
                                 topColor = CaramelGold,
                                 bottomColor = Butterscotch,
                                 textColor = BerryDeep,
-                                height = 38.dp,
-                                modifier = Modifier.width(56.dp)
+                                height = 48.dp,
+                                modifier = Modifier.width(102.dp)
                             )
                         }
                     }
@@ -325,6 +440,25 @@ fun RaceHudScreen(
                     ),
                     color = if (hud.countdownText == "SWEET RUSH!") MintCream else CaramelGold,
                     modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
+            // NEARBY RACE PORTAL GATE CTA IN FREE ROAM
+            val portalTitle = hud.nearbyPortalTitle
+            if (isFreeRoam && portalTitle != null) {
+                CandyButton(
+                    text = "ENTER RACE: ${portalTitle.uppercase()}",
+                    onClick = onEnterPortalRace,
+                    testTag = "enter_portal_button",
+                    icon = Icons.Filled.Flag,
+                    topColor = CaramelGold,
+                    bottomColor = Butterscotch,
+                    textColor = BerryDeep,
+                    height = 50.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                        .width(300.dp)
                 )
             }
 
@@ -557,11 +691,11 @@ private fun HoldTouchButton(
             .size(size)
             .clip(CircleShape)
             .background(
-                if (pressed) activeColor.copy(alpha = 0.95f) else baseColor.copy(alpha = 0.78f)
+                if (pressed) activeColor.copy(alpha = 0.92f) else baseColor.copy(alpha = 0.64f)
             )
             .border(
                 width = if (pressed) 3.dp else 2.dp,
-                color = Color.White.copy(alpha = if (pressed) 1f else 0.72f),
+                color = Color.White.copy(alpha = if (pressed) 1f else 0.68f),
                 shape = CircleShape
             )
             .pointerInput(Unit) {
@@ -652,8 +786,8 @@ private fun TrackMiniMap(hud: RaceHudSnapshot, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(BerryDeep.copy(alpha = 0.78f))
-            .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+            .background(BerryDeep.copy(alpha = 0.62f))
+            .border(1.5.dp, Color.White.copy(alpha = 0.42f), RoundedCornerShape(16.dp))
             .padding(6.dp)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -685,6 +819,85 @@ private fun TrackMiniMap(hud: RaceHudSnapshot, modifier: Modifier = Modifier) {
                     radius = if (dot.isPlayer) 6.5f else 4f,
                     center = p
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleDebugTelemetryOverlay(telemetry: VehicleDebugTelemetry) {
+    Column(
+        modifier = Modifier
+            .testTag("vehicle_debug_overlay")
+            .width(236.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(BerryDeep.copy(alpha = 0.80f))
+            .border(1.5.dp, MintCream.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = "TELEMETRY • ${telemetry.surfaceName.uppercase()} • ${telemetry.driftState}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MintCream,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "SPD ${telemetry.speedKmh.toInt()} km/h  |  SLIP ${String.format("%.1f", telemetry.slipAngleDeg)}°",
+            style = MaterialTheme.typography.labelSmall,
+            color = FrostingWhite
+        )
+        Text(
+            text = "VEL (${String.format("%.1f", telemetry.vx)}, ${String.format("%.1f", telemetry.vy)}, ${String.format("%.1f", telemetry.vz)})",
+            style = MaterialTheme.typography.labelSmall,
+            color = SkyCandy
+        )
+        Text(
+            text = "GRIP Lat ${String.format("%.2f", telemetry.lateralGrip)} / Fwd ${String.format("%.2f", telemetry.forwardGrip)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = CaramelGold
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val labels = listOf("FL", "FR", "RL", "RR")
+            for (i in 0 until 4) {
+                val contact = telemetry.wheelContacts.getOrElse(i) { false }
+                val comp = telemetry.wheelCompression.getOrElse(i) { 0f }.coerceIn(0f, 1f)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (contact) MintCream else StrawberryRed)
+                        )
+                        Text(labels[i], style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.White.copy(alpha = 0.2f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(comp)
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (contact) CandyPink else CaramelGold)
+                        )
+                    }
+                }
             }
         }
     }

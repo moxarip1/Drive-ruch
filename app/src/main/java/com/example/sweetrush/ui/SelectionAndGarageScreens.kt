@@ -28,11 +28,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -389,6 +391,8 @@ fun GarageAndCharacterScreen(
     onSelectExhaust: (ExhaustStyle) -> Unit,
     onSelectDecoration: (KartDecoration) -> Unit,
     onUpgradeStat: (String) -> Unit,
+    onZoomIn: () -> Unit = {},
+    onZoomOut: () -> Unit = {},
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -398,6 +402,7 @@ fun GarageAndCharacterScreen(
     val selectedRacer = CatalogData.racerById(profile.selectedRacerId)
     val custom = profile.kartCustomizations[profile.selectedKartId] ?: KartCustomization()
     val stats = CatalogData.effectiveStats(selectedKart, custom)
+    val tuning = selectedKart.physicsTuning
 
     Box(
         modifier = Modifier
@@ -417,7 +422,7 @@ fun GarageAndCharacterScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Left side: Transparent window over live 3D Showroom + drag hint & live stats
+                // Left side: Transparent window over live 3D Showroom + zoom buttons, drag hint & live stats
                 Column(
                     modifier = Modifier
                         .weight(0.95f)
@@ -425,42 +430,85 @@ fun GarageAndCharacterScreen(
                         .padding(bottom = 10.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(BerryDeep.copy(alpha = 0.72f))
-                            .border(1.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Column {
-                            Text(
-                                text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = FrostingWhite
-                            )
-                            Text(
-                                text = "Drag anywhere on the 3D kart to rotate 360°",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MintCream
-                            )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(BerryDeep.copy(alpha = 0.74f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = FrostingWhite,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Drag to rotate 360° • Pinch or +/- to zoom",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MintCream
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IconButton(
+                                onClick = onZoomIn,
+                                modifier = Modifier
+                                    .testTag("garage_zoom_in")
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(BerryPurple.copy(alpha = 0.85f))
+                                    .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                            ) {
+                                Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom In", tint = MintCream)
+                            }
+                            IconButton(
+                                onClick = onZoomOut,
+                                modifier = Modifier
+                                    .testTag("garage_zoom_out")
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(BerryPurple.copy(alpha = 0.85f))
+                                    .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                            ) {
+                                Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom Out", tint = SkyCandy)
+                            }
                         }
                     }
 
-                    // Compact live stat card at bottom-left
+                    // Compact live stat + physics tuning card at bottom-left
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(BerryDeep.copy(alpha = 0.80f))
-                            .border(1.5.dp, CandyPink.copy(alpha = 0.6f), RoundedCornerShape(18.dp))
-                            .padding(10.dp),
+                            .background(BerryDeep.copy(alpha = 0.68f))
+                            .border(1.5.dp, CandyPink.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        StatBarRow("SPEED", stats.speed, CandyPink)
-                        StatBarRow("ACCEL", stats.acceleration, MintCream)
+                        val gripScore = ((stats.stability + (tuning.lateralGrip / 11f).coerceIn(0f, 1f)) * 0.5f).coerceIn(0f, 1f)
+                        StatBarRow("TOP SPEED", stats.speed, CandyPink)
+                        StatBarRow("ACCELERATION", stats.acceleration, MintCream)
                         StatBarRow("HANDLING", stats.handling, SkyCandy)
+                        StatBarRow("GRIP", gripScore, Color(0xFFB388FF))
                         StatBarRow("BOOST", stats.boost, CaramelGold)
-                        StatBarRow("STABILITY", stats.stability, Color(0xFFB388FF))
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            text = "Mass ${tuning.massKg.toInt()}kg  •  Grip ${String.format("%.1f", tuning.lateralGrip)}  •  Susp ${tuning.suspensionStiffness.toInt()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SkyCandy
+                        )
                     }
                 }
 
