@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +74,7 @@ import com.example.ui.theme.FrostingWhite
 import com.example.ui.theme.MintCream
 import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
+import com.example.ui.theme.StrawberryRed
 
 @Composable
 fun RaceSetupScreen(
@@ -379,6 +381,17 @@ fun ChallengesScreen(
     }
 }
 
+private fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle): String = when (style) {
+    com.example.sweetrush.model.KartBodyStyle.STRAWBERRY_ROCKET -> "شاسيه ويفر مقرمش • كريمة فراولة مخفوقة • مقدمة مغمسة بالشوكولاتة"
+    com.example.sweetrush.model.KartBodyStyle.PEPPERMINT_RACER -> "هيكل قصب السكر الحلزوني • أجنحة فورمولا ويفر • أقراص نعناع"
+    com.example.sweetrush.model.KartBodyStyle.CHOCOLATE_CRUISER -> "مربعات شوكولاتة داكنة بارزة • تيربو ويفر ثلاثي • كراميل ذائب"
+    com.example.sweetrush.model.KartBodyStyle.JELLYBEAN_MACHINE -> "كبسولة جيلي شفافة لامعة • أنابيب حلوى مطاطية ملونة • جناح حامض"
+    com.example.sweetrush.model.KartBodyStyle.CARAMEL_THUNDER -> "توفي ذهبي مصهور • فتحات وافل عسلية • جناح كراميل مزدوج"
+    com.example.sweetrush.model.KartBodyStyle.CUPCAKE_KART -> "قالب كب كيك مضلع • قبة كريمة مخفوقة • رشات سكر وكرز لامع"
+    com.example.sweetrush.model.KartBodyStyle.DONUT_DRIFTER -> "حلقة دونات ذهبية مزججة بالفراولة • قطرات آيسينغ • 24 حبيبة سكر"
+    com.example.sweetrush.model.KartBodyStyle.MARSHMALLOW_SPEEDSTER -> "أسطوانات مارشميلو محمصة • جسر بسكويت وشوكولاتة • غزل البنات"
+}
+
 @Composable
 fun GarageAndCharacterScreen(
     initialTab: Int, // 0 = Characters, 1 = Karts, 2 = Customize, 3 = Upgrades
@@ -393,14 +406,19 @@ fun GarageAndCharacterScreen(
     onUpgradeStat: (String) -> Unit,
     onZoomIn: () -> Unit = {},
     onZoomOut: () -> Unit = {},
+    onFocusCamera: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
     var activeTab by remember(initialTab) { mutableIntStateOf(initialTab) }
+    var activeCamPreset by remember { mutableStateOf("AUTO") }
 
     val selectedKart = CatalogData.kartById(profile.selectedKartId)
     val selectedRacer = CatalogData.racerById(profile.selectedRacerId)
     val custom = profile.kartCustomizations[profile.selectedKartId] ?: KartCustomization()
+    val activePaint = CatalogData.paintById(custom.paintId)
+    val primaryColorHex = if (custom.paintId == "default") selectedKart.defaultPrimaryHex else activePaint.primaryHex
+    val secondaryColorHex = if (custom.paintId == "default") selectedKart.defaultSecondaryHex else activePaint.secondaryHex
     val stats = CatalogData.effectiveStats(selectedKart, custom)
     val tuning = selectedKart.physicsTuning
 
@@ -411,7 +429,7 @@ fun GarageAndCharacterScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             CandyScreenHeader(
-                title = if (activeTab == 0) "Racer Roster" else "3D Candy Garage",
+                title = if (activeTab == 0) "Racer Roster • المتسابقون" else "Sugar Rush Kart Bakery • مصنع حلوى السيارات",
                 profile = profile,
                 onBack = onBack
             )
@@ -422,80 +440,139 @@ fun GarageAndCharacterScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Left side: Transparent window over live 3D Showroom + zoom buttons, drag hint & live stats
+                // Left side: Transparent window over live 3D Kart Bakery Showroom + camera angle presets + live recipe & stats
                 Column(
                     modifier = Modifier
-                        .weight(0.95f)
+                        .weight(0.98f)
                         .fillMaxHeight()
                         .padding(bottom = 10.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(BerryDeep.copy(alpha = 0.74f))
-                                .border(1.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Column {
-                                Text(
-                                    text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = FrostingWhite,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "Drag to rotate 360° • Pinch or +/- to zoom",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MintCream
-                                )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(BerryDeep.copy(alpha = 0.80f))
+                                    .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(primaryColorHex))
+                                                .border(1.5.dp, Color(secondaryColorHex), CircleShape)
+                                        )
+                                        Text(
+                                            text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = FrostingWhite,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Text(
+                                        text = kartBakeryRecipeAr(selectedKart.style),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = CaramelGold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IconButton(
+                                    onClick = onZoomIn,
+                                    modifier = Modifier
+                                        .testTag("garage_zoom_in")
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(BerryPurple.copy(alpha = 0.88f))
+                                        .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                                ) {
+                                    Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom In", tint = MintCream)
+                                }
+                                IconButton(
+                                    onClick = onZoomOut,
+                                    modifier = Modifier
+                                        .testTag("garage_zoom_out")
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(BerryPurple.copy(alpha = 0.88f))
+                                        .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                                ) {
+                                    Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom Out", tint = SkyCandy)
+                                }
                             }
                         }
 
-                        Spacer(Modifier.width(8.dp))
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            IconButton(
-                                onClick = onZoomIn,
-                                modifier = Modifier
-                                    .testTag("garage_zoom_in")
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(BerryPurple.copy(alpha = 0.85f))
-                                    .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
-                            ) {
-                                Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom In", tint = MintCream)
-                            }
-                            IconButton(
-                                onClick = onZoomOut,
-                                modifier = Modifier
-                                    .testTag("garage_zoom_out")
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(BerryPurple.copy(alpha = 0.85f))
-                                    .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
-                            ) {
-                                Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom Out", tint = SkyCandy)
+                        // Interactive 3D Bakery Camera Angle Quick-Focus Bar
+                        val cameraPresets = listOf(
+                            "AUTO" to "360° تلقائي",
+                            "FRONT" to "الأمام",
+                            "SIDE" to "الجانب",
+                            "WHEELS" to "الإطارات",
+                            "REAR" to "العادم",
+                            "TOP" to "السقف"
+                        )
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(cameraPresets) { (presetKey, labelAr) ->
+                                val isCamSelected = activeCamPreset == presetKey
+                                Box(
+                                    modifier = Modifier
+                                        .testTag("garage_cam_${presetKey.lowercase()}")
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isCamSelected) CaramelGold else BerryDeep.copy(alpha = 0.78f)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isCamSelected) Color.White else Color.White.copy(alpha = 0.3f),
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            activeCamPreset = presetKey
+                                            onFocusCamera(presetKey)
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = labelAr,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isCamSelected) BerryDeep else FrostingWhite
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // Compact live stat + physics tuning card at bottom-left
+                    // Compact live stat + bakery recipe loadout card at bottom-left
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(BerryDeep.copy(alpha = 0.68f))
-                            .border(1.5.dp, CandyPink.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
+                            .background(BerryDeep.copy(alpha = 0.74f))
+                            .border(1.5.dp, CandyPink.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         val gripScore = ((stats.stability + (tuning.lateralGrip / 11f).coerceIn(0f, 1f)) * 0.5f).coerceIn(0f, 1f)
                         StatBarRow("TOP SPEED", stats.speed, CandyPink)
@@ -505,25 +582,32 @@ fun GarageAndCharacterScreen(
                         StatBarRow("BOOST", stats.boost, CaramelGold)
                         Spacer(Modifier.height(1.dp))
                         Text(
-                            text = "Mass ${tuning.massKg.toInt()}kg  •  Grip ${String.format("%.1f", tuning.lateralGrip)}  •  Susp ${tuning.suspensionStiffness.toInt()}",
+                            text = "إطارات: ${custom.wheelDesign.displayName}  •  عادم: ${custom.exhaustStyle.displayName}  •  زينة: ${custom.decoration.displayName}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SkyCandy
+                            color = SkyCandy,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                // Right side: Tabs + Customization Panel
+                // Right side: Tabs + Sugar Rush Kart Bakery Customization Panel
                 Column(
                     modifier = Modifier
-                        .weight(1.2f)
+                        .weight(1.22f)
                         .fillMaxHeight()
                         .padding(bottom = 10.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(BerryDeep.copy(alpha = 0.88f))
-                        .border(2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(24.dp))
+                        .background(BerryDeep.copy(alpha = 0.90f))
+                        .border(2.dp, CaramelGold.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
                         .padding(12.dp)
                 ) {
-                    val tabs = listOf("Racers", "Karts", "Style", "Upgrades")
+                    val tabs = listOf(
+                        "Racers • السائقون",
+                        "Karts • السيارات",
+                        "Bakery • التعديل",
+                        "Oven • الترقية"
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -538,13 +622,35 @@ fun GarageAndCharacterScreen(
                                     .background(if (sel) CandyPink else BerryCard)
                                     .border(
                                         1.5.dp,
-                                        if (sel) Color.White else Color.White.copy(alpha = 0.25f),
+                                        if (sel) CaramelGold else Color.White.copy(alpha = 0.25f),
                                         RoundedCornerShape(14.dp)
                                     )
-                                    .clickable { activeTab = idx },
+                                    .clickable {
+                                        activeTab = idx
+                                        when (idx) {
+                                            0 -> {
+                                                activeCamPreset = "FRONT"
+                                                onFocusCamera("FRONT")
+                                            }
+                                            1 -> {
+                                                activeCamPreset = "AUTO"
+                                                onFocusCamera("AUTO")
+                                            }
+                                            2 -> {
+                                                activeCamPreset = "SIDE"
+                                                onFocusCamera("SIDE")
+                                            }
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(label, style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -575,7 +681,7 @@ fun GarageAndCharacterScreen(
                                             .testTag("racer_item_${racer.id}")
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(if (selected) CandyPink.copy(alpha = 0.3f) else BerryPurple)
+                                            .background(if (selected) CandyPink.copy(alpha = 0.32f) else BerryPurple)
                                             .border(
                                                 2.dp,
                                                 if (selected) CaramelGold else Color.White.copy(alpha = 0.2f),
@@ -587,16 +693,24 @@ fun GarageAndCharacterScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(40.dp)
+                                                .size(42.dp)
                                                 .clip(CircleShape)
                                                 .background(Color(racer.suitPrimaryHex))
-                                                .border(2.dp, Color(racer.suitSecondaryHex), CircleShape)
-                                        )
+                                                .border(2.5.dp, Color(racer.suitSecondaryHex), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(16.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(racer.helmetHex))
+                                            )
+                                        }
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text("${racer.name} — ${racer.title}", style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
-                                            Text(racer.personality, style = MaterialTheme.typography.bodyMedium, color = FrostingWhite.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text("Power: ${racer.signaturePowerUp.displayName}", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                            Text(racer.personality, style = MaterialTheme.typography.bodyMedium, color = FrostingWhite.copy(alpha = 0.82f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text("الحلوى الخاصة: ${racer.signaturePowerUp.displayName}", style = MaterialTheme.typography.labelSmall, color = MintCream)
                                         }
                                         if (!unlocked) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -622,7 +736,7 @@ fun GarageAndCharacterScreen(
                                             .testTag("kart_item_${kart.id}")
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(if (selected) CandyPink.copy(alpha = 0.3f) else BerryPurple)
+                                            .background(if (selected) CandyPink.copy(alpha = 0.32f) else BerryPurple)
                                             .border(
                                                 2.dp,
                                                 if (selected) CaramelGold else Color.White.copy(alpha = 0.2f),
@@ -634,21 +748,42 @@ fun GarageAndCharacterScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(Color(kart.defaultPrimaryHex))
-                                                .border(2.dp, Color(kart.defaultSecondaryHex), RoundedCornerShape(10.dp)),
+                                                .size(46.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        listOf(Color(kart.defaultPrimaryHex), Color(kart.defaultSecondaryHex))
+                                                    )
+                                                )
+                                                .border(2.dp, Color(kart.accentHex), RoundedCornerShape(12.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Text("#${kart.racingNumber}", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                                            Text("#${kart.racingNumber}", style = MaterialTheme.typography.labelLarge, color = BerryDeep)
                                         }
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(kart.name, style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
-                                            Text(kart.tagline, style = MaterialTheme.typography.bodyMedium, color = FrostingWhite.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                text = kartBakeryRecipeAr(kart.style),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = CaramelGold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = kart.tagline,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = FrostingWhite.copy(alpha = 0.78f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
                                         if (!unlocked) {
-                                            Text("${kart.unlockCost} CC", style = MaterialTheme.typography.labelLarge, color = CaramelGold)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Filled.Lock, contentDescription = "Locked", tint = CaramelGold, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("${kart.unlockCost} CC", style = MaterialTheme.typography.labelLarge, color = CaramelGold)
+                                            }
                                         } else if (selected) {
                                             Icon(Icons.Filled.CheckCircle, contentDescription = "Selected", tint = MintCream)
                                         }
@@ -660,7 +795,22 @@ fun GarageAndCharacterScreen(
                         2 -> {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 item {
-                                    Text("CANDY PAINT", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("CANDY GLAZE & FROSTING • طلاء الكريمة والحلوى", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                        Text(
+                                            text = "معاينة الجانب",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SkyCandy,
+                                            modifier = Modifier.clickable {
+                                                activeCamPreset = "SIDE"
+                                                onFocusCamera("SIDE")
+                                            }
+                                        )
+                                    }
                                     Spacer(Modifier.height(6.dp))
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         items(CatalogData.paintJobs) { paint ->
@@ -668,9 +818,9 @@ fun GarageAndCharacterScreen(
                                             val sel = custom.paintId == paint.id
                                             Column(
                                                 modifier = Modifier
-                                                    .width(96.dp)
+                                                    .width(104.dp)
                                                     .clip(RoundedCornerShape(14.dp))
-                                                    .background(if (sel) CandyPink.copy(alpha = 0.35f) else BerryPurple)
+                                                    .background(if (sel) CandyPink.copy(alpha = 0.38f) else BerryPurple)
                                                     .border(2.dp, if (sel) CaramelGold else Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                                                     .clickable { onSelectPaint(paint.id) }
                                                     .padding(8.dp),
@@ -678,20 +828,35 @@ fun GarageAndCharacterScreen(
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(28.dp)
+                                                        .size(32.dp)
                                                         .clip(CircleShape)
                                                         .background(Color(paint.primaryHex))
-                                                        .border(2.dp, Color(paint.secondaryHex), CircleShape)
+                                                        .border(3.dp, Color(paint.secondaryHex), CircleShape)
                                                 )
                                                 Spacer(Modifier.height(4.dp))
                                                 Text(paint.name, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                Text(if (owned) "Owned" else "${paint.cost} CC", style = MaterialTheme.typography.labelSmall, color = CaramelGold)
+                                                Text(if (owned) "مملوك • Owned" else "${paint.cost} CC", style = MaterialTheme.typography.labelSmall, color = if (sel) MintCream else CaramelGold)
                                             }
                                         }
                                     }
                                 }
                                 item {
-                                    Text("WHEEL DESIGNS", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("BAKERY WHEELS • إطارات البسكويت والدونات", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                        Text(
+                                            text = "تقريب الإطارات",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SkyCandy,
+                                            modifier = Modifier.clickable {
+                                                activeCamPreset = "WHEELS"
+                                                onFocusCamera("WHEELS")
+                                            }
+                                        )
+                                    }
                                     Spacer(Modifier.height(6.dp))
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         items(WheelDesign.entries) { w ->
@@ -699,22 +864,56 @@ fun GarageAndCharacterScreen(
                                             val sel = custom.wheelDesign == w
                                             Column(
                                                 modifier = Modifier
-                                                    .width(106.dp)
+                                                    .width(114.dp)
                                                     .clip(RoundedCornerShape(14.dp))
-                                                    .background(if (sel) CandyPink.copy(alpha = 0.35f) else BerryPurple)
+                                                    .background(if (sel) CandyPink.copy(alpha = 0.38f) else BerryPurple)
                                                     .border(2.dp, if (sel) CaramelGold else Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                                                    .clickable { onSelectWheel(w) }
+                                                    .clickable {
+                                                        activeCamPreset = "WHEELS"
+                                                        onSelectWheel(w)
+                                                    }
                                                     .padding(8.dp),
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
-                                                Text(w.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1)
-                                                Text(if (owned) "Owned" else "${w.cost} CC", style = MaterialTheme.typography.labelSmall, color = CaramelGold)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(30.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(w.primaryHex))
+                                                        .border(4.dp, Color(w.rimHex), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(10.dp)
+                                                            .clip(CircleShape)
+                                                            .background(Color(w.rimHex))
+                                                    )
+                                                }
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(w.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(if (owned) "مملوك • Owned" else "${w.cost} CC", style = MaterialTheme.typography.labelSmall, color = if (sel) MintCream else CaramelGold)
                                             }
                                         }
                                     }
                                 }
                                 item {
-                                    Text("EXHAUST EFFECTS", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("CANDY EXHAUSTS • عادم الحلوى والتيربو", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                        Text(
+                                            text = "تقريب العادم",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SkyCandy,
+                                            modifier = Modifier.clickable {
+                                                activeCamPreset = "REAR"
+                                                onFocusCamera("REAR")
+                                            }
+                                        )
+                                    }
                                     Spacer(Modifier.height(6.dp))
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         items(ExhaustStyle.entries) { ex ->
@@ -722,39 +921,83 @@ fun GarageAndCharacterScreen(
                                             val sel = custom.exhaustStyle == ex
                                             Column(
                                                 modifier = Modifier
-                                                    .width(106.dp)
+                                                    .width(114.dp)
                                                     .clip(RoundedCornerShape(14.dp))
-                                                    .background(if (sel) CandyPink.copy(alpha = 0.35f) else BerryPurple)
+                                                    .background(if (sel) CandyPink.copy(alpha = 0.38f) else BerryPurple)
                                                     .border(2.dp, if (sel) CaramelGold else Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                                                    .clickable { onSelectExhaust(ex) }
+                                                    .clickable {
+                                                        activeCamPreset = "REAR"
+                                                        onSelectExhaust(ex)
+                                                    }
                                                     .padding(8.dp),
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
-                                                Text(ex.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1)
-                                                Text(if (owned) "Owned" else "${ex.cost} CC", style = MaterialTheme.typography.labelSmall, color = CaramelGold)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(28.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(ex.flameHex))
+                                                        .border(2.dp, FrostingWhite, CircleShape)
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(ex.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(if (owned) "مملوك • Owned" else "${ex.cost} CC", style = MaterialTheme.typography.labelSmall, color = if (sel) MintCream else CaramelGold)
                                             }
                                         }
                                     }
                                 }
                                 item {
-                                    Text("KART DECORATIONS", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("BAKERY TOPPERS • تزيين الكرز والماكارون", style = MaterialTheme.typography.labelLarge, color = MintCream)
+                                        Text(
+                                            text = "تقريب السقف",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SkyCandy,
+                                            modifier = Modifier.clickable {
+                                                activeCamPreset = "TOP"
+                                                onFocusCamera("TOP")
+                                            }
+                                        )
+                                    }
                                     Spacer(Modifier.height(6.dp))
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         items(KartDecoration.entries) { dec ->
                                             val owned = profile.unlockedDecorations.contains(dec)
                                             val sel = custom.decoration == dec
+                                            val badgeColor = when (dec) {
+                                                KartDecoration.NONE -> BerryCard
+                                                KartDecoration.CHERRY_TOPPER -> StrawberryRed
+                                                KartDecoration.CANDY_CANE_WING -> CandyPink
+                                                KartDecoration.LOLLIPOP_ANTENNA -> SkyCandy
+                                                KartDecoration.CROWN_SPRINKLE -> CaramelGold
+                                            }
                                             Column(
                                                 modifier = Modifier
-                                                    .width(106.dp)
+                                                    .width(114.dp)
                                                     .clip(RoundedCornerShape(14.dp))
-                                                    .background(if (sel) CandyPink.copy(alpha = 0.35f) else BerryPurple)
+                                                    .background(if (sel) CandyPink.copy(alpha = 0.38f) else BerryPurple)
                                                     .border(2.dp, if (sel) CaramelGold else Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                                                    .clickable { onSelectDecoration(dec) }
+                                                    .clickable {
+                                                        activeCamPreset = "TOP"
+                                                        onSelectDecoration(dec)
+                                                    }
                                                     .padding(8.dp),
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
-                                                Text(dec.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1)
-                                                Text(if (owned) "Owned" else "${dec.cost} CC", style = MaterialTheme.typography.labelSmall, color = CaramelGold)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(28.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(badgeColor)
+                                                        .border(1.5.dp, FrostingWhite, RoundedCornerShape(8.dp))
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(dec.displayName, style = MaterialTheme.typography.labelSmall, color = FrostingWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(if (owned) "مملوك • Owned" else "${dec.cost} CC", style = MaterialTheme.typography.labelSmall, color = if (sel) MintCream else CaramelGold)
                                             }
                                         }
                                     }
@@ -764,11 +1007,11 @@ fun GarageAndCharacterScreen(
 
                         else -> {
                             val upgrades = listOf(
-                                Triple("speed", "Top Speed", custom.upgrades.speed),
-                                Triple("acceleration", "Acceleration", custom.upgrades.acceleration),
-                                Triple("handling", "Handling", custom.upgrades.handling),
-                                Triple("boost", "Nitro Boost", custom.upgrades.boost),
-                                Triple("stability", "Stability", custom.upgrades.stability)
+                                Triple("speed", "Top Speed • السرعة القصوى", custom.upgrades.speed),
+                                Triple("acceleration", "Acceleration • التسارع", custom.upgrades.acceleration),
+                                Triple("handling", "Handling • المناورة", custom.upgrades.handling),
+                                Triple("boost", "Nitro Boost • نيترو السكر", custom.upgrades.boost),
+                                Triple("stability", "Stability • الثبات", custom.upgrades.stability)
                             )
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(upgrades) { (key, label, lvl) ->
@@ -783,9 +1026,35 @@ fun GarageAndCharacterScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Column {
+                                        Column(
+                                            modifier = Modifier.weight(1f).padding(end = 10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
                                             Text(label, style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
-                                            Text("Level $lvl / 5", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                for (stage in 1..5) {
+                                                    val activeStage = stage <= lvl
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(22.dp)
+                                                            .height(8.dp)
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(
+                                                                if (activeStage) CaramelGold else BerryDeep.copy(alpha = 0.7f)
+                                                            )
+                                                            .border(
+                                                                1.dp,
+                                                                if (activeStage) FrostingWhite else Color.White.copy(alpha = 0.2f),
+                                                                RoundedCornerShape(4.dp)
+                                                            )
+                                                    )
+                                                }
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("Lv.$lvl/5", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                            }
                                         }
                                         CandyButton(
                                             text = if (lvl >= 5) "MAX" else "+1 ($cost CC)",
@@ -796,7 +1065,7 @@ fun GarageAndCharacterScreen(
                                             bottomColor = if (lvl >= 5) MintDark else Butterscotch,
                                             textColor = BerryDeep,
                                             height = 48.dp,
-                                            modifier = Modifier.width(150.dp)
+                                            modifier = Modifier.width(146.dp)
                                         )
                                     }
                                 }
@@ -808,3 +1077,4 @@ fun GarageAndCharacterScreen(
         }
     }
 }
+

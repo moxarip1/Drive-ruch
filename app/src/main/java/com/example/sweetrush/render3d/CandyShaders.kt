@@ -151,41 +151,41 @@ object CandyShaders {
             vec3 H = normalize(L + V);
 
             // Crevice / ground-facing ambient occlusion approximation
-            float ao = clamp(0.66 + 0.34 * (N.y * 0.5 + 0.5), 0.56, 1.0);
+            float ao = clamp(0.62 + 0.38 * (N.y * 0.5 + 0.5), 0.52, 1.0);
 
             // Hemisphere candy ambient (pastel sky top + warm cream bounce bottom)
             float hemi = N.y * 0.5 + 0.5;
-            vec3 ambient = mix(vec3(0.44, 0.34, 0.48), vec3(0.90, 0.84, 0.96), hemi) * ao;
+            vec3 ambient = mix(vec3(0.46, 0.35, 0.52), vec3(0.95, 0.89, 1.0), hemi) * ao;
 
             // Soft wrapped diffuse lighting + cool opposite fill bounce
-            float diff = max(dot(N, L) * 0.68 + 0.32, 0.0);
-            vec3 fillDir = normalize(vec3(-L.x, 0.35, -L.z));
-            float fillDiff = max(dot(N, fillDir), 0.0) * 0.18;
+            float diff = max(dot(N, L) * 0.72 + 0.28, 0.0);
+            vec3 fillDir = normalize(vec3(-L.x, 0.38, -L.z));
+            float fillDiff = max(dot(N, fillDir), 0.0) * 0.24;
 
             // Dual-lobe candy clearcoat specular (broad glaze + tight sun glint)
-            float specPow = mix(14.0, 112.0, localGloss);
-            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.18 + 0.78 * localGloss);
-            float coatSpec = pow(max(dot(N, H), 0.0), 180.0) * (0.28 * localGloss);
+            float specPow = mix(16.0, 128.0, localGloss);
+            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.20 + 0.84 * localGloss);
+            float coatSpec = pow(max(dot(N, H), 0.0), 192.0) * (0.34 * localGloss);
 
             // Vivid candy rim highlight
-            float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * 0.28;
+            float rim = pow(1.0 - max(dot(N, V), 0.0), 2.5) * 0.34;
 
             if (uRainbowTime > 0.0) {
                 vec3 rainbow = 0.5 + 0.5 * cos(uRainbowTime * 4.5 + vWorldPos.xyz * 0.6 + vec3(0.0, 2.09, 4.18));
                 baseRgb = mix(baseRgb, rainbow, 0.58);
             }
 
-            vec3 lit = baseRgb * (ambient * 0.58 + uSunColor * diff * 0.78 + vec3(0.75, 0.85, 1.0) * fillDiff + emissiveBoost)
+            vec3 lit = baseRgb * (ambient * 0.56 + uSunColor * diff * 0.82 + vec3(0.76, 0.86, 1.0) * fillDiff + emissiveBoost)
                      + uSunColor * (spec + coatSpec)
-                     + vec3(1.0, 0.88, 0.97) * rim;
+                     + vec3(1.0, 0.88, 0.98) * rim;
 
             // Gentle ACES-like saturation/highlight shoulder roll-off
             lit = (lit * (2.51 * lit + 0.03)) / (lit * (2.43 * lit + 0.59) + 0.14);
-            lit = clamp(lit * 1.06, 0.0, 1.0);
+            lit = clamp(lit * 1.08, 0.0, 1.0);
 
             // Distance atmospheric pastel fog
             float dist = length(uCameraPos - vWorldPos);
-            float fogFactor = clamp((dist - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 1.0);
+            float fogFactor = clamp((dist - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 0.88);
             vec3 finalRgb = mix(lit, uFogColor, fogFactor * fogFactor);
 
             fragColor = vec4(finalRgb, alpha);

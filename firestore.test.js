@@ -366,3 +366,69 @@ test("GATHERING_HUB rooms and gameInvites work cleanly with strict access contro
   await assertSucceeds(bobDb.collection("rooms").doc("CANDYPLAZA").delete());
 });
 
+test("Racer directory presence updates and OFFLINE_NUDGE invites work with strict security", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const past = new Date(Date.now() - 2000);
+
+  await assertSucceeds(
+    aliceDb.collection("racerDirectory").doc("SRALIC1").set({
+      userId: ALICE_UID,
+      displayName: "Alice Candy",
+      friendCode: "SRALIC1",
+      selectedKartId: "strawberry_rocket",
+      selectedRacerId: "berry_blitz",
+      level: 3,
+      isOnline: true,
+      lastActiveMs: Date.now(),
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Alice updates her presence to offline
+  await assertSucceeds(
+    aliceDb.collection("racerDirectory").doc("SRALIC1").update({
+      isOnline: false,
+      lastActiveMs: Date.now(),
+      updatedAt: new Date(Date.now() - 100),
+    })
+  );
+
+  // Bob cannot spoof Alice's presence
+  await assertFails(
+    bobDb.collection("racerDirectory").doc("SRALIC1").update({
+      isOnline: true,
+      updatedAt: new Date(Date.now() - 50),
+    })
+  );
+
+  // Bob sends an OFFLINE_NUDGE invite to Alice
+  const nudgeId = `${BOB_UID}_${ALICE_UID}_NUDGE`;
+  await assertSucceeds(
+    bobDb.collection("gameInvites").doc(nudgeId).set({
+      fromUid: BOB_UID,
+      fromName: "Bob Sugar",
+      toUid: ALICE_UID,
+      roomCode: "CANDYPLAZA",
+      roomName: "Sweet Rush Invite",
+      mode: "GATHERING_HUB",
+      trackId: "PEPPERMINT_PLAZA",
+      teamSize: 4,
+      inviteType: "OFFLINE_NUDGE",
+      status: "PENDING",
+      participantUids: [BOB_UID, ALICE_UID],
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Alice can read & accept the nudge invite
+  await assertSucceeds(
+    aliceDb.collection("gameInvites").doc(nudgeId).update({
+      status: "ACCEPTED",
+      updatedAt: new Date(Date.now() - 50),
+    })
+  );
+});
+

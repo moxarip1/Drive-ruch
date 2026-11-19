@@ -56,6 +56,8 @@
         "selectedKartId": { "type": "string", "description": "Active kart ID." },
         "selectedRacerId": { "type": "string", "description": "Active racer ID." },
         "level": { "type": "integer", "description": "Racer level." },
+        "isOnline": { "type": "boolean", "description": "Whether racer is currently active in-game." },
+        "lastActiveMs": { "type": "integer", "description": "Epoch milliseconds of last presence heartbeat." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
       },
@@ -128,6 +130,7 @@
         "mode": { "type": "string", "enum": ["QUICK_RACE", "FREE_ROAM", "GATHERING_HUB"], "description": "Target room mode." },
         "trackId": { "type": "string", "enum": ["PEPPERMINT_PLAZA", "CUPCAKE_COAST", "CHOCOLATE_VOLCANO", "GUMDROP_GARDEN"], "description": "Target track." },
         "teamSize": { "type": "integer", "description": "Squad team size: 1, 2, or 4." },
+        "inviteType": { "type": "string", "enum": ["LIVE_INVITE", "OFFLINE_NUDGE"], "description": "Whether the invite is a live squad invite or offline play nudge." },
         "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "DECLINED"], "description": "Invitation status." },
         "participantUids": { "type": "array", "description": "Both [fromUid, toUid] for query filtering." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },

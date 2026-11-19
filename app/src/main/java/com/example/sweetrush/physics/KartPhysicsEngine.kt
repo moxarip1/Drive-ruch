@@ -154,7 +154,8 @@ enum class RaceEventType {
     COIN_COLLECTED,
     STAR_COLLECTED,
     REGION_DISCOVERED,
-    WORLD_CHALLENGE_DONE
+    WORLD_CHALLENGE_DONE,
+    SARCASTIC_TAUNT
 }
 
 data class RaceEvent(
@@ -220,6 +221,7 @@ class KartPhysicsEngine(
     private var lastCountdownInt = 4
     private var lastPlayerPos = 8
     private var nextHazardId = 1
+    private var tauntCooldownSec = if (mode == GameMode.FREE_ROAM) 0f else 1.5f
     private val rng = Random(System.currentTimeMillis())
 
     init {
@@ -491,6 +493,7 @@ class KartPhysicsEngine(
         val dt = dtRaw.coerceIn(0.001f, 0.05f)
         val events = mutableListOf<RaceEvent>()
         cameraShake = (cameraShake - dt * 2.5f).coerceAtLeast(0f)
+        if (tauntCooldownSec > 0f) tauntCooldownSec = (tauntCooldownSec - dt).coerceAtLeast(0f)
 
         if (!raceStarted) {
             countdownSeconds -= dt
@@ -804,6 +807,9 @@ class KartPhysicsEngine(
             }
         }
 
+        // Solid Physical Collisions against buildings, towers, statues, trees, fountains & barriers
+        resolveObstacleCollisions(k, events)
+
         // ============================================================
         // 4-WHEEL INDEPENDENT SUSPENSION SAMPLING (FL, FR, RL, RR)
         // ============================================================
@@ -928,6 +934,11 @@ class KartPhysicsEngine(
                         playerHitHazard = true
                         cameraShake = 0.25f
                         events.add(RaceEvent(RaceEventType.HAZARD_HIT, "STICKY CARAMEL!"))
+                        emitSarcasticTaunt(
+                            events,
+                            speaker = "Berry Blitz",
+                            taunt = "طعم الكراميل لذيذ على إطاراتك صح؟ 😜"
+                        )
                     }
                 }
             }
@@ -945,6 +956,11 @@ class KartPhysicsEngine(
                         playerHitHazard = true
                         cameraShake = 0.45f
                         events.add(RaceEvent(RaceEventType.HAZARD_HIT, "${dh.type.displayName}!"))
+                        emitSarcasticTaunt(
+                            events,
+                            speaker = dh.ownerId.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                            taunt = "هدية صغيرة مني لتبقي في الخلف! 🍬😂"
+                        )
                     }
                     break
                 }
@@ -1229,6 +1245,66 @@ class KartPhysicsEngine(
                     if (a.isPlayer || b.isPlayer) {
                         cameraShake = maxOf(cameraShake, 0.24f)
                         events.add(RaceEvent(RaceEventType.COLLISION))
+                        val rival = if (a.isPlayer) b else a
+                        emitSarcasticTaunt(
+                            events,
+                            speaker = rival.displayName,
+                            taunt = bumpTaunts[rng.nextInt(bumpTaunts.size)]
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun resolveObstacleCollisions(k: KartRuntimeState, events: MutableList<RaceEvent>) {
+        val grid = if (isFreeRoam) OpenWorldKingdom.obstacleGrid else track.obstacleGrid
+        val nearby = grid.queryNear(k.x, k.z, 9.5f)
+        if (nearby.isEmpty()) return
+
+        val kartRadius = 1.38f
+        for (obs in nearby) {
+            if (k.y > obs.y + obs.height || k.y + 1.8f < obs.y) continue
+            val dx = k.x - obs.x
+            val dz = k.z - obs.z
+            val minDist = obs.radius + kartRadius
+            val d2 = dx * dx + dz * dz
+            if (d2 >= minDist * minDist) continue
+
+            val (nx, nz) = if (d2 > 1e-4f) {
+                val d = sqrt(d2)
+                dx / d to dz / d
+            } else {
+                val yawN = normalizeAngle(k.yawRad)
+                -sin(yawN) to -cos(yawN)
+            }
+
+            // Push kart cleanly outside solid building/object perimeter
+            k.x = obs.x + nx * (minDist + 0.04f)
+            k.z = obs.z + nz * (minDist + 0.04f)
+
+            val vn = k.vx * nx + k.vz * nz
+            if (vn < 0f) {
+                val impactSpeed = -vn
+                // Slide along wall with light elastic bounce
+                k.vx -= nx * vn * 1.38f
+                k.vz -= nz * vn * 1.38f
+                k.vx *= 0.84f
+                k.vz *= 0.84f
+                val fwdX = sin(k.yawRad)
+                val fwdZ = cos(k.yawRad)
+                k.speed = k.vx * fwdX + k.vz * fwdZ
+
+                if (k.isPlayer && impactSpeed > 7.5f) {
+                    cameraShake = maxOf(cameraShake, (impactSpeed / 40f).coerceIn(0.18f, 0.45f))
+                    events.add(RaceEvent(RaceEventType.COLLISION))
+                    if (obs.isBuilding && impactSpeed > 11.5f) {
+                        val speaker = karts.firstOrNull { !it.isPlayer }?.displayName ?: "Candy Rival"
+                        emitSarcasticTaunt(
+                            events,
+                            speaker = speaker,
+                            taunt = crashTaunts[rng.nextInt(crashTaunts.size)]
+                        )
                     }
                 }
             }
@@ -1240,9 +1316,55 @@ class KartPhysicsEngine(
         sorted.forEachIndexed { idx, kart -> kart.position = idx + 1 }
         if (playerKart.position < lastPlayerPos && raceElapsedMs > 3000L && !playerFinished) {
             events.add(RaceEvent(RaceEventType.OVERTAKE, "OVERTAKE! ${ordinal(playerKart.position)}!"))
+            emitSarcasticTaunt(
+                events,
+                speaker = playerKart.displayName,
+                taunt = overtakeTaunts[rng.nextInt(overtakeTaunts.size)]
+            )
+        } else if (playerKart.position > lastPlayerPos && raceElapsedMs > 5000L && !playerFinished) {
+            val passer = sorted.getOrNull((playerKart.position - 2).coerceAtLeast(0))
+            if (passer != null && !passer.isPlayer) {
+                emitSarcasticTaunt(
+                    events,
+                    speaker = passer.displayName,
+                    taunt = passedByRivalTaunts[rng.nextInt(passedByRivalTaunts.size)]
+                )
+            }
         }
         lastPlayerPos = playerKart.position
     }
+
+    private fun emitSarcasticTaunt(events: MutableList<RaceEvent>, speaker: String, taunt: String) {
+        if (tauntCooldownSec > 0f) return
+        tauntCooldownSec = 6.5f
+        events.add(RaceEvent(RaceEventType.SARCASTIC_TAUNT, message = taunt, stringArg = speaker))
+    }
+
+    private val bumpTaunts = listOf(
+        "عفواً، هل اشتريت رخصتك من محل الحلويات؟ 🍭😂",
+        "ابتعد عن الطريق! هذا مساري المفضل 🏎️💨",
+        "تصادم لطيف... سيارتي ما زالت أسرع! 😎",
+        "Bump all you want, you still can't catch me! 😜"
+    )
+
+    private val crashTaunts = listOf(
+        "البيت للعيش مش للقيادة بداخله يا بطل! 🏠💥",
+        "تحاول طلب آيس كريم من داخل الجدار؟ 🍦😂",
+        "الفرامل موجودة على اليسار للمعلومية فقط! 😉",
+        "Nice parking job inside that candy house! 🏠🤣"
+    )
+
+    private val overtakeTaunts = listOf(
+        "مع السلامة! أراك في خط النهاية يا بطيء 👋🔥",
+        "هل نسيت ترفع فرامل اليد؟ 😂💨",
+        "تجاوز نظيف! تذوق غبار السكر خلفك 🍬⚡"
+    )
+
+    private val passedByRivalTaunts = listOf(
+        "شكراً على إفساح الطريق يا صديقي! 😎🏁",
+        "سيارتك تحتاج شوية سكر إضافي لتلحق بي! 🍭",
+        "Too slow! Need a sugar push? 😜⚡"
+    )
 
     private fun updateTelemetrySnapshot() {
         val p = playerKart

@@ -33,6 +33,7 @@ import com.example.sweetrush.model.WorldRegion
 import com.example.sweetrush.online.FriendRequestDoc
 import com.example.sweetrush.online.FriendRosterEntry
 import com.example.sweetrush.online.GameInviteDoc
+import com.example.sweetrush.online.InviteNotifier
 import com.example.sweetrush.online.OnlineMultiplayerRepository
 import com.example.sweetrush.online.OnlineRoomDoc
 import com.example.sweetrush.online.OperationType
@@ -138,6 +139,12 @@ class SweetRushViewModel(
     private val _isVoiceMuted = MutableStateFlow(false)
     val isVoiceMuted: StateFlow<Boolean> = _isVoiceMuted.asStateFlow()
 
+    private val _friendPresence = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val friendPresence: StateFlow<Map<String, Boolean>> = _friendPresence.asStateFlow()
+
+    private val _sarcasticTaunt = MutableStateFlow<ToastNotification?>(null)
+    val sarcasticTaunt: StateFlow<ToastNotification?> = _sarcasticTaunt.asStateFlow()
+
     val friends: StateFlow<List<FriendRosterEntry>> = onlineRepo.observeFriends(currentUserId)
         .catch { e ->
             val fsEx = findFirestoreException(e)
@@ -229,6 +236,8 @@ class SweetRushViewModel(
     private var onlineMatchStartedForStatus = false
     private var joinedRoomEpochMs = System.currentTimeMillis()
     private val playedVoiceIds = HashSet<String>()
+    private val notifiedInviteKeys = HashSet<String>()
+    private val shownRemoteTauntIds = HashSet<String>()
     private val syncedAcceptedReqIds = HashSet<String>()
     private var lastSyncedMembersSignature: List<String> = emptyList()
     private var telemetryLoopJob: Job? = null
@@ -252,6 +261,7 @@ class SweetRushViewModel(
         audioEngine.playMusic(MusicTrack.MENU)
         bootstrapCloudProfile()
         observeOnlineRoomCoordinators()
+        startPresenceLoops()
     }
 
     private fun findFirestoreException(t: Throwable?): FirebaseFirestoreException? {
@@ -335,9 +345,41 @@ class SweetRushViewModel(
 
         viewModelScope.launch {
             roomPlayers.collect { players ->
+                renderer.lobbyShowcasePlayers = players
                 val engine = renderer.physicsEngine
                 if (engine != null && engine.isOnlineSession) {
                     engine.updateRemoteStates(players.filter { it.userId != currentUserId })
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            friends.collect { list ->
+                if (list.isNotEmpty()) {
+                    _friendPresence.value = onlineRepo.fetchFriendsPresence(list)
+                } else {
+                    _friendPresence.value = emptyMap()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            gameInvites.collect { invites ->
+                for (invite in invites) {
+                    if (invite.toUid == currentUserId && invite.status == "PENDING") {
+                        val key = "${invite.id}_${invite.inviteType}_${invite.roomCode}"
+                        if (notifiedInviteKeys.add(key)) {
+                            audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                            InviteNotifier.showInviteNotification(context, invite)
+                            if (_currentScreen.value == GameScreen.RACE) {
+                                showRaceToast(
+                                    "دعوة من ${invite.fromName}",
+                                    "صديقك يدعوك للعب!",
+                                    0xFFFFB800
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -354,7 +396,45 @@ class SweetRushViewModel(
                         playedVoiceIds.add(msg.id)
                     ) {
                         voiceChatEngine.playVoiceBase64(msg.audioB64)
+                    } else if (msg.msgType == "QUICK" &&
+                        msg.senderUid != currentUserId &&
+                        msg.text.startsWith("😏 ") &&
+                        msg.clientSeq >= joinedRoomEpochMs - 2000L &&
+                        (!msg.targetTeamOnly || msg.teamIndex.toInt() == localTeam) &&
+                        shownRemoteTauntIds.add(msg.id)
+                    ) {
+                        showSarcasticTaunt(msg.senderName, msg.text.removePrefix("😏 ").trim())
                     }
+                }
+            }
+        }
+    }
+
+    private fun startPresenceLoops() {
+        viewModelScope.launch {
+            while (isActive) {
+                onlineRepo.updatePresence(currentUserId, true)
+                delay(25_000L)
+            }
+        }
+        viewModelScope.launch {
+            while (isActive) {
+                val list = friends.value
+                if (list.isNotEmpty() && (_currentScreen.value == GameScreen.ONLINE_LOBBY || _currentScreen.value == GameScreen.MAIN_MENU)) {
+                    _friendPresence.value = onlineRepo.fetchFriendsPresence(list)
+                }
+                delay(12_000L)
+            }
+        }
+    }
+
+    fun setPresenceOnline(online: Boolean) {
+        viewModelScope.launch {
+            onlineRepo.updatePresence(currentUserId, online)
+            if (online) {
+                val list = friends.value
+                if (list.isNotEmpty()) {
+                    _friendPresence.value = onlineRepo.fetchFriendsPresence(list)
                 }
             }
         }
@@ -380,6 +460,17 @@ class SweetRushViewModel(
             GameScreen.GARAGE, GameScreen.CHARACTER_SELECT -> {
                 renderer.sceneMode = RenderSceneMode.GARAGE_SHOWROOM
                 audioEngine.playMusic(MusicTrack.MENU)
+            }
+            GameScreen.ONLINE_LOBBY -> {
+                renderer.lobbyShowcasePlayers = roomPlayers.value
+                renderer.sceneMode = RenderSceneMode.ONLINE_SQUAD_LOBBY
+                audioEngine.playMusic(MusicTrack.MENU)
+                viewModelScope.launch {
+                    val list = friends.value
+                    if (list.isNotEmpty()) {
+                        _friendPresence.value = onlineRepo.fetchFriendsPresence(list)
+                    }
+                }
             }
             GameScreen.RACE -> {
                 renderer.sceneMode = RenderSceneMode.RACE
@@ -419,8 +510,14 @@ class SweetRushViewModel(
     }
 
     fun adjustShowroomZoom(delta: Float) {
+        renderer.cancelShowroomCameraPreset()
         renderer.showroomAutoRotate = false
         renderer.showroomZoom = (renderer.showroomZoom + delta).coerceIn(3.2f, 8.5f)
+    }
+
+    fun focusShowroomCamera(preset: String) {
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        renderer.focusShowroomCamera(preset)
     }
 
     fun toggleDebugTelemetry() {
@@ -487,21 +584,65 @@ class SweetRushViewModel(
     }
 
     fun inviteFriendToRoom(friend: FriendRosterEntry) {
-        val room = onlineRoom.value
-        if (room == null) {
-            flashStatus("Create or join a squad room first!")
-            return
-        }
+        val isOnline = _friendPresence.value[friend.friendUid] == true
+        inviteFriendSmart(friend, isOnline)
+    }
+
+    fun inviteFriendSmart(friend: FriendRosterEntry, isOnline: Boolean) {
         viewModelScope.launch {
+            if (!isOnline) {
+                val res = onlineRepo.sendOfflinePlayInvite(
+                    uid = currentUserId,
+                    senderName = userDisplayName,
+                    friendUid = friend.friendUid,
+                    currentRoom = onlineRoom.value
+                )
+                res.onSuccess {
+                    audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                    flashStatus("تم إرسال دعوة الصديق لـ ${friend.displayName}!")
+                }.onFailure { err ->
+                    flashStatus(err.message ?: "تعذر إرسال الدعوة لـ ${friend.displayName}")
+                }
+                return@launch
+            }
+
+            var targetRoom = onlineRoom.value
+            if (targetRoom == null) {
+                _isOnlineBusy.value = true
+                val createRes = onlineRepo.createRoom(
+                    uid = currentUserId,
+                    displayName = userDisplayName,
+                    profile = _profile.value,
+                    teamSize = 2,
+                    mode = GameMode.QUICK_RACE,
+                    trackId = _selectedTrack.value,
+                    fillWithAi = true,
+                    isGatheringHub = false
+                )
+                _isOnlineBusy.value = false
+                createRes.onSuccess { created ->
+                    joinedRoomEpochMs = System.currentTimeMillis()
+                    lastSyncedMembersSignature = created.memberUids
+                    onlineMatchStartedForStatus = false
+                    _activeRoomCode.value = created.roomCode
+                    targetRoom = created
+                }.onFailure { err ->
+                    flashStatus(err.message ?: "تعذر إنشاء غرفة اللعب")
+                    return@launch
+                }
+            }
+
+            val roomToInvite = targetRoom ?: return@launch
             val res = onlineRepo.sendGameInvite(
                 uid = currentUserId,
                 senderName = userDisplayName,
                 friendUid = friend.friendUid,
-                room = room
+                room = roomToInvite,
+                inviteType = "LIVE_INVITE"
             )
             res.onSuccess {
                 audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
-                flashStatus("Invited ${friend.displayName} to #${room.roomCode}!")
+                flashStatus("تم إرسال + دعوة لـ ${friend.displayName} للانضمام (#${roomToInvite.roomCode})!")
             }.onFailure { err ->
                 flashStatus(err.message ?: "Could not invite ${friend.displayName}")
             }
@@ -512,8 +653,25 @@ class SweetRushViewModel(
         viewModelScope.launch {
             onlineRepo.respondToGameInvite(currentUserId, invite, accept)
             if (accept) {
-                joinOnlineRoom(invite.roomCode)
-                navigateTo(GameScreen.ONLINE_LOBBY)
+                if (invite.isOfflineNudge() || (invite.roomCode == "CANDYPLAZA" && invite.isGatheringHub())) {
+                    if (invite.roomCode != "CANDYPLAZA" && invite.roomCode.isNotBlank()) {
+                        val joinRes = onlineRepo.joinRoomByCode(currentUserId, userDisplayName, _profile.value, invite.roomCode)
+                        if (joinRes.isSuccess) {
+                            val room = joinRes.getOrThrow()
+                            joinedRoomEpochMs = System.currentTimeMillis()
+                            lastSyncedMembersSignature = room.memberUids
+                            onlineMatchStartedForStatus = false
+                            _activeRoomCode.value = room.roomCode
+                            navigateTo(GameScreen.ONLINE_LOBBY)
+                            flashStatus("انضممت إلى ${invite.fromName} في اللوبي!")
+                            return@launch
+                        }
+                    }
+                    enterGatheringHub(launchDirectWorld = false)
+                } else {
+                    joinOnlineRoom(invite.roomCode)
+                    navigateTo(GameScreen.ONLINE_LOBBY)
+                }
             }
         }
     }
@@ -1106,6 +1264,39 @@ class SweetRushViewModel(
                     saveAndSync(grantXpAndCredits(cur, 120, 150))
                     showRaceToast("CHALLENGE CLEAR!", "${ev.message} (+150 CC)", 0xFF3CE8B5)
                 }
+                RaceEventType.SARCASTIC_TAUNT -> {
+                    showSarcasticTaunt(ev.stringArg.ifBlank { "منافس" }, ev.message)
+                }
+            }
+        }
+    }
+
+    fun sendSarcasticTaunt(taunt: String) {
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        showSarcasticTaunt(userDisplayName, taunt)
+        val room = onlineRoom.value ?: return
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        viewModelScope.launch {
+            onlineRepo.sendMessage(
+                roomCode = room.roomCode,
+                uid = currentUserId,
+                senderName = userDisplayName,
+                teamIndex = localTeam,
+                targetTeamOnly = false,
+                msgType = "QUICK",
+                text = "😏 $taunt",
+                memberUids = room.memberUids
+            )
+        }
+    }
+
+    private fun showSarcasticTaunt(speaker: String, line: String) {
+        val note = ToastNotification(title = speaker, subtitle = line, accentHex = 0xFFFF7A2E)
+        _sarcasticTaunt.value = note
+        viewModelScope.launch {
+            delay(3200L)
+            if (_sarcasticTaunt.value?.id == note.id) {
+                _sarcasticTaunt.value = null
             }
         }
     }
@@ -1344,6 +1535,7 @@ class SweetRushViewModel(
             val map = p.kartCustomizations.toMutableMap()
             map[kartId] = curCustom.copy(wheelDesign = wheel)
             saveAndSync(p.copy(kartCustomizations = map))
+            renderer.focusShowroomCamera("WHEELS")
         } else if (p.credits >= wheel.cost) {
             audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
             val map = p.kartCustomizations.toMutableMap()
@@ -1355,6 +1547,7 @@ class SweetRushViewModel(
                     kartCustomizations = map
                 )
             )
+            renderer.focusShowroomCamera("WHEELS")
         } else {
             flashStatus("Need ${wheel.cost} Credits for ${wheel.displayName}")
         }
@@ -1369,6 +1562,7 @@ class SweetRushViewModel(
             val map = p.kartCustomizations.toMutableMap()
             map[kartId] = curCustom.copy(exhaustStyle = exhaust)
             saveAndSync(p.copy(kartCustomizations = map))
+            renderer.focusShowroomCamera("REAR")
         } else if (p.credits >= exhaust.cost) {
             audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
             val map = p.kartCustomizations.toMutableMap()
@@ -1380,6 +1574,7 @@ class SweetRushViewModel(
                     kartCustomizations = map
                 )
             )
+            renderer.focusShowroomCamera("REAR")
         } else {
             flashStatus("Need ${exhaust.cost} Credits for ${exhaust.displayName}")
         }
@@ -1394,6 +1589,7 @@ class SweetRushViewModel(
             val map = p.kartCustomizations.toMutableMap()
             map[kartId] = curCustom.copy(decoration = deco)
             saveAndSync(p.copy(kartCustomizations = map))
+            renderer.focusShowroomCamera("TOP")
         } else if (p.credits >= deco.cost) {
             audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
             val map = p.kartCustomizations.toMutableMap()
@@ -1405,6 +1601,7 @@ class SweetRushViewModel(
                     kartCustomizations = map
                 )
             )
+            renderer.focusShowroomCamera("TOP")
         } else {
             flashStatus("Need ${deco.cost} Credits for ${deco.displayName}")
         }
@@ -1500,6 +1697,7 @@ class SweetRushViewModel(
     suspend fun onPreSignOutCleanup() {
         stopLiveMicIfActive()
         stopTelemetryLoop()
+        onlineRepo.updatePresence(currentUserId, false)
         val code = _activeRoomCode.value
         val room = onlineRoom.value
         _activeRoomCode.value = null

@@ -46,7 +46,9 @@ service cloud.firestore {
              data.friendCode is string && data.friendCode.size() >= 4 && data.friendCode.size() <= 16 &&
              data.selectedKartId is string && data.selectedKartId.size() >= 1 && data.selectedKartId.size() <= 48 &&
              data.selectedRacerId is string && data.selectedRacerId.size() >= 1 && data.selectedRacerId.size() <= 48 &&
-             data.level is int && data.level >= 1 && data.level <= 999;
+             data.level is int && data.level >= 1 && data.level <= 999 &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('lastActiveMs' in data) || (data.lastActiveMs is int && data.lastActiveMs >= 0));
     }
 
     function isValidRoom(data) {
@@ -83,8 +85,9 @@ service cloud.firestore {
     }
 
     function isValidGameInvite(data) {
-      return data.fromUid is string && data.fromUid.size() >= 1 && data.fromUid.size() <= 128 &&
-             data.fromName is string && data.fromName.size() >= 1 && data.fromName.size() <= 40 &&
+      return data.fromUid is string && data.fromName is string &&
+             data.fromUid.size() >= 1 && data.fromUid.size() <= 128 &&
+             data.fromName.size() >= 1 && data.fromName.size() <= 40 &&
              data.toUid is string && data.toUid.size() >= 1 && data.toUid.size() <= 128 &&
              data.toUid != data.fromUid &&
              data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 16 &&
@@ -92,6 +95,7 @@ service cloud.firestore {
              data.mode in ['QUICK_RACE', 'FREE_ROAM', 'GATHERING_HUB'] &&
              data.trackId in ['PEPPERMINT_PLAZA', 'CUPCAKE_COAST', 'CHOCOLATE_VOLCANO', 'GUMDROP_GARDEN'] &&
              data.teamSize in [1, 2, 4] &&
+             (!('inviteType' in data) || data.inviteType in ['LIVE_INVITE', 'OFFLINE_NUDGE']) &&
              data.status in ['PENDING', 'ACCEPTED', 'DECLINED'] &&
              data.participantUids is list && data.participantUids.size() == 2 &&
              data.fromUid in data.participantUids && data.toUid in data.participantUids;
@@ -226,7 +230,8 @@ service cloud.firestore {
                        ]) &&
                        incoming().keys().hasOnly([
                          'userId', 'displayName', 'friendCode', 'selectedKartId',
-                         'selectedRacerId', 'level', 'createdAt', 'updatedAt'
+                         'selectedRacerId', 'level', 'isOnline', 'lastActiveMs',
+                         'createdAt', 'updatedAt'
                        ]) &&
                        incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
@@ -241,7 +246,8 @@ service cloud.firestore {
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidRacerDirectoryEntry(incoming()) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
-                         'displayName', 'selectedKartId', 'selectedRacerId', 'level', 'updatedAt'
+                         'displayName', 'selectedKartId', 'selectedRacerId', 'level',
+                         'isOnline', 'lastActiveMs', 'updatedAt'
                        ]);
 
       allow delete: if isSignedIn() && isValidId(friendCode) && existing().userId == request.auth.uid;
@@ -457,7 +463,8 @@ service cloud.firestore {
                        ]) &&
                        incoming().keys().hasOnly([
                          'fromUid', 'fromName', 'toUid', 'roomCode', 'roomName',
-                         'mode', 'trackId', 'teamSize', 'status', 'participantUids', 'createdAt', 'updatedAt'
+                         'mode', 'trackId', 'teamSize', 'inviteType', 'status', 'participantUids',
+                         'createdAt', 'updatedAt'
                        ]) &&
                        incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
                        incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
@@ -481,7 +488,8 @@ service cloud.firestore {
                            existing().fromUid == request.auth.uid &&
                            incoming().status == 'PENDING' &&
                            incoming().diff(existing()).affectedKeys().hasOnly([
-                             'fromName', 'roomCode', 'roomName', 'mode', 'trackId', 'teamSize', 'status', 'updatedAt'
+                             'fromName', 'roomCode', 'roomName', 'mode', 'trackId', 'teamSize',
+                             'inviteType', 'status', 'updatedAt'
                            ])
                          )
                        );

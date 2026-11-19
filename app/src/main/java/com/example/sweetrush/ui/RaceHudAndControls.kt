@@ -117,6 +117,7 @@ fun RaceHudScreen(
     settings: GameSettings,
     isPaused: Boolean,
     notification: ToastNotification?,
+    sarcasticTaunt: ToastNotification? = null,
     roomMessages: List<RoomMessageDoc> = emptyList(),
     isRecordingVoice: Boolean = false,
     isVoiceMuted: Boolean = false,
@@ -129,6 +130,7 @@ fun RaceHudScreen(
     onToggleVoiceMute: () -> Unit = {},
     onSendQuickCallout: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
     onSendChat: (text: String, teamOnly: Boolean) -> Unit = { _, _ -> },
+    onSendSarcasticTaunt: (String) -> Unit = {},
     onPauseToggle: (Boolean) -> Unit,
     onRestart: () -> Unit,
     onFinishSession: () -> Unit,
@@ -141,6 +143,7 @@ fun RaceHudScreen(
 
     val context = LocalContext.current
     var showInRaceChat by remember { mutableStateOf(false) }
+    var showTauntDrawer by remember { mutableStateOf(false) }
     var inRaceChatDraft by remember { mutableStateOf("") }
     var teamOnlyComms by remember { mutableStateOf(false) }
     var hasMicPerm by remember {
@@ -434,6 +437,40 @@ fun RaceHudScreen(
                             }
                         }
                     }
+
+                    // Sarcastic Racer Banter Bubble (track races & open world)
+                    AnimatedVisibility(
+                        visible = sarcasticTaunt != null,
+                        enter = fadeIn() + slideInVertically { -it / 3 },
+                        exit = fadeOut() + slideOutVertically { -it / 3 }
+                    ) {
+                        sarcasticTaunt?.let { banter ->
+                            Row(
+                                modifier = Modifier
+                                    .testTag("sarcastic_taunt_bubble")
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(BerryDeep.copy(alpha = 0.90f))
+                                    .border(2.dp, CaramelGold, RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "😏 ${banter.title}:",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = CaramelGold,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = banter.subtitle,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = FrostingWhite,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Right: Live Mini-Map + Pause / Map / Debug / End Session buttons
@@ -572,6 +609,69 @@ fun RaceHudScreen(
                         .padding(bottom = 18.dp)
                         .width(300.dp)
                 )
+            }
+
+            // 1-TAP SARCASTIC TAUNT BAR (Available in BOTH Track Races and Open World, online or solo!)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (isFreeRoam && portalTitle != null) 72.dp else 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                AnimatedVisibility(visible = showTauntDrawer) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(BerryDeep.copy(alpha = 0.86f))
+                            .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    ) {
+                        listOf(
+                            "أين الفرامل؟ 😂",
+                            "أنت بطيء جداً! 🐢",
+                            "بيتك في الحائط! 🏠",
+                            "تفضل قهوة؟ ☕"
+                        ).forEach { tauntLine ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(GrapeJelly)
+                                    .clickable {
+                                        onSendSarcasticTaunt(tauntLine)
+                                        showTauntDrawer = false
+                                    }
+                                    .padding(horizontal = 9.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = tauntLine,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .testTag("hud_sarcastic_taunt_toggle")
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (showTauntDrawer) CaramelGold else BerryPurple.copy(alpha = 0.85f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.65f), RoundedCornerShape(50))
+                        .clickable { showTauntDrawer = !showTauntDrawer }
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (showTauntDrawer) "إغلاق 😏" else "سخرية 😏",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (showTauntDrawer) BerryDeep else CaramelGold,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             // IN-RACE TOGGLEABLE VOICE MIC, CHAT DRAWER & FLOATING SIDE MESSAGES

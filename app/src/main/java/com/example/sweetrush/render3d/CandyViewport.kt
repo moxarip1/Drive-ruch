@@ -59,6 +59,7 @@ fun CandyViewport3D(
                 object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     override fun onScale(detector: ScaleGestureDetector): Boolean {
                         if (currentAllowOrbit.value) {
+                            renderer.cancelShowroomCameraPreset()
                             renderer.showroomZoom = (renderer.showroomZoom / detector.scaleFactor).coerceIn(3.2f, 8.5f)
                             return true
                         }
@@ -82,6 +83,7 @@ fun CandyViewport3D(
                         lastX = ev.x
                         lastY = ev.y
                         if (showroom) {
+                            renderer.cancelShowroomCameraPreset()
                             renderer.showroomAutoRotate = false
                         } else if (raceDrag) {
                             renderer.isDraggingRaceCam = true

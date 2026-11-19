@@ -107,6 +107,98 @@ data class DecorationInstance(
     val bobPhase: Float = 0f
 )
 
+data class SolidObstacle(
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val radius: Float,
+    val height: Float,
+    val isBuilding: Boolean
+)
+
+class SpatialObstacleGrid(
+    val obstacles: List<SolidObstacle>,
+    private val cellSize: Float = 24f
+) {
+    private val cells = HashMap<Long, MutableList<SolidObstacle>>()
+
+    init {
+        for (obs in obstacles) {
+            val minCx = kotlin.math.floor((obs.x - obs.radius) / cellSize).toInt()
+            val maxCx = kotlin.math.floor((obs.x + obs.radius) / cellSize).toInt()
+            val minCz = kotlin.math.floor((obs.z - obs.radius) / cellSize).toInt()
+            val maxCz = kotlin.math.floor((obs.z + obs.radius) / cellSize).toInt()
+            for (cx in minCx..maxCx) {
+                for (cz in minCz..maxCz) {
+                    val key = packKey(cx, cz)
+                    cells.getOrPut(key) { mutableListOf() }.add(obs)
+                }
+            }
+        }
+    }
+
+    fun queryNear(x: Float, z: Float, searchRadius: Float): List<SolidObstacle> {
+        if (obstacles.isEmpty()) return emptyList()
+        val minCx = kotlin.math.floor((x - searchRadius) / cellSize).toInt()
+        val maxCx = kotlin.math.floor((x + searchRadius) / cellSize).toInt()
+        val minCz = kotlin.math.floor((z - searchRadius) / cellSize).toInt()
+        val maxCz = kotlin.math.floor((z + searchRadius) / cellSize).toInt()
+        val out = ArrayList<SolidObstacle>(12)
+        for (cx in minCx..maxCx) {
+            for (cz in minCz..maxCz) {
+                val list = cells[packKey(cx, cz)] ?: continue
+                for (o in list) {
+                    if (!out.contains(o)) out.add(o)
+                }
+            }
+        }
+        return out
+    }
+
+    private fun packKey(cx: Int, cz: Int): Long = (cx.toLong() shl 32) or (cz.toLong() and 0xFFFFFFFFL)
+}
+
+fun solidCollisionRadius(type: DecoType, scale: Float): Float = when (type) {
+    DecoType.CANDY_CANE_ARCH, DecoType.DONUT_ARCH, DecoType.WAFER_TUNNEL_RING,
+    DecoType.FLOATING_BALLOON, DecoType.CANDY_FLOWER -> 0f
+    DecoType.CANDY_LAMP, DecoType.ROAD_SIGN -> 0.72f * scale
+    DecoType.CANDY_BARRIER -> 1.85f * scale
+    DecoType.CANDY_BENCH, DecoType.CANDY_CANE_PLANT, DecoType.MARSHMALLOW_BUSH, DecoType.JELLYBEAN_BUSH -> 1.55f * scale
+    DecoType.LOLLIPOP_TREE, DecoType.GUMDROP_TREE, DecoType.COTTON_CANDY_TREE, DecoType.CHOCOLATE_TREE -> 1.65f * scale
+    DecoType.SUGAR_CRYSTAL -> 1.85f * scale
+    DecoType.GUMMY_BEAR_STATUE -> 2.45f * scale
+    DecoType.ANIMATED_BILLBOARD -> 3.1f * scale
+    DecoType.PEPPERMINT_LIGHTHOUSE -> 3.3f * scale
+    DecoType.GINGERBREAD_HOUSE, DecoType.COOKIE_HOUSE -> 3.85f * scale
+    DecoType.DONUT_BUILDING -> 4.05f * scale
+    DecoType.ICE_CREAM_PARLOR -> 4.25f * scale
+    DecoType.MACARON_TOWER, DecoType.CUPCAKE_TOWER -> 4.35f * scale
+    DecoType.STRAWBERRY_FOUNTAIN -> 4.55f * scale
+    DecoType.CHOCOLATE_WATERFALL -> 4.65f * scale
+    DecoType.WAFFLE_SKYSCRAPER -> 4.85f * scale
+    DecoType.SPECTATOR_STAND -> 4.7f * scale
+    DecoType.CHOCOLATE_CASTLE -> 5.65f * scale
+    DecoType.GUMDROP_HILL -> 5.9f * scale
+    DecoType.CANDY_FACTORY -> 6.1f * scale
+}
+
+fun solidHeightFor(type: DecoType, scale: Float): Float = when (type) {
+    DecoType.CANDY_BARRIER -> 1.6f * scale
+    DecoType.CANDY_BENCH, DecoType.MARSHMALLOW_BUSH, DecoType.JELLYBEAN_BUSH -> 2.6f * scale
+    DecoType.ROAD_SIGN, DecoType.CANDY_LAMP -> 5.5f * scale
+    DecoType.WAFFLE_SKYSCRAPER, DecoType.PEPPERMINT_LIGHTHOUSE, DecoType.CHOCOLATE_CASTLE, DecoType.CANDY_FACTORY -> 16f * scale
+    else -> 9.5f * scale
+}
+
+fun isBuildingDeco(type: DecoType): Boolean = when (type) {
+    DecoType.GINGERBREAD_HOUSE, DecoType.CUPCAKE_TOWER, DecoType.COOKIE_HOUSE,
+    DecoType.CHOCOLATE_CASTLE, DecoType.DONUT_BUILDING, DecoType.CANDY_FACTORY,
+    DecoType.ICE_CREAM_PARLOR, DecoType.MACARON_TOWER, DecoType.PEPPERMINT_LIGHTHOUSE,
+    DecoType.WAFFLE_SKYSCRAPER, DecoType.SPECTATOR_STAND, DecoType.STRAWBERRY_FOUNTAIN,
+    DecoType.CHOCOLATE_WATERFALL -> true
+    else -> false
+}
+
 data class TrackProjection(
     val nodeIndex: Int,
     val center: Vec3,
@@ -126,6 +218,7 @@ data class GeneratedTrack(
     val hazards: List<TrackHazard>,
     val itemBoxes: List<ItemBoxSpot>,
     val decorations: List<DecorationInstance>,
+    val obstacleGrid: SpatialObstacleGrid,
     val totalLength: Float,
     val minX: Float,
     val maxX: Float,
@@ -402,8 +495,12 @@ object TrackGenerator {
             }
         }
 
-        // Rich Handcrafted-Looking Candy Decorations
+        // Rich Handcrafted-Looking Candy Decorations with spatial non-overlap & solid obstacles
         val decorations = generateDecorations(id, nodes, Random(id.ordinal * 7919 + 42))
+        val trackObstacles = decorations.mapNotNull { d ->
+            val r = solidCollisionRadius(d.type, d.scale)
+            if (r > 0f) SolidObstacle(d.pos.x, d.pos.y, d.pos.z, r, solidHeightFor(d.type, d.scale), isBuildingDeco(d.type)) else null
+        }
 
         return GeneratedTrack(
             id = id,
@@ -413,6 +510,7 @@ object TrackGenerator {
             hazards = hazards,
             itemBoxes = itemBoxes,
             decorations = decorations,
+            obstacleGrid = SpatialObstacleGrid(trackObstacles, 24f),
             totalLength = totalLen,
             minX = minX - 40f,
             maxX = maxX + 40f,
@@ -432,6 +530,22 @@ object TrackGenerator {
             0xFFFF3D8B, 0xFF3CE8B5, 0xFFFFB800, 0xFF5CE1E6,
             0xFF9C4DFF, 0xFFFF5252, 0xFFFFEB3B, 0xFFFF80AB
         )
+
+        val placedCircles = mutableListOf<Triple<Float, Float, Float>>()
+        fun tryAddTrackDeco(inst: DecorationInstance): Boolean {
+            val r = solidCollisionRadius(inst.type, inst.scale)
+            if (r > 0f) {
+                for ((px, pz, pr) in placedCircles) {
+                    val dx = inst.pos.x - px
+                    val dz = inst.pos.z - pz
+                    val minGap = r + pr + 1.4f
+                    if (dx * dx + dz * dz < minGap * minGap) return false
+                }
+                placedCircles.add(Triple(inst.pos.x, inst.pos.z, r))
+            }
+            decos.add(inst)
+            return true
+        }
 
         // Over-track arches and tunnels
         val archIndices = listOf(22, 68, 114, 158)
@@ -484,7 +598,7 @@ object TrackGenerator {
                     val pos = node.center + node.right * (side * (node.halfWidth + 2.6f))
                     // Avoid placing inside another segment of the road
                     if (!isTooCloseToAnyRoad(pos, nodes, i, minDist = node.halfWidth + 1.5f)) {
-                        decos.add(
+                        tryAddTrackDeco(
                             DecorationInstance(
                                 type = DecoType.CANDY_LAMP,
                                 pos = pos,
@@ -500,9 +614,9 @@ object TrackGenerator {
 
             // Inner & outer candy objects
             for (side in listOf(-1f, 1f)) {
-                val dist = node.halfWidth + 7f + rng.nextFloat() * 24f
+                val dist = node.halfWidth + 8.5f + rng.nextFloat() * 24f
                 val pos = node.center + node.right * (side * dist)
-                if (isTooCloseToAnyRoad(pos, nodes, i, minDist = node.halfWidth + 5.5f)) continue
+                if (isTooCloseToAnyRoad(pos, nodes, i, minDist = node.halfWidth + 7.0f)) continue
 
                 val c1 = candyColors[rng.nextInt(candyColors.size)]
                 val c2 = candyColors[rng.nextInt(candyColors.size)]
@@ -563,14 +677,14 @@ object TrackGenerator {
                 val scale = when (type) {
                     DecoType.GINGERBREAD_HOUSE, DecoType.CUPCAKE_TOWER,
                     DecoType.CHOCOLATE_CASTLE, DecoType.DONUT_BUILDING,
-                    DecoType.COOKIE_HOUSE, DecoType.GUMDROP_HILL -> 1.1f + rng.nextFloat() * 0.7f
-                    DecoType.GUMMY_BEAR_STATUE, DecoType.CHOCOLATE_WATERFALL -> 1.2f + rng.nextFloat() * 0.5f
-                    else -> 0.85f + rng.nextFloat() * 0.75f
+                    DecoType.COOKIE_HOUSE, DecoType.GUMDROP_HILL -> 1.1f + rng.nextFloat() * 0.65f
+                    DecoType.GUMMY_BEAR_STATUE, DecoType.CHOCOLATE_WATERFALL -> 1.2f + rng.nextFloat() * 0.45f
+                    else -> 0.85f + rng.nextFloat() * 0.70f
                 }
 
                 val finalY = if (type == DecoType.FLOATING_BALLOON) groundY + 11f + rng.nextFloat() * 9f else groundY
 
-                decos.add(
+                tryAddTrackDeco(
                     DecorationInstance(
                         type = type,
                         pos = Vec3(placedPos.x, finalY, placedPos.z),
@@ -594,19 +708,19 @@ object TrackGenerator {
             Vec3(95f, 0f, -260f)
         )
         for ((idx, spot) in landmarkSpots.withIndex()) {
-            if (isTooCloseToAnyRoad(spot, nodes, -1, minDist = 20f)) continue
+            if (isTooCloseToAnyRoad(spot, nodes, -1, minDist = 22f)) continue
             val type = when (id) {
                 TrackId.CHOCOLATE_VOLCANO -> if (idx % 2 == 0) DecoType.CHOCOLATE_CASTLE else DecoType.CHOCOLATE_WATERFALL
                 TrackId.GUMDROP_GARDEN -> if (idx % 2 == 0) DecoType.GUMMY_BEAR_STATUE else DecoType.GUMDROP_HILL
                 TrackId.CUPCAKE_COAST -> if (idx % 2 == 0) DecoType.CUPCAKE_TOWER else DecoType.STRAWBERRY_FOUNTAIN
                 TrackId.PEPPERMINT_PLAZA -> if (idx % 2 == 0) DecoType.CHOCOLATE_CASTLE else DecoType.CUPCAKE_TOWER
             }
-            decos.add(
+            tryAddTrackDeco(
                 DecorationInstance(
                     type = type,
                     pos = spot,
                     rotY = idx * 1.1f,
-                    scale = 2.4f,
+                    scale = 2.3f,
                     primaryColor = candyColors[idx % candyColors.size],
                     secondaryColor = candyColors[(idx + 2) % candyColors.size],
                     bobPhase = idx.toFloat()

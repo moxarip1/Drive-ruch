@@ -39,6 +39,7 @@ import kotlin.random.Random
 enum class RenderSceneMode {
     MENU_KINGDOM,
     GARAGE_SHOWROOM,
+    ONLINE_SQUAD_LOBBY,
     RACE
 }
 
@@ -173,8 +174,65 @@ class CandyWorldRenderer(
     @Volatile var showroomCustom: KartCustomization = KartCustomization()
     @Volatile var showroomOrbitYaw: Float = 0.65f
     @Volatile var showroomOrbitPitch: Float = 0.28f
-    @Volatile var showroomZoom: Float = 5.2f
+    @Volatile var showroomZoom: Float = 5.0f
     @Volatile var showroomAutoRotate: Boolean = true
+    @Volatile var showroomTargetYaw: Float = 0.65f
+    @Volatile var showroomTargetPitch: Float = 0.28f
+    @Volatile var showroomTargetZoom: Float = 5.0f
+    @Volatile var hasShowroomCameraTarget: Boolean = false
+
+    fun cancelShowroomCameraPreset() {
+        hasShowroomCameraTarget = false
+    }
+
+    fun focusShowroomCamera(preset: String) {
+        when (preset.uppercase()) {
+            "AUTO" -> {
+                showroomAutoRotate = true
+                showroomTargetPitch = 0.27f
+                showroomTargetZoom = 5.0f
+                hasShowroomCameraTarget = true
+            }
+            "FRONT" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 0.24f
+                showroomTargetPitch = 0.21f
+                showroomTargetZoom = 4.35f
+                hasShowroomCameraTarget = true
+            }
+            "SIDE" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 1.48f
+                showroomTargetPitch = 0.20f
+                showroomTargetZoom = 4.65f
+                hasShowroomCameraTarget = true
+            }
+            "WHEELS" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 1.15f
+                showroomTargetPitch = 0.12f
+                showroomTargetZoom = 3.55f
+                hasShowroomCameraTarget = true
+            }
+            "REAR" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 2.82f
+                showroomTargetPitch = 0.22f
+                showroomTargetZoom = 4.30f
+                hasShowroomCameraTarget = true
+            }
+            "TOP" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 0.58f
+                showroomTargetPitch = 0.56f
+                showroomTargetZoom = 5.35f
+                hasShowroomCameraTarget = true
+            }
+        }
+    }
+
+    // Co-op 3D Squad Lobby Showcase
+    @Volatile var lobbyShowcasePlayers: List<com.example.sweetrush.online.RoomPlayerDoc> = emptyList()
 
     // Active physics engine & input
     @Volatile var physicsEngine: KartPhysicsEngine? = null
@@ -228,6 +286,7 @@ class CandyWorldRenderer(
     private var shieldMesh: GpuMesh? = null
     private var cubeParticleMesh: GpuMesh? = null
     private var pedestalMesh: GpuMesh? = null
+    private var garageBakeryWorkshopMesh: GpuMesh? = null
     private var worldCoinMesh: GpuMesh? = null
     private var worldStarMesh: GpuMesh? = null
     private var challengeBeaconMesh: GpuMesh? = null
@@ -324,6 +383,7 @@ class CandyWorldRenderer(
         when (sceneMode) {
             RenderSceneMode.MENU_KINGDOM -> drawMenuKingdom(dt)
             RenderSceneMode.GARAGE_SHOWROOM -> drawGarageShowroom(dt)
+            RenderSceneMode.ONLINE_SQUAD_LOBBY -> drawOnlineSquadLobby(dt)
             RenderSceneMode.RACE -> drawRace(dt)
         }
     }
@@ -438,7 +498,19 @@ class CandyWorldRenderer(
     }
 
     private fun drawGarageShowroom(dt: Float) {
-        drawSky(0xFF421766, 0xFFFF88C2)
+        drawSky(0xFF391359, 0xFFFF88C2)
+
+        if (hasShowroomCameraTarget) {
+            val blend = (dt * 6.5f).coerceIn(0f, 1f)
+            if (!showroomAutoRotate) {
+                var diffYaw = (showroomTargetYaw - showroomOrbitYaw) % (2f * Math.PI.toFloat())
+                if (diffYaw > Math.PI.toFloat()) diffYaw -= 2f * Math.PI.toFloat()
+                if (diffYaw < -Math.PI.toFloat()) diffYaw += 2f * Math.PI.toFloat()
+                showroomOrbitYaw += diffYaw * blend
+            }
+            showroomOrbitPitch += (showroomTargetPitch - showroomOrbitPitch) * blend
+            showroomZoom += (showroomTargetZoom - showroomZoom) * blend
+        }
 
         if (showroomAutoRotate) {
             showroomOrbitYaw += dt * 0.45f
@@ -446,18 +518,23 @@ class CandyWorldRenderer(
         val dist = showroomZoom.coerceIn(3.2f, 8.5f)
         val pitch = showroomOrbitPitch.coerceIn(0.08f, 0.78f)
         camX = sin(showroomOrbitYaw) * cos(pitch) * dist
-        camY = 1.18f + sin(pitch) * dist
+        camY = 1.16f + sin(pitch) * dist
         camZ = cos(showroomOrbitYaw) * cos(pitch) * dist
 
         Matrix.perspectiveM(projMat, 0, 45f, aspectRatio, 0.25f, 80f)
-        Matrix.setLookAtM(viewMat, 0, camX, camY, camZ, 0f, 0.85f, 0f, 0f, 1f, 0f)
+        Matrix.setLookAtM(viewMat, 0, camX, camY, camZ, 0f, 0.82f, 0f, 0f, 1f, 0f)
         Matrix.multiplyMM(vpMat, 0, projMat, 0, viewMat, 0)
 
-        setupLitProgram(0xFF421766, 30f, 70f, WorldRegion.CANDY_CITY)
+        setupLitProgram(0xFF391359, 24f, 62f, WorldRegion.CANDY_CITY)
 
+        // 1. Draw the 3D Sugar Rush Kart Bakery Workshop Interior & Ingredient Racks
+        drawIdentityMesh(garageBakeryWorkshopMesh, gloss = 0.78f)
+
+        // 2. Draw the Rotating Frosted Cake & Wafer Turntable Pedestal
         Matrix.setIdentityM(modelMat, 0)
         Matrix.translateM(modelMat, 0, 0f, -0.35f, 0f)
-        drawMesh(pedestalMesh, modelMat, gloss = 0.85f)
+        Matrix.rotateM(modelMat, 0, totalTimeSec * 14f, 0f, 1f, 0f)
+        drawMesh(pedestalMesh, modelMat, gloss = 0.88f)
 
         val kartSpec = CatalogData.kartById(showroomKartId)
         val racerSpec = CatalogData.racerById(showroomRacerId)
@@ -467,7 +544,7 @@ class CandyWorldRenderer(
             racer = racerSpec,
             custom = showroomCustom,
             x = 0f,
-            y = sin(totalTimeSec * 2.2f) * 0.025f,
+            y = sin(totalTimeSec * 2.2f) * 0.022f,
             z = 0f,
             groundY = 0f,
             yawRad = 0f,
@@ -481,17 +558,133 @@ class CandyWorldRenderer(
             starActive = false
         )
 
-        if (rng.nextFloat() < 0.4f) {
+        if (rng.nextFloat() < 0.45f) {
             val (er, eg, eb) = MeshAccumulator.hexToRgb(showroomCustom.exhaustStyle.flameHex)
             spawnParticle(
-                (rng.nextFloat() - 0.5f) * 0.8f,
-                0.60f,
+                (rng.nextFloat() - 0.5f) * 0.85f,
+                0.58f,
                 -1.85f,
-                (rng.nextFloat() - 0.5f) * 0.5f,
-                0.4f + rng.nextFloat() * 0.6f,
+                (rng.nextFloat() - 0.5f) * 0.55f,
+                0.45f + rng.nextFloat() * 0.6f,
                 -1.8f,
-                0.7f, 0.16f, er, eg, eb
+                0.75f, 0.16f, er, eg, eb
             )
+        }
+        if (rng.nextFloat() < 0.28f) {
+            // Ambient floating bakery sugar sparkles around the turntable
+            val ang = rng.nextFloat() * (2f * Math.PI.toFloat())
+            val rad = 2.4f + rng.nextFloat() * 2.2f
+            spawnParticle(
+                cos(ang) * rad,
+                0.2f + rng.nextFloat() * 2.2f,
+                sin(ang) * rad,
+                0f, 0.7f + rng.nextFloat() * 0.5f, 0f,
+                1.4f, 0.13f,
+                1f, 0.75f + rng.nextFloat() * 0.25f, 0.92f
+            )
+        }
+        updateAndDrawParticles(dt)
+    }
+
+    private fun drawOnlineSquadLobby(dt: Float) {
+        drawSky(0xFF2D1252, 0xFFFF88C2)
+
+        val roster = lobbyShowcasePlayers
+        val count = roster.size.coerceAtLeast(1)
+        val spacing = if (count <= 2) 3.4f else if (count <= 4) 3.0f else 2.65f
+        val camDist = when {
+            count <= 1 -> 5.8f
+            count == 2 -> 7.6f
+            count <= 4 -> 10.2f
+            else -> 13.0f
+        }
+        val swayX = sin(totalTimeSec * 0.40f) * 0.65f
+        camX = swayX
+        camY = 2.65f + (count - 1).coerceAtMost(4) * 0.25f
+        camZ = camDist
+
+        Matrix.perspectiveM(projMat, 0, 48f, aspectRatio, 0.3f, 140f)
+        Matrix.setLookAtM(viewMat, 0, camX, camY, camZ, 0f, 0.9f, 0f, 0f, 1f, 0f)
+        Matrix.multiplyMM(vpMat, 0, projMat, 0, viewMat, 0)
+
+        setupLitProgram(0xFF2D1252, 35f, 110f, WorldRegion.CANDY_CITY)
+
+        if (roster.isEmpty()) {
+            Matrix.setIdentityM(modelMat, 0)
+            Matrix.translateM(modelMat, 0, 0f, -0.35f, 0f)
+            drawMesh(pedestalMesh, modelMat, gloss = 0.85f)
+            drawDetailedKart(
+                kart = CatalogData.kartById(showroomKartId),
+                racer = CatalogData.racerById(showroomRacerId),
+                custom = showroomCustom,
+                x = 0f,
+                y = sin(totalTimeSec * 2.1f) * 0.03f,
+                z = 0f,
+                groundY = 0f,
+                yawRad = 0.25f,
+                rollRad = 0f,
+                pitchRad = 0f,
+                wheelSpin = totalTimeSec * 0.8f,
+                steerVis = sin(totalTimeSec * 1.2f) * 0.18f,
+                wheelYOffsets = floatArrayOf(0f, 0f, 0f, 0f),
+                isBraking = false,
+                shieldActive = false,
+                starActive = false
+            )
+        } else {
+            val midIdx = (count - 1) * 0.5f
+            for ((idx, player) in roster.withIndex()) {
+                val rel = idx - midIdx
+                val px = rel * spacing
+                val pz = -abs(rel) * 0.65f
+                val faceYaw = -rel * 0.16f
+
+                Matrix.setIdentityM(modelMat, 0)
+                Matrix.translateM(modelMat, 0, px, -0.35f, pz)
+                drawMesh(pedestalMesh, modelMat, gloss = 0.85f)
+
+                val pCustom = KartCustomization(
+                    paintId = player.paintId.ifBlank { "default" },
+                    wheelDesign = enumValues<com.example.sweetrush.model.WheelDesign>()
+                        .firstOrNull { it.name == player.wheelId } ?: com.example.sweetrush.model.WheelDesign.PEPPERMINT_SWIRL,
+                    exhaustStyle = enumValues<com.example.sweetrush.model.ExhaustStyle>()
+                        .firstOrNull { it.name == player.exhaustId } ?: com.example.sweetrush.model.ExhaustStyle.SUGAR_SPARK,
+                    decoration = enumValues<com.example.sweetrush.model.KartDecoration>()
+                        .firstOrNull { it.name == player.decoId } ?: com.example.sweetrush.model.KartDecoration.NONE
+                )
+                val bob = sin(totalTimeSec * 2.2f + idx * 1.1f) * 0.03f
+                drawDetailedKart(
+                    kart = CatalogData.kartById(player.kartId),
+                    racer = CatalogData.racerById(player.racerId),
+                    custom = pCustom,
+                    x = px,
+                    y = bob,
+                    z = pz,
+                    groundY = 0f,
+                    yawRad = faceYaw,
+                    rollRad = 0f,
+                    pitchRad = 0f,
+                    wheelSpin = totalTimeSec * (if (player.ready) 1.8f else 0.5f),
+                    steerVis = sin(totalTimeSec * 1.4f + idx) * 0.20f,
+                    wheelYOffsets = floatArrayOf(0f, 0f, 0f, 0f),
+                    isBraking = false,
+                    shieldActive = player.ready,
+                    starActive = false
+                )
+
+                if (player.ready && rng.nextFloat() < 0.22f) {
+                    val (er, eg, eb) = MeshAccumulator.hexToRgb(pCustom.exhaustStyle.flameHex)
+                    spawnParticle(
+                        px + (rng.nextFloat() - 0.5f) * 0.9f,
+                        0.45f,
+                        pz - 1.5f,
+                        (rng.nextFloat() - 0.5f) * 0.6f,
+                        0.9f + rng.nextFloat() * 0.7f,
+                        -1.2f,
+                        0.7f, 0.16f, er, eg, eb
+                    )
+                }
+            }
         }
         updateAndDrawParticles(dt)
     }
@@ -1223,9 +1416,7 @@ class CandyWorldRenderer(
         cloud.addSphere(-1.0f, -0.1f, -0.2f, 0.90f, 0.50f, 0.75f, 5, 7, 0xFFFFF8FF)
         cloudClusterMesh = cloud.build()
 
-        val ped = MeshAccumulator()
-        ped.addCylinder(0f, 0f, 0f, 2.7f, 2.4f, 0.38f, 24, 0xFFFF6EB4, 0xFFFFF8FC)
-        ped.addCylinder(0f, 0.36f, 0f, 2.25f, 2.25f, 0.08f, 24, 0xFF3CE8B5, 0xFFFFFFFF, matType = CandyMaterials.MAT_EMISSIVE)
-        pedestalMesh = ped.build()
+        pedestalMesh = MeshFactory.buildBakeryTurntablePedestalMesh()
+        garageBakeryWorkshopMesh = MeshFactory.buildGarageBakeryWorkshopMesh()
     }
 }

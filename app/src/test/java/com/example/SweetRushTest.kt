@@ -328,4 +328,133 @@ class SweetRushTest {
         val teamStandings = engine.buildTeamStandings(standings)
         assertTrue("2v2 squads should produce team standings", teamStandings.size >= 2)
     }
+
+    @Test
+    fun `open world solid obstacles do not overlap each other and resolve physical collisions`() {
+        val solids = OpenWorldKingdom.solidObstacles
+        assertTrue("Open world should have solid obstacles for buildings & landmarks", solids.size >= 60)
+
+        for (i in solids.indices) {
+            val a = solids[i]
+            for (j in i + 1 until solids.size) {
+                val b = solids[j]
+                val dx = a.x - b.x
+                val dz = a.z - b.z
+                val dist = kotlin.math.sqrt(dx * dx + dz * dz)
+                val minDist = a.radius + b.radius
+                assertTrue(
+                    "Obstacles $i (${a.x},${a.z} r=${a.radius}) and $j (${b.x},${b.z} r=${b.radius}) overlap: dist=$dist < min=$minDist",
+                    dist >= minDist - 0.1f
+                )
+            }
+        }
+
+        // Verify kart physically collides and gets pushed out instead of driving through a building
+        val targetObs = solids.first { it.isBuilding && it.radius >= 3.0f }
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.FREE_ROAM,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            startRegion = WorldRegion.CANDY_CITY
+        )
+        engine.playerKart.x = targetObs.x - (targetObs.radius * 0.4f)
+        engine.playerKart.y = targetObs.y
+        engine.playerKart.z = targetObs.z
+        engine.playerKart.yawRad = Math.PI.toFloat() * 0.5f
+        engine.playerKart.vx = 28f
+        engine.playerKart.vz = 0f
+        engine.playerKart.speed = 28f
+
+        val events = engine.step(1f / 30f, PlayerInputState(throttle = true))
+        val dx = engine.playerKart.x - targetObs.x
+        val dz = engine.playerKart.z - targetObs.z
+        val distAfter = kotlin.math.sqrt(dx * dx + dz * dz)
+        assertTrue(
+            "Kart should be pushed outside obstacle radius (${targetObs.radius} + 1.35), got dist=$distAfter",
+            distAfter >= targetObs.radius + 1.25f
+        )
+        assertTrue(
+            "High-speed crash into building should emit COLLISION and SARCASTIC_TAUNT",
+            events.any { it.type == com.example.sweetrush.physics.RaceEventType.COLLISION } &&
+                events.any { it.type == com.example.sweetrush.physics.RaceEventType.SARCASTIC_TAUNT }
+        )
+    }
+
+    @Test
+    fun `presence helper and offline nudge invite distinguish online vs offline friends`() {
+        val now = 1_000_000L
+        val onlineCard = com.example.sweetrush.online.RacerDirectoryCard(
+            userId = "u1",
+            isOnline = true,
+            lastActiveMs = now - 15_000L
+        )
+        val staleCard = com.example.sweetrush.online.RacerDirectoryCard(
+            userId = "u2",
+            isOnline = true,
+            lastActiveMs = now - 120_000L
+        )
+        val offlineCard = com.example.sweetrush.online.RacerDirectoryCard(
+            userId = "u3",
+            isOnline = false,
+            lastActiveMs = now - 5_000L
+        )
+        assertTrue(onlineCard.isCurrentlyOnline(now))
+        assertFalse(staleCard.isCurrentlyOnline(now))
+        assertFalse(offlineCard.isCurrentlyOnline(now))
+
+        val offlineInvite = com.example.sweetrush.online.GameInviteDoc(
+            fromName = "أحمد",
+            inviteType = "OFFLINE_NUDGE",
+            roomCode = "CANDYPLAZA"
+        )
+        val liveInvite = com.example.sweetrush.online.GameInviteDoc(
+            fromName = "سارة",
+            inviteType = "LIVE_INVITE",
+            roomCode = "XYZ123"
+        )
+        assertTrue(offlineInvite.isOfflineNudge())
+        assertFalse(liveInvite.isOfflineNudge())
+    }
+
+    @Test
+    fun `all 8 movie style bakery karts custom wheels exhausts decorations and 3d bakery showroom build rich geometry`() {
+        val racer = CatalogData.racers.first()
+        val wheels = com.example.sweetrush.model.WheelDesign.entries
+        val exhausts = com.example.sweetrush.model.ExhaustStyle.entries
+        val decos = com.example.sweetrush.model.KartDecoration.entries
+
+        for ((idx, kart) in CatalogData.karts.withIndex()) {
+            val custom = KartCustomization(
+                wheelDesign = wheels[idx % wheels.size],
+                exhaustStyle = exhausts[idx % exhausts.size],
+                decoration = decos[idx % decos.size]
+            )
+            val bundle = com.example.sweetrush.render3d.VehicleMeshBuilder.buildKartBundle(kart, racer, custom)
+            assertTrue(
+                "Kart ${kart.id} chassis should have rich confectionery geometry (> 1200 vertices), got ${bundle.chassisMesh.vertexCount}",
+                bundle.chassisMesh.vertexCount > 1200
+            )
+            assertTrue("Kart ${kart.id} tire mesh should have edible sidewall details", bundle.tireMesh.vertexCount > 300)
+            assertTrue("Kart ${kart.id} rim mesh should have spoke & hubcap vertices", bundle.rimMesh.vertexCount > 60)
+            assertTrue("Kart ${kart.id} driver mesh should have helmet & suit vertices", bundle.driverMesh.vertexCount > 250)
+        }
+
+        val turntable = com.example.sweetrush.render3d.MeshFactory.buildBakeryTurntablePedestalMesh()
+        val workshop = com.example.sweetrush.render3d.MeshFactory.buildGarageBakeryWorkshopMesh()
+        assertTrue("Bakery turntable pedestal should have piped frosting & cake layers", turntable.vertexCount > 600)
+        assertTrue("3D Garage Bakery Workshop should have columns, nozzles, jars & racks", workshop.vertexCount > 1500)
+
+        val renderer = com.example.sweetrush.render3d.CandyWorldRenderer { _, _ -> }
+        renderer.focusShowroomCamera("WHEELS")
+        assertFalse(renderer.showroomAutoRotate)
+        assertTrue(renderer.hasShowroomCameraTarget)
+        assertEquals(3.55f, renderer.showroomTargetZoom, 0.01f)
+
+        renderer.focusShowroomCamera("AUTO")
+        assertTrue(renderer.showroomAutoRotate)
+    }
 }
+

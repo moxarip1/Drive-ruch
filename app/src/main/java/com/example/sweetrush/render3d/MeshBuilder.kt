@@ -675,6 +675,23 @@ object MeshFactory {
 
     fun buildDecorationMesh(type: DecoType, c1: Long, c2: Long): GpuMesh {
         val acc = MeshAccumulator()
+        val contactShadowR = when (type) {
+            DecoType.CANDY_CANE_ARCH, DecoType.DONUT_ARCH, DecoType.WAFER_TUNNEL_RING, DecoType.FLOATING_BALLOON -> 0f
+            DecoType.CANDY_FLOWER -> 0.8f
+            DecoType.CANDY_LAMP, DecoType.ROAD_SIGN -> 1.1f
+            DecoType.CANDY_BARRIER, DecoType.CANDY_BENCH, DecoType.CANDY_CANE_PLANT -> 2.1f
+            DecoType.MARSHMALLOW_BUSH, DecoType.JELLYBEAN_BUSH, DecoType.SUGAR_CRYSTAL -> 2.4f
+            DecoType.LOLLIPOP_TREE, DecoType.GUMDROP_TREE, DecoType.COTTON_CANDY_TREE, DecoType.CHOCOLATE_TREE -> 3.0f
+            DecoType.GUMMY_BEAR_STATUE, DecoType.PEPPERMINT_LIGHTHOUSE -> 3.8f
+            DecoType.GINGERBREAD_HOUSE, DecoType.COOKIE_HOUSE, DecoType.DONUT_BUILDING,
+            DecoType.ICE_CREAM_PARLOR, DecoType.MACARON_TOWER, DecoType.CUPCAKE_TOWER -> 5.0f
+            DecoType.STRAWBERRY_FOUNTAIN, DecoType.CHOCOLATE_WATERFALL, DecoType.WAFFLE_SKYSCRAPER,
+            DecoType.SPECTATOR_STAND, DecoType.ANIMATED_BILLBOARD -> 5.4f
+            DecoType.CHOCOLATE_CASTLE, DecoType.GUMDROP_HILL, DecoType.CANDY_FACTORY -> 6.8f
+        }
+        if (contactShadowR > 0f) {
+            acc.addShadowOval(contactShadowR, contactShadowR, segs = 14, alpha = 0.34f)
+        }
         when (type) {
             DecoType.LOLLIPOP_TREE -> {
                 acc.addCylinder(0f, 0f, 0f, 0.35f, 0.30f, 6.2f, 8, 0xFFFFFFFF, matType = CandyMaterials.MAT_CHROME)
@@ -929,4 +946,134 @@ object MeshFactory {
         }
         return acc.build()
     }
+
+    /**
+     * Multi-tiered frosted cake & wafer turntable platform for the 3D Kart Bakery Garage.
+     */
+    fun buildBakeryTurntablePedestalMesh(): GpuMesh {
+        val acc = MeshAccumulator()
+        // Base chocolate & golden wafer cake tiers
+        acc.addCylinder(0f, -0.12f, 0f, 3.15f, 2.95f, 0.16f, 28, 0xFF3A1D28L, 0xFF5A2D3CL, matType = CandyMaterials.MAT_CARAMEL)
+        acc.addCylinder(0f, 0.02f, 0f, 2.82f, 2.62f, 0.26f, 28, 0xFFE6A95CL, 0xFFFF85C2L, matType = CandyMaterials.MAT_WAFER)
+        // Glossy strawberry frosting top deck + glowing neon trim ring
+        acc.addCylinder(0f, 0.26f, 0f, 2.52f, 2.44f, 0.10f, 28, 0xFFFF6EB4L, 0xFFFFF5FAL, matType = CandyMaterials.MAT_CANDY)
+        acc.addCylinder(0f, 0.35f, 0f, 2.30f, 2.30f, 0.06f, 28, 0xFF3CE8B5L, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addTorus(0f, 0.32f, 0f, 2.48f, 0.08f, 24, 8, 0xFFFFD54FL, 0xFFFFF8E1L, matType = CandyMaterials.MAT_CHROME)
+
+        // 20 Piped whipped-cream dollops around the turntable perimeter
+        val dollops = 20
+        for (i in 0 until dollops) {
+            val a = (i.toFloat() / dollops) * (2f * PI.toFloat())
+            val dx = cos(a) * 2.68f
+            val dz = sin(a) * 2.68f
+            val col = if (i % 2 == 0) 0xFFFFF8F2L else 0xFFFF9EC7L
+            acc.addSphere(dx, 0.28f, dz, 0.16f, 0.14f, 0.16f, 5, 7, col, 0xFFFFFFFFL, matType = CandyMaterials.MAT_MARSHMALLOW)
+        }
+        return acc.build()
+    }
+
+    /**
+     * Full 3D Sugar Rush Kart Bakery Workshop environment surrounding the showroom turntable:
+     * - Pastel wafer & frosting checkerboard bakery floor
+     * - Candy-cane columns & glowing bakery arches
+     * - Overhead Frosting & Caramel Piping Nozzles (Kart Bakery dispensers)
+     * - Giant stacked Cookie & Frosted Donut ingredient racks + Glowing Gummy Jar Silos
+     */
+    fun buildGarageBakeryWorkshopMesh(): GpuMesh {
+        val acc = MeshAccumulator()
+        // 1. Checkerboard Bakery Floor (Wafer Gold & Strawberry Cream tiles)
+        val grid = 10
+        val minC = -18f
+        val maxC = 18f
+        val step = (maxC - minC) / grid
+        for (ix in 0 until grid) {
+            for (iz in 0 until grid) {
+                val x0 = minC + ix * step
+                val x1 = x0 + step
+                val z0 = minC + iz * step
+                val z1 = z0 + step
+                val isEven = (ix + iz) % 2 == 0
+                val hex = if (isEven) 0xFF38184CL else 0xFF4B2166L
+                val (r, g, b) = MeshAccumulator.hexToRgb(hex)
+                acc.addQuad(
+                    x0, -0.38f, z1,
+                    x1, -0.38f, z1,
+                    x1, -0.38f, z0,
+                    x0, -0.38f, z0,
+                    r, g, b, 1f, 0f, 0f, 1f, 1f, CandyMaterials.MAT_ROAD
+                )
+            }
+        }
+        // Decorative glowing outer floor ring around the turntable
+        acc.addTorus(0f, -0.34f, 0f, 4.2f, 0.09f, 28, 6, 0xFFFF3D8BL, 0xFF5CE1E6L, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addTorus(0f, -0.34f, 0f, 6.8f, 0.08f, 28, 6, 0xFFFFD54FL, 0xFFFF85C2L, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // 2. Ring of 8 Candy-Cane Bakery Columns & Macaron Capitals
+        val colCount = 8
+        val colRadius = 9.5f
+        for (i in 0 until colCount) {
+            val a = (i.toFloat() / colCount) * (2f * PI.toFloat()) + 0.39f
+            val cx = cos(a) * colRadius
+            val cz = sin(a) * colRadius
+            val accent = if (i % 2 == 0) 0xFFFF2448L else 0xFF3CE8B5L
+            // Wafer pedestal base
+            acc.addCylinder(cx, -0.38f, cz, 0.78f, 0.68f, 0.75f, 10, 0xFFE6A95CL, 0xFFFFD54FL, matType = CandyMaterials.MAT_WAFER)
+            // Striped candy column shaft
+            acc.addCylinder(cx, 0.35f, cz, 0.46f, 0.44f, 5.2f, 10, accent, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CANDY)
+            // Macaron capital & glowing globe lamp
+            acc.addCylinder(cx, 5.55f, cz, 0.75f, 0.75f, 0.45f, 12, 0xFFFF85C2L, 0xFFFFF8F2L, matType = CandyMaterials.MAT_MARSHMALLOW)
+            acc.addSphere(cx * 0.86f, 4.6f, cz * 0.86f, 0.36f, 0.36f, 0.36f, 6, 8, 0xFFFFF59DL, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+
+        // 3. Overhead Sugar Rush Kart Bakery Frosting & Sprinkle Piping Nozzles
+        val nozzleAngles = listOf(-0.65f, 0f, 0.65f)
+        val nozzleColors = listOf(0xFFFF3D8BL, 0xFF3CE8B5L, 0xFFFFD54FL)
+        for ((idx, ang) in nozzleAngles.withIndex()) {
+            val nx = sin(ang) * 5.6f
+            val nz = -cos(ang) * 5.6f
+            val col = nozzleColors[idx]
+            // Suspended frosting hopper cone & chrome piping tip
+            acc.addCylinder(nx, 5.2f, nz, 0.95f, 1.35f, 2.0f, 12, col, 0xFFFFF8F2L, matType = CandyMaterials.MAT_MARSHMALLOW)
+            acc.addCylinder(nx, 4.3f, nz, 0.25f, 0.85f, 0.9f, 10, 0xFFE5EAF0L, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CHROME)
+            // Dripping frosting dollop at nozzle tip
+            acc.addSphere(nx, 4.05f, nz, 0.28f, 0.36f, 0.28f, 6, 8, col, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+
+        // 4. Translucent Candy-Jar Ingredient Silos & Giant Donut/Wheel Racks around the Workshop
+        for (side in listOf(-1f, 1f)) {
+            // Candy Jar Silo filled with giant glowing gumballs
+            val jx = side * 6.4f
+            val jz = -3.8f
+            acc.addCylinder(jx, -0.38f, jz, 1.15f, 1.15f, 0.45f, 12, 0xFFE5EAF0L, matType = CandyMaterials.MAT_CHROME)
+            acc.addCylinder(jx, 0.07f, jz, 1.05f, 1.05f, 3.2f, 12, 0xFF80FFEAL, 0xFFFFFFFFL, a = 0.55f, matType = CandyMaterials.MAT_GUMMY)
+            acc.addCylinder(jx, 3.27f, jz, 1.18f, 0.85f, 0.45f, 12, 0xFFFF3D8BL, matType = CandyMaterials.MAT_CANDY)
+            val gumballCols = listOf(0xFFFF3D8BL, 0xFFFFD54FL, 0xFF3CE8B5L, 0xFFB388FFL)
+            for (g in 0 until 4) {
+                acc.addSphere(
+                    jx + (if (g % 2 == 0) -0.25f else 0.25f),
+                    0.55f + g * 0.65f,
+                    jz + (if (g < 2) 0.2f else -0.2f),
+                    0.38f, 0.38f, 0.38f, 5, 8,
+                    gumballCols[g],
+                    matType = CandyMaterials.MAT_EMISSIVE
+                )
+            }
+
+            // Giant Stacked Frosted Donut & Cookie Wheel Display Rack
+            val rx = side * 7.2f
+            val rz = 2.2f
+            acc.addCylinder(rx, -0.38f, rz, 0.22f, 0.22f, 3.6f, 8, 0xFFE5EAF0L, matType = CandyMaterials.MAT_CHROME)
+            acc.addTorus(rx, 0.35f, rz, 0.85f, 0.32f, 14, 8, 0xFFE6A95CL, 0xFFFF3D8BL, matType = CandyMaterials.MAT_CARAMEL)
+            acc.addTorus(rx, 1.10f, rz, 0.80f, 0.30f, 14, 8, 0xFFE6A95CL, 0xFF3CE8B5L, matType = CandyMaterials.MAT_CARAMEL)
+            acc.addTorus(rx, 1.85f, rz, 0.75f, 0.28f, 14, 8, 0xFFE6A95CL, 0xFFFFD54FL, matType = CandyMaterials.MAT_CARAMEL)
+        }
+
+        // 5. Rear Illuminated "KART BAKERY" Archway Backdrop
+        acc.addTorus(0f, 2.4f, -7.8f, 4.6f, 0.42f, 18, 8, 0xFFFF3D8BL, 0xFFFFD54FL, verticalArch = true, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addBeveledBox(0f, 5.2f, -7.5f, 5.4f, 1.25f, 0.45f, 0.95f, 0.95f, 0xFF2B1040L, 0xFFFF3D8BL, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, 5.2f, -7.24f, 4.8f, 0.82f, 0.08f, 0xFFFFE066L, matType = CandyMaterials.MAT_EMISSIVE)
+
+        return acc.build()
+    }
 }
+

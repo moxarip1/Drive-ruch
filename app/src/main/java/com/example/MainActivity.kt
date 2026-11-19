@@ -1,16 +1,22 @@
 package com.example
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -215,11 +221,29 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         val roomPlayers by viewModel.roomPlayers.collectAsStateWithLifecycle()
                         val roomMessages by viewModel.roomMessages.collectAsStateWithLifecycle()
                         val friends by viewModel.friends.collectAsStateWithLifecycle()
+                        val friendPresence by viewModel.friendPresence.collectAsStateWithLifecycle()
                         val friendRequests by viewModel.friendRequests.collectAsStateWithLifecycle()
                         val gameInvites by viewModel.gameInvites.collectAsStateWithLifecycle()
                         val isOnlineBusy by viewModel.isOnlineBusy.collectAsStateWithLifecycle()
                         val isRecordingVoice by viewModel.isRecordingVoice.collectAsStateWithLifecycle()
                         val isVoiceMuted by viewModel.isVoiceMuted.collectAsStateWithLifecycle()
+                        val sarcasticTaunt by viewModel.sarcasticTaunt.collectAsStateWithLifecycle()
+
+                        val notifPermLauncher = rememberLauncherForActivityResult(
+                            ActivityResultContracts.RequestPermission()
+                        ) { _ -> }
+
+                        LaunchedEffect(signedInUser.uid) {
+                            viewModel.setPresenceOnline(true)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(
+                                    appContext,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
 
                         val pendingIncomingReqCount = friendRequests.count {
                             it.toUid == viewModel.currentUserId && it.status == "PENDING"
@@ -265,6 +289,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         players = roomPlayers,
                                         messages = roomMessages,
                                         friends = friends,
+                                        friendPresence = friendPresence,
                                         friendRequests = friendRequests,
                                         isBusy = isOnlineBusy,
                                         isRecordingVoice = isRecordingVoice,
@@ -280,7 +305,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onSendFriendRequest = viewModel::sendFriendRequestByCode,
                                         onRespondFriendRequest = viewModel::respondToFriendRequest,
                                         onDismissFriendRequest = viewModel::dismissFriendRequest,
-                                        onInviteFriend = viewModel::inviteFriendToRoom,
+                                        onInviteFriend = viewModel::inviteFriendSmart,
                                         onRemoveFriend = viewModel::removeFriend,
                                         onSendChat = viewModel::sendRoomTextMessage,
                                         onSendQuickCallout = viewModel::sendQuickCallout,
@@ -403,6 +428,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onUpgradeStat = viewModel::upgradeKartStat,
                                         onZoomIn = { viewModel.adjustShowroomZoom(-0.8f) },
                                         onZoomOut = { viewModel.adjustShowroomZoom(0.8f) },
+                                        onFocusCamera = viewModel::focusShowroomCamera,
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
                                 }
@@ -433,6 +459,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         settings = profile.settings,
                                         isPaused = isPaused,
                                         notification = raceNotification,
+                                        sarcasticTaunt = sarcasticTaunt,
                                         roomMessages = roomMessages,
                                         isRecordingVoice = isRecordingVoice,
                                         isVoiceMuted = isVoiceMuted,
@@ -445,6 +472,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onToggleVoiceMute = viewModel::toggleVoiceMute,
                                         onSendQuickCallout = viewModel::sendQuickCallout,
                                         onSendChat = viewModel::sendRoomTextMessage,
+                                        onSendSarcasticTaunt = viewModel::sendSarcasticTaunt,
                                         onPauseToggle = viewModel::togglePause,
                                         onRestart = {
                                             when (activeMode) {
@@ -495,7 +523,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                 }
                             }
 
-                            // Global Incoming Squad / Gathering Hub Invite Overlay Banner
+                            // Global Incoming Friend Play Alert & Live Squad Invite Overlay Banner
                             AnimatedVisibility(
                                 visible = pendingInvite != null,
                                 enter = fadeIn() + slideInVertically { -it },
@@ -519,14 +547,20 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         Icon(Icons.Filled.Mail, contentDescription = null, tint = CaramelGold, modifier = Modifier.size(22.dp))
                                         Column {
                                             Text(
-                                                text = "SQUAD INVITE • ${invite.fromName}",
+                                                text = "صديقك ${invite.fromName} يدعوك للعب!",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = CaramelGold,
                                                 fontWeight = FontWeight.Bold
                                             )
-                                            val modeLabel = if (invite.isGatheringHub()) "Gathering Hub" else invite.roomName
+                                            val modeLabel = if (invite.isOfflineNudge()) {
+                                                "انضم إلى لوبي السيارات 3D"
+                                            } else if (invite.isGatheringHub()) {
+                                                "لوبي التجمع • #${invite.roomCode}"
+                                            } else {
+                                                "${invite.roomName} • #${invite.roomCode}"
+                                            }
                                             Text(
-                                                text = "$modeLabel (#${invite.roomCode})",
+                                                text = modeLabel,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = SkyCandy
                                             )
@@ -536,21 +570,21 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                             onClick = { viewModel.respondToGameInvite(invite, true) },
                                             modifier = Modifier
                                                 .testTag("accept_game_invite_button")
-                                                .size(40.dp)
+                                                .size(44.dp)
                                                 .clip(CircleShape)
                                                 .background(MintCream)
                                         ) {
-                                            Icon(Icons.Filled.Check, contentDescription = "Join Room", tint = BerryDeep)
+                                            Icon(Icons.Filled.Check, contentDescription = "قبول الدعوة والانضمام", tint = BerryDeep)
                                         }
                                         IconButton(
                                             onClick = { viewModel.respondToGameInvite(invite, false) },
                                             modifier = Modifier
                                                 .testTag("decline_game_invite_button")
-                                                .size(40.dp)
+                                                .size(44.dp)
                                                 .clip(CircleShape)
                                                 .background(StrawberryRed)
                                         ) {
-                                            Icon(Icons.Filled.Close, contentDescription = "Decline Invite", tint = FrostingWhite)
+                                            Icon(Icons.Filled.Close, contentDescription = "رفض الدعوة", tint = FrostingWhite)
                                         }
                                     }
                                 }
@@ -564,6 +598,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
+        activeViewModel?.setPresenceOnline(true)
         accelerometer?.let {
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -571,6 +606,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onPause() {
         super.onPause()
+        activeViewModel?.setPresenceOnline(false)
         sensorManager?.unregisterListener(this)
     }
 

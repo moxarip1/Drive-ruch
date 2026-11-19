@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Storefront
@@ -105,6 +107,7 @@ fun OnlineLobbyScreen(
     players: List<RoomPlayerDoc>,
     messages: List<RoomMessageDoc>,
     friends: List<FriendRosterEntry>,
+    friendPresence: Map<String, Boolean>,
     friendRequests: List<FriendRequestDoc>,
     isBusy: Boolean,
     isRecordingVoice: Boolean,
@@ -120,7 +123,7 @@ fun OnlineLobbyScreen(
     onSendFriendRequest: (friendCode: String) -> Unit,
     onRespondFriendRequest: (FriendRequestDoc, Boolean) -> Unit,
     onDismissFriendRequest: (String) -> Unit,
-    onInviteFriend: (FriendRosterEntry) -> Unit,
+    onInviteFriend: (FriendRosterEntry, Boolean) -> Unit,
     onRemoveFriend: (friendUid: String) -> Unit,
     onSendChat: (text: String, teamOnly: Boolean) -> Unit,
     onSendQuickCallout: (text: String, teamOnly: Boolean) -> Unit,
@@ -178,12 +181,15 @@ fun OnlineLobbyScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BerryDeep.copy(alpha = 0.88f))
+            .background(
+                if (room != null) Color.Transparent
+                else BerryDeep.copy(alpha = 0.44f)
+            )
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             CandyScreenHeader(
-                title = "Online Squads • Gathering Hub • Friends",
+                title = if (room != null) "3D Squad Lobby • #${room.roomCode}" else "Online Squads • Gathering Hub • Friends",
                 profile = profile,
                 onBack = onBack
             )
@@ -203,19 +209,19 @@ fun OnlineLobbyScreen(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // LEFT PANE: Gathering Hub + Create / Join OR Active Squad Room
                 Column(
                     modifier = Modifier
-                        .weight(1.20f)
+                        .weight(if (room != null) 0.92f else 1.20f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(BerryPurple.copy(alpha = 0.92f))
+                        .background(BerryPurple.copy(alpha = if (room != null) 0.80f else 0.90f))
                         .border(2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (room == null) {
                         // Featured 1-Tap Gathering Hub Card (لوبي التجمع)
@@ -621,15 +627,77 @@ fun OnlineLobbyScreen(
                     }
                 }
 
+                // CENTER 3D SQUAD SHOWCASE PANE (Open viewport when joined in a room so friends' karts appear side-by-side!)
+                if (room != null) {
+                    Column(
+                        modifier = Modifier
+                            .testTag("online_3d_squad_showcase")
+                            .weight(1.06f)
+                            .fillMaxHeight()
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(players, key = { it.userId }) { member ->
+                                val teamColor = Color(SquadTeam.fromIndex(member.teamIndex.toInt()).colorHex)
+                                Column(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(BerryDeep.copy(alpha = 0.78f))
+                                        .border(1.5.dp, teamColor, RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = member.displayName,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = FrostingWhite,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (member.userId == room.hostUid) "HOST ★"
+                                        else if (member.ready) "READY ✓"
+                                        else CatalogData.kartById(member.kartId).name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (member.ready || member.userId == room.hostUid) MintCream else CaramelGold,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(BerryDeep.copy(alpha = 0.72f))
+                                .border(1.dp, CaramelGold.copy(alpha = 0.75f), RoundedCornerShape(50))
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "لوبي السيارات 3D • ${players.size} سيارات جاهزة",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CaramelGold,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
                 // RIGHT PANE: 3 Tabs -> CHAT & VOICE | FRIENDS | REQUESTS
                 Column(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(if (room != null) 0.94f else 1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(BerryPurple.copy(alpha = 0.92f))
+                        .background(BerryPurple.copy(alpha = if (room != null) 0.80f else 0.92f))
                         .border(2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
-                        .padding(12.dp),
+                        .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // 3-Tab Bar + Voice Speaker Mute
@@ -879,50 +947,115 @@ fun OnlineLobbyScreen(
                                     }
                                 } else {
                                     items(friends, key = { it.friendUid }) { f ->
+                                        val isOnline = friendPresence[f.friendUid] == true
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(12.dp))
-                                                .background(BerryDeep.copy(alpha = 0.78f))
-                                                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
+                                                .background(BerryDeep.copy(alpha = 0.80f))
+                                                .border(
+                                                    1.dp,
+                                                    if (isOnline) MintCream.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.16f),
+                                                    RoundedCornerShape(12.dp)
+                                                )
                                                 .padding(horizontal = 10.dp, vertical = 7.dp),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Column(modifier = Modifier.weight(1f)) {
-                                                Text("${f.displayName} (LVL ${f.level})", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
-                                                Text("ID: ${f.friendCode} • ${CatalogData.kartById(f.selectedKartId).name}", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(8.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (isOnline) MintCream else Color.Gray)
+                                                    )
+                                                    Text(
+                                                        text = f.displayName,
+                                                        style = MaterialTheme.typography.labelLarge,
+                                                        color = FrostingWhite,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = if (isOnline) "متصل" else "غير متصل",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = if (isOnline) MintCream else FrostingWhite.copy(alpha = 0.55f),
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                Text(
+                                                    text = "ID: ${f.friendCode} • LVL ${f.level}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = SkyCandy
+                                                )
                                             }
                                             Row(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .testTag("invite_friend_${f.friendUid}")
-                                                        .height(38.dp)
-                                                        .clip(RoundedCornerShape(10.dp))
-                                                        .background(if (room != null) MintCream else BerryCard)
-                                                        .clickable(enabled = room != null) { onInviteFriend(f) }
-                                                        .padding(horizontal = 10.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                if (isOnline) {
+                                                    // Online: Show + Invite button to pull friend directly into 3D Lobby
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .testTag("invite_friend_plus_${f.friendUid}")
+                                                            .height(42.dp)
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(MintCream)
+                                                            .clickable { onInviteFriend(f, true) }
+                                                            .padding(horizontal = 10.dp),
+                                                        contentAlignment = Alignment.Center
                                                     ) {
-                                                        Icon(
-                                                            Icons.Filled.Mail,
-                                                            contentDescription = "Invite Friend",
-                                                            tint = if (room != null) BerryDeep else FrostingWhite.copy(alpha = 0.4f),
-                                                            modifier = Modifier.size(15.dp)
-                                                        )
-                                                        Text(
-                                                            text = "INVITE",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = if (room != null) BerryDeep else FrostingWhite.copy(alpha = 0.4f),
-                                                            fontWeight = FontWeight.Bold
-                                                        )
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Filled.Add,
+                                                                contentDescription = "دعوة صديق متصل",
+                                                                tint = BerryDeep,
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                            Text(
+                                                                text = "دعوة",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = BerryDeep,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Offline: Hide + icon completely and show "دعوة الصديق" play nudge
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .testTag("invite_friend_offline_${f.friendUid}")
+                                                            .height(42.dp)
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(CaramelGold)
+                                                            .clickable { onInviteFriend(f, false) }
+                                                            .padding(horizontal = 10.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Filled.NotificationsActive,
+                                                                contentDescription = "دعوة الصديق للعب",
+                                                                tint = BerryDeep,
+                                                                modifier = Modifier.size(15.dp)
+                                                            )
+                                                            Text(
+                                                                text = "دعوة الصديق",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = BerryDeep,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
                                                     }
                                                 }
                                                 IconButton(onClick = { onRemoveFriend(f.friendUid) }) {

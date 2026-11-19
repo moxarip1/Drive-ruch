@@ -52,9 +52,14 @@ data class RacerDirectoryCard(
     val selectedKartId: String = "strawberry_rocket",
     val selectedRacerId: String = "berry_blitz",
     val level: Long = 1L,
+    val isOnline: Boolean = false,
+    val lastActiveMs: Long = 0L,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
-)
+) {
+    fun isCurrentlyOnline(nowMs: Long = System.currentTimeMillis()): Boolean =
+        isOnline && lastActiveMs > 0L && (nowMs - lastActiveMs) < 60_000L
+}
 
 @Keep
 @IgnoreExtraProperties
@@ -115,6 +120,7 @@ data class GameInviteDoc(
     val mode: String = GameMode.QUICK_RACE.name,
     val trackId: String = TrackId.PEPPERMINT_PLAZA.name,
     val teamSize: Long = 2L,
+    val inviteType: String = "LIVE_INVITE", // LIVE_INVITE or OFFLINE_NUDGE
     val status: String = "PENDING", // PENDING, ACCEPTED, DECLINED
     val participantUids: List<String> = emptyList(),
     @ServerTimestamp val createdAt: Timestamp? = null,
@@ -126,6 +132,7 @@ data class GameInviteDoc(
         else -> GameMode.QUICK_RACE
     }
     fun isGatheringHub(): Boolean = mode == "GATHERING_HUB"
+    fun isOfflineNudge(): Boolean = inviteType == "OFFLINE_NUDGE"
 }
 
 @Keep

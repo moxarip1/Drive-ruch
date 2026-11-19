@@ -173,6 +173,7 @@ class OnlineMultiplayerRepository(
         } catch (_: Exception) {
             false
         }
+        val nowMs = System.currentTimeMillis()
         try {
             if (exists) {
                 dirRef.update(
@@ -181,6 +182,8 @@ class OnlineMultiplayerRepository(
                         "selectedKartId" to profile.selectedKartId.take(48),
                         "selectedRacerId" to profile.selectedRacerId.take(48),
                         "level" to profile.level.coerceIn(1, 999).toLong(),
+                        "isOnline" to true,
+                        "lastActiveMs" to nowMs,
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
                 ).await()
@@ -193,6 +196,8 @@ class OnlineMultiplayerRepository(
                         "selectedKartId" to profile.selectedKartId.take(48),
                         "selectedRacerId" to profile.selectedRacerId.take(48),
                         "level" to profile.level.coerceIn(1, 999).toLong(),
+                        "isOnline" to true,
+                        "lastActiveMs" to nowMs,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -202,6 +207,45 @@ class OnlineMultiplayerRepository(
             if (e is CancellationException) throw e
             handleFirestoreError(e, OperationType.WRITE, "racerDirectory/$friendCode")
         }
+    }
+
+    suspend fun updatePresence(uid: String, isOnline: Boolean) {
+        val currentUid = auth.currentUser?.uid ?: return
+        if (currentUid != uid || !isValidDocId(uid)) return
+        val friendCode = computeFriendCode(uid)
+        val dirRef = db.collection("racerDirectory").document(friendCode)
+        try {
+            dirRef.update(
+                mapOf(
+                    "isOnline" to isOnline,
+                    "lastActiveMs" to System.currentTimeMillis(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        } catch (_: Exception) {
+        }
+    }
+
+    suspend fun fetchFriendsPresence(friends: List<FriendRosterEntry>): Map<String, Boolean> {
+        if (auth.currentUser == null || friends.isEmpty()) return emptyMap()
+        val nowMs = System.currentTimeMillis()
+        val result = mutableMapOf<String, Boolean>()
+        for (friend in friends) {
+            val code = friend.friendCode.trim().uppercase()
+            if (!isValidDocId(code)) {
+                result[friend.friendUid] = false
+                continue
+            }
+            val online = try {
+                val snap = db.collection("racerDirectory").document(code).get().await()
+                val card = snap.toObject(RacerDirectoryCard::class.java)
+                card?.isCurrentlyOnline(nowMs) == true
+            } catch (_: Exception) {
+                false
+            }
+            result[friend.friendUid] = online
+        }
+        return result
     }
 
     suspend fun syncCloudProfile(
@@ -507,11 +551,17 @@ class OnlineMultiplayerRepository(
         uid: String,
         senderName: String,
         friendUid: String,
-        room: OnlineRoomDoc
+        room: OnlineRoomDoc,
+        inviteType: String = "LIVE_INVITE"
     ): Result<GameInviteDoc> = runCatching {
         val currentUid = requireUserId()
         require(currentUid == uid && friendUid != uid && isValidDocId(friendUid) && isValidDocId(room.roomCode))
-        val inviteId = "${uid}_${friendUid}_${room.roomCode}".take(128)
+        val safeType = if (inviteType == "OFFLINE_NUDGE") "OFFLINE_NUDGE" else "LIVE_INVITE"
+        val inviteId = if (safeType == "OFFLINE_NUDGE") {
+            "${uid}_${friendUid}_NUDGE".take(128)
+        } else {
+            "${uid}_${friendUid}_${room.roomCode}".take(128)
+        }
         val invRef = db.collection("gameInvites").document(inviteId)
         val exists = try {
             invRef.get().await().exists()
@@ -533,6 +583,7 @@ class OnlineMultiplayerRepository(
                         "mode" to safeMode,
                         "trackId" to room.trackId,
                         "teamSize" to safeTeam,
+                        "inviteType" to safeType,
                         "status" to "PENDING",
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -548,6 +599,7 @@ class OnlineMultiplayerRepository(
                         "mode" to safeMode,
                         "trackId" to room.trackId,
                         "teamSize" to safeTeam,
+                        "inviteType" to safeType,
                         "status" to "PENDING",
                         "participantUids" to listOf(uid, friendUid),
                         "createdAt" to FieldValue.serverTimestamp(),
@@ -571,8 +623,31 @@ class OnlineMultiplayerRepository(
             mode = safeMode,
             trackId = room.trackId,
             teamSize = safeTeam,
+            inviteType = safeType,
             status = "PENDING",
             participantUids = listOf(uid, friendUid)
+        )
+    }
+
+    suspend fun sendOfflinePlayInvite(
+        uid: String,
+        senderName: String,
+        friendUid: String,
+        currentRoom: OnlineRoomDoc?
+    ): Result<GameInviteDoc> {
+        val targetRoom = currentRoom ?: OnlineRoomDoc(
+            roomCode = "CANDYPLAZA",
+            roomName = "${cleanDisplayName(senderName).take(22)}'s Squad",
+            mode = "GATHERING_HUB",
+            trackId = TrackId.PEPPERMINT_PLAZA.name,
+            teamSize = 4L
+        )
+        return sendGameInvite(
+            uid = uid,
+            senderName = senderName,
+            friendUid = friendUid,
+            room = targetRoom,
+            inviteType = "OFFLINE_NUDGE"
         )
     }
 
