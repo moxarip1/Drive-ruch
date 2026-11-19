@@ -4,6 +4,7 @@ import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.KartCustomization
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.TrackId
+import com.example.sweetrush.model.WorldRegion
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
@@ -689,6 +690,7 @@ class OnlineMultiplayerRepository(
         trackId: TrackId,
         fillWithAi: Boolean,
         isGatheringHub: Boolean = false,
+        region: WorldRegion = WorldRegion.CANDY_CITY,
         roomCodeOverride: String? = null,
         roomNameOverride: String? = null
     ): Result<OnlineRoomDoc> = runCatching {
@@ -711,6 +713,7 @@ class OnlineMultiplayerRepository(
             "status" to "WAITING",
             "mode" to modeString,
             "trackId" to trackId.name,
+            "regionId" to region.name,
             "teamSize" to validTeamSize.toLong(),
             "maxPlayers" to 8L,
             "fillWithAi" to fillWithAi,
@@ -744,6 +747,7 @@ class OnlineMultiplayerRepository(
             status = "WAITING",
             mode = modeString,
             trackId = trackId.name,
+            regionId = region.name,
             teamSize = validTeamSize.toLong(),
             maxPlayers = 8L,
             fillWithAi = fillWithAi,
@@ -766,7 +770,7 @@ class OnlineMultiplayerRepository(
         }
         val existing = if (snap?.exists() == true) snap.toObject(OnlineRoomDoc::class.java) else null
         when {
-            existing == null -> {
+            existing == null || existing.memberUids.isEmpty() -> {
                 createRoom(
                     uid = uid,
                     displayName = displayName,
@@ -776,12 +780,12 @@ class OnlineMultiplayerRepository(
                     trackId = TrackId.PEPPERMINT_PLAZA,
                     fillWithAi = true,
                     isGatheringHub = true,
+                    region = WorldRegion.CANDY_CITY,
                     roomCodeOverride = "CANDYPLAZA",
                     roomNameOverride = "Candy City Plaza"
                 ).getOrThrow()
             }
-            existing.status == "WAITING" && existing.mode == "GATHERING_HUB" &&
-                (uid in existing.memberUids || existing.memberUids.size < existing.maxPlayers) -> {
+            uid in existing.memberUids || existing.memberUids.size < existing.maxPlayers -> {
                 joinRoomByCode(uid, displayName, profile, "CANDYPLAZA").getOrThrow()
             }
             else -> {
@@ -794,6 +798,7 @@ class OnlineMultiplayerRepository(
                     trackId = TrackId.PEPPERMINT_PLAZA,
                     fillWithAi = true,
                     isGatheringHub = true,
+                    region = WorldRegion.CANDY_CITY,
                     roomNameOverride = "${cleanDisplayName(displayName).take(16)} Plaza"
                 ).getOrThrow()
             }
@@ -825,21 +830,33 @@ class OnlineMultiplayerRepository(
 
         val alreadyMember = uid in room.memberUids
         val updatedMembers = if (alreadyMember) room.memberUids else room.memberUids + uid
+        val nextHostUid = if (room.hostUid in updatedMembers) room.hostUid else uid
 
         if (!alreadyMember) {
-            require(room.status == "WAITING") { "Race already started in room $roomCode" }
             require(room.memberUids.size < room.maxPlayers) { "Room $roomCode is full" }
+            val updateFields = mutableMapOf<String, Any>(
+                "memberUids" to FieldValue.arrayUnion(uid),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (nextHostUid != room.hostUid) {
+                updateFields["hostUid"] = nextHostUid
+            }
             try {
-                roomRef.update(
-                    mapOf(
-                        "memberUids" to FieldValue.arrayUnion(uid),
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
+                roomRef.update(updateFields).await()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 handleFirestoreError(e, OperationType.UPDATE, "rooms/$roomCode")
                 throw e
+            }
+        } else if (nextHostUid != room.hostUid) {
+            try {
+                roomRef.update(
+                    mapOf(
+                        "hostUid" to nextHostUid,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } catch (_: Exception) {
             }
         }
 
@@ -852,11 +869,11 @@ class OnlineMultiplayerRepository(
             displayName = displayName,
             profile = profile,
             teamIndex = defaultTeam,
-            ready = false,
+            ready = true,
             visibleToUids = updatedMembers
         ).getOrThrow()
 
-        room.copy(memberUids = updatedMembers)
+        room.copy(hostUid = nextHostUid, memberUids = updatedMembers)
     }
 
     fun observeRoom(roomCode: String): Flow<OnlineRoomDoc?> {
@@ -992,6 +1009,49 @@ class OnlineMultiplayerRepository(
         }
     }
 
+    fun pushTelemetryAsync(
+        roomCode: String,
+        uid: String,
+        x: Double,
+        y: Double,
+        z: Double,
+        yawRad: Double,
+        speed: Double,
+        steerVisualRad: Double,
+        lap: Int,
+        raceScore: Double,
+        finished: Boolean,
+        finishTimeMs: Long,
+        drifting: Boolean,
+        nitroActive: Boolean,
+        visibleToUids: List<String>
+    ) {
+        if (auth.currentUser?.uid != uid || roomCode.isBlank()) return
+        val safeVisible = (if (uid in visibleToUids) visibleToUids else visibleToUids + uid).distinct().take(8)
+        db.collection("rooms")
+            .document(roomCode)
+            .collection("players")
+            .document(uid)
+            .update(
+                mapOf(
+                    "x" to x,
+                    "y" to y,
+                    "z" to z,
+                    "yawRad" to yawRad,
+                    "speed" to speed,
+                    "steerVisualRad" to steerVisualRad,
+                    "lap" to lap.coerceIn(1, 99).toLong(),
+                    "raceScore" to raceScore,
+                    "finished" to finished,
+                    "finishTimeMs" to finishTimeMs.coerceAtLeast(0L),
+                    "drifting" to drifting,
+                    "nitroActive" to nitroActive,
+                    "visibleToUids" to safeVisible,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+    }
+
     suspend fun pushTelemetry(
         roomCode: String,
         uid: String,
@@ -1009,36 +1069,23 @@ class OnlineMultiplayerRepository(
         nitroActive: Boolean,
         visibleToUids: List<String>
     ) {
-        if (auth.currentUser?.uid != uid) return
-        val safeVisible = (if (uid in visibleToUids) visibleToUids else visibleToUids + uid).distinct().take(8)
-        try {
-            db.collection("rooms")
-                .document(roomCode)
-                .collection("players")
-                .document(uid)
-                .update(
-                    mapOf(
-                        "x" to x,
-                        "y" to y,
-                        "z" to z,
-                        "yawRad" to yawRad,
-                        "speed" to speed,
-                        "steerVisualRad" to steerVisualRad,
-                        "lap" to lap.coerceIn(1, 99).toLong(),
-                        "raceScore" to raceScore,
-                        "finished" to finished,
-                        "finishTimeMs" to finishTimeMs.coerceAtLeast(0L),
-                        "drifting" to drifting,
-                        "nitroActive" to nitroActive,
-                        "visibleToUids" to safeVisible,
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                )
-                .await()
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            handleFirestoreError(e, OperationType.UPDATE, "rooms/$roomCode/players/$uid")
-        }
+        pushTelemetryAsync(
+            roomCode = roomCode,
+            uid = uid,
+            x = x,
+            y = y,
+            z = z,
+            yawRad = yawRad,
+            speed = speed,
+            steerVisualRad = steerVisualRad,
+            lap = lap,
+            raceScore = raceScore,
+            finished = finished,
+            finishTimeMs = finishTimeMs,
+            drifting = drifting,
+            nitroActive = nitroActive,
+            visibleToUids = visibleToUids
+        )
     }
 
     suspend fun updateRoomConfig(
@@ -1047,7 +1094,9 @@ class OnlineMultiplayerRepository(
         trackId: TrackId,
         teamSize: Int,
         fillWithAi: Boolean,
-        isGatheringHub: Boolean = false
+        isGatheringHub: Boolean = false,
+        region: WorldRegion = WorldRegion.CANDY_CITY,
+        statusOverride: String? = null
     ): Result<Unit> = runCatching {
         requireUserId()
         val modeString = when {
@@ -1056,17 +1105,20 @@ class OnlineMultiplayerRepository(
             else -> GameMode.QUICK_RACE.name
         }
         val validTeamSize = if (teamSize in listOf(1, 2, 4)) teamSize else 2
+        val updates = mutableMapOf<String, Any>(
+            "mode" to modeString,
+            "trackId" to trackId.name,
+            "regionId" to region.name,
+            "teamSize" to validTeamSize.toLong(),
+            "maxPlayers" to 8L,
+            "fillWithAi" to fillWithAi,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (statusOverride != null && statusOverride in listOf("WAITING", "COUNTDOWN", "RACING", "FINISHED")) {
+            updates["status"] = statusOverride
+        }
         try {
-            db.collection("rooms").document(roomCode).update(
-                mapOf(
-                    "mode" to modeString,
-                    "trackId" to trackId.name,
-                    "teamSize" to validTeamSize.toLong(),
-                    "maxPlayers" to 8L,
-                    "fillWithAi" to fillWithAi,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            db.collection("rooms").document(roomCode).update(updates).await()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             handleFirestoreError(e, OperationType.UPDATE, "rooms/$roomCode")
@@ -1107,8 +1159,10 @@ class OnlineMultiplayerRepository(
             if (room == null || remaining.isEmpty()) {
                 if (snap.exists()) roomRef.delete().await()
             } else {
+                val nextHostUid = if (room.hostUid in remaining) room.hostUid else remaining.first()
                 roomRef.update(
                     mapOf(
+                        "hostUid" to nextHostUid,
                         "memberUids" to remaining,
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -1117,6 +1171,14 @@ class OnlineMultiplayerRepository(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             handleFirestoreError(e, OperationType.WRITE, "rooms/$roomCode")
+        }
+    }
+
+    suspend fun pruneDepartedPlayerDoc(roomCode: String, departedUid: String) {
+        if (auth.currentUser == null || !isValidDocId(roomCode) || !isValidDocId(departedUid)) return
+        try {
+            db.collection("rooms").document(roomCode).collection("players").document(departedUid).delete().await()
+        } catch (_: Exception) {
         }
     }
 

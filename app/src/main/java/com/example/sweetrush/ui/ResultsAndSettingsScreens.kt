@@ -320,8 +320,10 @@ fun SettingsScreen(
     userDisplayName: String = "Candy Racer",
     friendCode: String = "",
     statusMessage: String?,
+    isMusicEnabled: Boolean = true,
     onUpdateSettings: ((GameSettings) -> GameSettings) -> Unit,
     onRestoreDefaults: () -> Unit,
+    onToggleMusic: () -> Unit = {},
     onSwitchMusicTrack: () -> Unit = {},
     onSignOutClick: () -> Unit = {},
     onBack: () -> Unit
@@ -399,12 +401,20 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("MUSIC VOLUME (${(s.musicVolume * 100).toInt()}%)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
-                        SettingChip(
-                            text = "تبديل الأغنية • Switch Track",
-                            selected = true,
-                            onClick = onSwitchMusicTrack,
-                            modifier = Modifier.testTag("switch_music_track_button")
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SettingChip(
+                                text = if (isMusicEnabled) "🔊 ON" else "🔇 OFF",
+                                selected = isMusicEnabled,
+                                onClick = onToggleMusic,
+                                modifier = Modifier.testTag("settings_toggle_music_button")
+                            )
+                            SettingChip(
+                                text = "🎵 Switch Track",
+                                selected = true,
+                                onClick = onSwitchMusicTrack,
+                                modifier = Modifier.testTag("switch_music_track_button")
+                            )
+                        }
                     }
                     Slider(
                         value = s.musicVolume,

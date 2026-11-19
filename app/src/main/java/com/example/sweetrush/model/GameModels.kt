@@ -37,32 +37,32 @@ enum class WorldRegion(
     val accentHex: Long
 ) {
     CANDY_CITY(
-        "Candy City",
-        "Peppermint Plazas & Sugar Avenues",
+        "Sugar Rush Speedway • القلعة والمضمار",
+        "King Candy's Castle, Kart Bakery & Starting Grid",
         0f, 0f,
         0xFF4CC9FF, 0xFFFFC8E6, 0xFFFFD8EC, 0xFFFF3D8B
     ),
     CHOCOLATE_MOUNTAINS(
-        "Chocolate Mountains",
-        "Caramel Waterfalls & Fudge Switchbacks",
+        "Diet Cola Mountain • جبل الكولا والمنتوس",
+        "Boiling Cola Crater, Mentos Stalactites & Fudge Cliffs",
         270f, -240f,
         0xFF3D1338, 0xFFFF7E47, 0xFFB8544A, 0xFFFF9800
     ),
     GUMDROP_FOREST(
-        "Gumdrop Forest",
-        "Lollipop Groves & Secret Shortcuts",
+        "Candy Cane Forest • غابة قصب السكر",
+        "Striped Candy Cane Trees, Lollipop Groves & Taffy Swamps",
         -265f, -225f,
         0xFF6A4C93, 0xFFA0F0ED, 0xFFCDEEE9, 0xFF3CE8B5
     ),
     CUPCAKE_VALLEY(
-        "Cupcake Valley",
-        "Frosting Hills & Wafer Bridges",
+        "Cakeway Valley • وادي الكيك والآيس كريم",
+        "Birthday Cake Hills, Frosting Slopes & Wafer Bridges",
         -255f, 235f,
         0xFF7B4DFF, 0xFFFFD1E8, 0xFFFAD3EA, 0xFFD980FA
     ),
     PEPPERMINT_COAST(
-        "Peppermint Coast",
-        "Strawberry Cream Shores & Boardwalk",
+        "Gumball Gorge • وادي العلكة الملونة",
+        "Giant Gumball Machines, Jawbreaker Boulders & Lollipop Shores",
         260f, 240f,
         0xFF29B6F6, 0xFFFFE5B8, 0xFFFFEAD2, 0xFF5CE1E6
     )
@@ -83,7 +83,11 @@ enum class KartBodyStyle {
     CUPCAKE_KART,
     DONUT_DRIFTER,
     MARSHMALLOW_SPEEDSTER,
-    CARAMEL_THUNDER
+    CARAMEL_THUNDER,
+    CHERRY_PIE_KART,
+    FRO_CONE_KART,
+    TIRAMISSILE_KART,
+    MINT_CANDY_KART
 }
 
 enum class TrackId {
@@ -311,8 +315,34 @@ data class PlayerProfile(
     val credits: Int = 350,
     val selectedKartId: String = "strawberry_rocket",
     val selectedRacerId: String = "berry_blitz",
-    val unlockedKarts: Set<String> = setOf("strawberry_rocket", "chocolate_cruiser", "peppermint_racer"),
-    val unlockedRacers: Set<String> = setOf("berry_blitz", "coco_dash", "minty_swirl"),
+    val unlockedKarts: Set<String> = setOf(
+        "strawberry_rocket",
+        "chocolate_cruiser",
+        "peppermint_racer",
+        "jellybean_machine",
+        "cupcake_kart",
+        "donut_drifter",
+        "marshmallow_speedster",
+        "caramel_thunder",
+        "cherry_pie_kart",
+        "fro_cone_kart",
+        "tiramissile_kart",
+        "mint_candy_kart"
+    ),
+    val unlockedRacers: Set<String> = setOf(
+        "berry_blitz",
+        "coco_dash",
+        "minty_swirl",
+        "fizzy_pop",
+        "frosting_faye",
+        "glazed_gus",
+        "mallow_max",
+        "toffee_rex",
+        "jubileena",
+        "snowanna",
+        "crumbelina",
+        "minty_zaki"
+    ),
     val unlockedPaints: Set<String> = setOf("default", "strawberry_glaze", "mint_frost"),
     val unlockedWheels: Set<WheelDesign> = setOf(WheelDesign.PEPPERMINT_SWIRL),
     val unlockedExhausts: Set<ExhaustStyle> = setOf(ExhaustStyle.SUGAR_SPARK),

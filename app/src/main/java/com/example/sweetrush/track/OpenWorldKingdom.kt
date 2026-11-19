@@ -1054,25 +1054,25 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             }
         }
 
-        // 2. Candy City Plaza & Downtown Sidewalk Residents (20 living citizens)
+        // 2. Sugar Rush Speedway & Castle Plaza Movie Citizens (20 living citizens)
         val cityNames = listOf(
-            Triple("الشيف مارشميلو", "كبير خبازي الساحة", CitizenVariant.BAKER_CHEF),
-            Triple("الشرطي نعناع", "حارس مرور كاندي سيتي", CitizenVariant.PEPPERMINT_GUARD),
-            Triple("المستشار توفي", "مدير استثمارات سويت راش", CitizenVariant.CORP_EXECUTIVE),
-            Triple("الحلواني كرز", "بائع الآيس كريم", CitizenVariant.BAKER_CHEF),
-            Triple("سارة سبرينكل", "سكان كاندي سيتي", CitizenVariant.CANDY_CITIZEN),
-            Triple("المهندس ويفر", "مهندس أبراج الوافل", CitizenVariant.FACTORY_ENGINEER),
-            Triple("الكابتن دونات", "حارس البوابة الوردية", CitizenVariant.PEPPERMINT_GUARD),
-            Triple("ليلى ماكرون", "مصممة متجر الماكرون", CitizenVariant.CANDY_CITIZEN),
-            Triple("المدير فستق", "مجلس إدارة سويت راش", CitizenVariant.CORP_EXECUTIVE),
-            Triple("رامي جيلي", "ساعي بريد الحلويات", CitizenVariant.CANDY_CITIZEN)
+            Triple("ساور بيل • Sour Bill", "مساعد القلعة الحامض", CitizenVariant.CANDY_CITIZEN),
+            Triple("الشرطي وينشيل • Wynnchel", "شرطة الدونات الملكية", CitizenVariant.PEPPERMINT_GUARD),
+            Triple("الشرطي دنكان • Duncan", "شرطة الدونات الملكية", CitizenVariant.PEPPERMINT_GUARD),
+            Triple("حارس الأوريو • Oreo Guard", "الحرس الملكي للقلعة", CitizenVariant.CORP_EXECUTIVE),
+            Triple("الشيف مارشميلو • Marshmallow Chef", "مخبز سيارات شوغر راش", CitizenVariant.BAKER_CHEF),
+            Triple("المهندس ويفر • Kart Baker", "مصنع سيارات المتسابقين", CitizenVariant.FACTORY_ENGINEER),
+            Triple("مواطن الكب كيك • Cupcake Fan", "مشجع مدرجات شوغر راش", CitizenVariant.BAKER_CHEF),
+            Triple("حارس الأوريو الملكي • Oreo Sentinel", "بوابة قلعة الملك كاندي", CitizenVariant.CORP_EXECUTIVE),
+            Triple("ساور بيل الصغير • Sour Drop", "مراقب مضمار السباق", CitizenVariant.CANDY_CITIZEN),
+            Triple("الكابتن دنكان • Officer Duncan", "دورية ساحة القلعة", CitizenVariant.PEPPERMINT_GUARD)
         )
         val cityGreetings = listOf(
-            "يا لها من سيارة رائعة! هل تعمل مع شركة سويت راش؟ 🏎️✨",
-            "صباح السكر! المدينة مزدحمة اليوم بالمتسابقين والشاحنات 🍭",
-            "انتبه في المنعطفات، الكريمة طازجة على الرصيف! 🧁😄",
-            "شركة سويت راش رفعت رواتب سائقي التوصيل هذا الأسبوع! 💰🏢",
-            "أهلاً بك في قلب كاندي سيتي، استمتع بالموسيقى والسرعة! 🎶🍬"
+            "ساور بيل: هممم.. فانيليوبي صنعت سيارة جديدة في مخبز السيارات! 🍏🏎️",
+            "الشرطي وينشيل و دنكان: قف باسم شرطة الدونات! سرعتك خارقة اليوم! 🍩🚓",
+            "حراس الأوريو: أوريو.. أو-ري-أو! أبواب القلعة مفتوحة للمتسابقين! 🍪🏰",
+            "مشجعو المدرجات: جميع متسابقي الفيلم الـ 12 جاهزون على خط الانطلاق! 🧁🏁",
+            "مخبز السيارات: شحنات شركة سويت راش وصلت من جبل دايت كولا! 💰🏢"
         )
         for (i in 0 until 20) {
             val angle = (i.toFloat() / 20f) * (2f * PI.toFloat()) + 0.18f
@@ -1101,27 +1101,27 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             )
         }
 
-        // 3. Regional Village, Factory, Bakery, Forest & Boardwalk Residents across the 4 outer regions (36 citizens)
+        // 3. Regional Movie Citizens across Diet Cola Mountain, Candy Cane Forest, Cakeway Valley & Gumball Gorge (36 citizens)
         val regionalHubs = listOf(
             Triple(WorldRegion.CHOCOLATE_MOUNTAINS, Vec3(255f, 0f, -220f), listOf(
-                Triple("عامل الكاكاو بندق", "مصنع الشوكولاتة", CitizenVariant.FACTORY_ENGINEER),
-                Triple("الشيف نوتيلا", "مطبخ شلال الكراميل", CitizenVariant.BAKER_CHEF),
-                Triple("الحارس فادج", "أمن قلعة الشوكولاتة", CitizenVariant.PEPPERMINT_GUARD)
+                Triple("مهندس جبل دايت كولا", "مراقب صواعد المنتوس", CitizenVariant.FACTORY_ENGINEER),
+                Triple("حارس الأوريو البركاني", "حامية جبل الكولا", CitizenVariant.CORP_EXECUTIVE),
+                Triple("الشرطي وينشيل • دورية الجبل", "شرطة الدونات", CitizenVariant.PEPPERMINT_GUARD)
             )),
             Triple(WorldRegion.GUMDROP_FOREST, Vec3(-250f, 0f, -205f), listOf(
-                Triple("الباحثة غامي", "مختبر غابة الجيلي", CitizenVariant.CORP_EXECUTIVE),
-                Triple("حارس الغابة توت", "دورية أشجار المصاصة", CitizenVariant.PEPPERMINT_GUARD),
-                Triple("جامع الكريستال سكر", "سكان غابة الجيلي", CitizenVariant.CANDY_CITIZEN)
+                Triple("ساور بيل • Sour Bill", "مرشد غابة قصب السكر", CitizenVariant.CANDY_CITIZEN),
+                Triple("الشرطي دنكان • دورية الغابة", "شرطة الدونات", CitizenVariant.PEPPERMINT_GUARD),
+                Triple("حارس الأوريو • Oreo Guard", "حارس أشجار قصب السكر", CitizenVariant.CORP_EXECUTIVE)
             )),
             Triple(WorldRegion.CUPCAKE_VALLEY, Vec3(-235f, 0f, 215f), listOf(
-                Triple("الشيف كريمة", "مخبز وادي الكب كيك", CitizenVariant.BAKER_CHEF),
-                Triple("تاجر الفانيليا", "سوق الحلويات الغربي", CitizenVariant.CORP_EXECUTIVE),
-                Triple("نجمة الكب كيك", "سكان وادي الكب كيك", CitizenVariant.CANDY_CITIZEN)
+                Triple("خباز وادي الكيك • Cakeway Chef", "مخبز تلال الكيك", CitizenVariant.BAKER_CHEF),
+                Triple("حارس الأوريو • Cakeway Guard", "حامية وادي الكيك", CitizenVariant.CORP_EXECUTIVE),
+                Triple("ساور بيل • Sour Bill", "سكان وادي الكيك", CitizenVariant.CANDY_CITIZEN)
             )),
             Triple(WorldRegion.PEPPERMINT_COAST, Vec3(250f, 0f, 225f), listOf(
-                Triple("قبطان الميناء نعناع", "إدارة رصيف الساحل", CitizenVariant.PEPPERMINT_GUARD),
-                Triple("بائع البوظة الساحلي", "كورنيش ساحل النعناع", CitizenVariant.BAKER_CHEF),
-                Triple("مدير التصدير مرجان", "فرع شركة سويت راش البحري", CitizenVariant.CORP_EXECUTIVE)
+                Triple("الشرطي وينشيل • Gumball Patrol", "شرطة وادي العلكة", CitizenVariant.PEPPERMINT_GUARD),
+                Triple("مشجع الكب كيك • Gumball Fan", "مدرجات وادي العلكة", CitizenVariant.BAKER_CHEF),
+                Triple("حارس الأوريو • Oreo Guard", "فرع شركة سويت راش", CitizenVariant.CORP_EXECUTIVE)
             ))
         )
 
@@ -1141,10 +1141,10 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 val c1 = colors[(regNpcIdx + j) % colors.size]
                 val c2 = colors[(regNpcIdx + j + 3) % colors.size]
                 val greeting = when (reg) {
-                    WorldRegion.CHOCOLATE_MOUNTAINS -> "شلالات الشوكولاتة تعمل بأقصى طاقة لتزويد شركة سويت راش! 🍫⚙️"
-                    WorldRegion.GUMDROP_FOREST -> "بلورات السكر في الغابة جاهزة للشحن إلى المدينة! 🍬🌲"
-                    WorldRegion.CUPCAKE_VALLEY -> "رائحة الكب كيك الطازج تملأ الوادي! مرحباً بك 🧁✨"
-                    else -> "نسيم ساحل النعناع منعش اليوم، وسفن الشحن في انتظارك! 🌊🍭"
+                    WorldRegion.CHOCOLATE_MOUNTAINS -> "انتبه من تساقط المنتوس في فوهة جبل الدايت كولا الفوار! 🌋🍬"
+                    WorldRegion.GUMDROP_FOREST -> "ساور بيل: هنا في غابة قصب السكر بنى رالف وفانيليوبي مضمار التدريب السري! 🌲🍭"
+                    WorldRegion.CUPCAKE_VALLEY -> "أهلاً بك في وادي الكيك (Cakeway)! الكريمة والشموع تملأ التلال! 🎂✨"
+                    else -> "شرطة الدونات ترحب بك في وادي العلكة الملونة (Gumball Gorge)! 🍩🟣"
                 }
                 list.add(
                     WorldCitizenNpc(

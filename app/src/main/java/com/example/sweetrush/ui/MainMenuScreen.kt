@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,9 +55,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.R
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.GameScreen
 import com.example.sweetrush.model.PlayerProfile
@@ -71,6 +74,7 @@ import com.example.ui.theme.GrapeJelly
 import com.example.ui.theme.MintCream
 import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
+import com.example.ui.theme.StrawberryRed
 import kotlin.math.sin
 
 @Composable
@@ -81,6 +85,10 @@ fun MainMenuScreen(
     friendCode: String = "",
     activeRoomCode: String? = null,
     pendingRequestsCount: Int = 0,
+    isMusicEnabled: Boolean = true,
+    currentSongTitle: String = "Gumball Horizon",
+    onToggleMusic: () -> Unit = {},
+    onSwitchMusicTrack: () -> Unit = {},
     onNavigate: (GameScreen) -> Unit,
     onStartFreeRoam: () -> Unit = {},
     onEnterGatheringHub: () -> Unit = {}
@@ -141,18 +149,39 @@ fun MainMenuScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SweetRushLogo(compact = true)
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(BerryDeep.copy(alpha = 0.72f))
-                            .border(1.dp, CandyPink.copy(alpha = 0.55f), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .testTag("menu_official_kart_banner")
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(BerryDeep.copy(alpha = 0.80f))
+                            .border(1.5.dp, CaramelGold.copy(alpha = 0.78f), RoundedCornerShape(16.dp))
+                            .clickable { onNavigate(GameScreen.GARAGE) }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "${racer.name} • ${kart.name}  |  Wins ${profile.racesWon}  •  Coins ${profile.collectedWorldCoins.size}/48  •  Stars ${profile.collectedWorldStars.size}/10",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = FrostingWhite
+                        Image(
+                            painter = painterResource(id = R.drawable.img_official_candy_kart),
+                            contentDescription = "Official Candy Kart",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(width = 48.dp, height = 32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, CaramelGold, RoundedCornerShape(8.dp))
                         )
+                        Column {
+                            Text(
+                                text = "${racer.name} • ${kart.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CaramelGold,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Wins ${profile.racesWon}  •  Coins ${profile.collectedWorldCoins.size}/48  •  Stars ${profile.collectedWorldStars.size}/10",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = FrostingWhite
+                            )
+                        }
                     }
                 }
 
@@ -189,6 +218,53 @@ fun MainMenuScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+
+                        // 1-Tap Music ON/OFF Pill
+                        Row(
+                            modifier = Modifier
+                                .testTag("menu_toggle_music_button")
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    if (isMusicEnabled) MintDark.copy(alpha = 0.88f)
+                                    else StrawberryRed.copy(alpha = 0.88f)
+                                )
+                                .border(
+                                    1.5.dp,
+                                    if (isMusicEnabled) MintCream else CaramelGold,
+                                    RoundedCornerShape(50)
+                                )
+                                .clickable { onToggleMusic() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = if (isMusicEnabled) "🔊 ON" else "🔇 OFF",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = FrostingWhite,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // 1-Tap Uploaded MP3 Soundtrack Switcher Pill
+                        Row(
+                            modifier = Modifier
+                                .testTag("menu_switch_music_button")
+                                .clip(RoundedCornerShape(50))
+                                .background(BerryDeep.copy(alpha = 0.85f))
+                                .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(50))
+                                .clickable { onSwitchMusicTrack() }
+                                .padding(horizontal = 11.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = "🎵 $currentSongTitle",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CaramelGold,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         // Google Account Racer Chip

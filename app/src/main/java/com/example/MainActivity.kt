@@ -218,7 +218,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
                         val friendCode by viewModel.friendCode.collectAsStateWithLifecycle()
                         val onlineRoom by viewModel.onlineRoom.collectAsStateWithLifecycle()
-                        val roomPlayers by viewModel.roomPlayers.collectAsStateWithLifecycle()
+                        val activeRoomPlayers by viewModel.activeRoomPlayers.collectAsStateWithLifecycle()
                         val roomMessages by viewModel.roomMessages.collectAsStateWithLifecycle()
                         val friends by viewModel.friends.collectAsStateWithLifecycle()
                         val friendPresence by viewModel.friendPresence.collectAsStateWithLifecycle()
@@ -228,6 +228,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         val isRecordingVoice by viewModel.isRecordingVoice.collectAsStateWithLifecycle()
                         val isVoiceMuted by viewModel.isVoiceMuted.collectAsStateWithLifecycle()
                         val sarcasticTaunt by viewModel.sarcasticTaunt.collectAsStateWithLifecycle()
+                        val currentSongTitle by viewModel.currentSongTitle.collectAsStateWithLifecycle()
+                        val isMusicEnabled by viewModel.isMusicEnabled.collectAsStateWithLifecycle()
 
                         val notifPermLauncher = rememberLauncherForActivityResult(
                             ActivityResultContracts.RequestPermission()
@@ -274,6 +276,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         friendCode = friendCode,
                                         activeRoomCode = onlineRoom?.roomCode,
                                         pendingRequestsCount = pendingIncomingReqCount,
+                                        isMusicEnabled = isMusicEnabled,
+                                        currentSongTitle = currentSongTitle,
+                                        onToggleMusic = viewModel::toggleMusicOnOff,
+                                        onSwitchMusicTrack = viewModel::switchBackgroundSong,
                                         onNavigate = { target -> viewModel.navigateTo(target) },
                                         onStartFreeRoam = { viewModel.startFreeRoam() },
                                         onEnterGatheringHub = { viewModel.enterGatheringHub(launchDirectWorld = false) }
@@ -286,7 +292,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         friendCode = friendCode,
                                         profile = profile,
                                         room = onlineRoom,
-                                        players = roomPlayers,
+                                        players = activeRoomPlayers,
                                         messages = roomMessages,
                                         friends = friends,
                                         friendPresence = friendPresence,
@@ -294,6 +300,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         isBusy = isOnlineBusy,
                                         isRecordingVoice = isRecordingVoice,
                                         isVoiceMuted = isVoiceMuted,
+                                        isMusicEnabled = isMusicEnabled,
+                                        currentSongTitle = currentSongTitle,
                                         statusMessage = statusBanner,
                                         onCreateRoom = viewModel::createOnlineRoom,
                                         onEnterGatheringHub = { viewModel.enterGatheringHub(launchDirectWorld = false) },
@@ -311,6 +319,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onSendQuickCallout = viewModel::sendQuickCallout,
                                         onToggleLiveMic = viewModel::toggleLiveMic,
                                         onToggleVoiceMute = viewModel::toggleVoiceMute,
+                                        onToggleMusic = viewModel::toggleMusicOnOff,
+                                        onSwitchMusicTrack = viewModel::switchBackgroundSong,
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
                                 }
@@ -439,7 +449,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         userDisplayName = viewModel.userDisplayName,
                                         friendCode = friendCode,
                                         statusMessage = statusBanner,
+                                        isMusicEnabled = isMusicEnabled,
                                         onUpdateSettings = viewModel::updateSettings,
+                                        onToggleMusic = viewModel::toggleMusicOnOff,
                                         onSwitchMusicTrack = viewModel::switchBackgroundSong,
                                         onRestoreDefaults = viewModel::restoreDefaultSettings,
                                         onSignOutClick = {
@@ -486,7 +498,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onFinishSession = viewModel::finishTimeTrialOrPractice,
                                         onQuitToMenu = {
                                             if (raceHud.isOnlineSession) {
-                                                viewModel.rematchOnlineRoom()
+                                                viewModel.leaveOnlineRoom(navigateBackToMenu = true)
                                             } else {
                                                 viewModel.navigateTo(GameScreen.MAIN_MENU)
                                             }
@@ -494,7 +506,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         onToggleDebug = viewModel::toggleDebugTelemetry,
                                         onOpenWorldMap = { viewModel.navigateTo(GameScreen.WORLD_MAP) },
                                         onEnterPortalRace = viewModel::enterNearbyPortalRace,
-                                        onUpgradeCompany = viewModel::upgradeCompanyInOpenWorld
+                                        onUpgradeCompany = viewModel::upgradeCompanyInOpenWorld,
+                                        isMusicEnabled = isMusicEnabled,
+                                        currentSongTitle = currentSongTitle,
+                                        onToggleMusic = viewModel::toggleMusicOnOff,
+                                        onSwitchMusicTrack = viewModel::switchBackgroundSong,
+                                        onReturnOnlineLobby = viewModel::rematchOnlineRoom
                                     )
                                 }
 

@@ -1,5 +1,6 @@
 package com.example.sweetrush.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +28,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,9 +39,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.R
+import com.example.sweetrush.audio.CandyAudioEngine
+import com.example.sweetrush.audio.MusicTrack
 import com.example.sweetrush.render3d.CandyViewport3D
 import com.example.sweetrush.render3d.CandyWorldRenderer
 import com.example.sweetrush.render3d.RenderSceneMode
@@ -57,6 +68,22 @@ fun AuthScreen(
     errorMessage: String?,
     onGoogleSignInClick: () -> Unit
 ) {
+    val appContext = LocalContext.current.applicationContext
+    val authAudioEngine = remember(appContext) {
+        CandyAudioEngine(appContext).apply {
+            setVolumes(music = 0.85f, sfx = 0.85f)
+            playMusic(MusicTrack.MENU)
+        }
+    }
+    val authSongTitle by authAudioEngine.activeSongTitle.collectAsStateWithLifecycle()
+
+    DisposableEffect(authAudioEngine) {
+        authAudioEngine.playMusic(MusicTrack.MENU)
+        onDispose {
+            authAudioEngine.release()
+        }
+    }
+
     // Showcase the real 3D Candy Kingdom behind the Frosted Glass Sign-In Card
     val previewRenderer = remember {
         CandyWorldRenderer { _, _ -> }.apply {
@@ -91,29 +118,69 @@ fun AuthScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Brand + Feature Highlights
+            // Left: Brand + Official Candy Kart Showcase + Feature Highlights
             Column(
                 modifier = Modifier.weight(1.1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SweetRushLogo(compact = false)
 
-                Text(
-                    text = "سابق مع أصدقائك في مملكة الحلوى ثلاثية الأبعاد!",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MintCream,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Race online with friends, create 1 / 2 / 4 player squads, talk live in-race, and sync your garage across devices.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = FrostingWhite.copy(alpha = 0.90f)
-                )
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(BerryDeep.copy(alpha = 0.82f))
+                        .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(18.dp))
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_official_candy_kart),
+                        contentDescription = "Official Sugar Rush Candy Kart",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(width = 96.dp, height = 62.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.5.dp, CaramelGold, RoundedCornerShape(12.dp))
+                    )
+                    Column {
+                        Text(
+                            text = "CANDY KART • السيارة الرسمية للعبة",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = CaramelGold,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "سابق مع أصدقائك بالسيارة الرسمية (Made by Vanellope) في مملكة الحلوى ثلاثية الأبعاد!",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MintCream
+                        )
+                    }
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FeaturePill(icon = Icons.Filled.Groups, label = "Squads 1•2•4", tint = CandyPink)
                     FeaturePill(icon = Icons.Filled.Mic, label = "Live Voice & Chat", tint = MintCream)
                     FeaturePill(icon = Icons.Filled.CameraAlt, label = "360° Pro Cam", tint = CaramelGold)
+                }
+
+                Row(
+                    modifier = Modifier
+                        .testTag("auth_switch_music_button")
+                        .clip(RoundedCornerShape(50))
+                        .background(BerryDeep.copy(alpha = 0.85f))
+                        .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(50))
+                        .clickable { authAudioEngine.switchBackgroundSong() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "🎵 $authSongTitle  •  اضغط لتبديل الأغنية",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CaramelGold,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 

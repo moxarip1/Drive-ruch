@@ -63,6 +63,9 @@ android {
     compose = true
     buildConfig = true
   }
+  androidResources {
+    noCompress += listOf("mp3", "wav", "ogg")
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false

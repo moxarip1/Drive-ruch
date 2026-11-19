@@ -123,6 +123,7 @@ class SaveRepository(private val context: Context) {
         sObj.put("tiltSteeringEnabled", p.settings.tiltSteeringEnabled)
         sObj.put("language", p.settings.language.name)
         sObj.put("showDebugTelemetry", p.settings.showDebugTelemetry)
+        sObj.put("mp3SoundtrackMigratedV2", true)
         root.put("settings", sObj)
         return root
     }
@@ -131,10 +132,13 @@ class SaveRepository(private val context: Context) {
         val defaults = PlayerProfile()
         val sObj = root.optJSONObject("settings")
         val settings = if (sObj != null) {
+            val migratedMp3 = sObj.optBoolean("mp3SoundtrackMigratedV2", false)
+            val rawMusicVol = sObj.optDouble("musicVolume", 0.85).toFloat().coerceIn(0f, 1f)
+            val effectiveMusicVol = if (!migratedMp3 && rawMusicVol < 0.25f) 0.85f else rawMusicVol
             GameSettings(
                 graphicsQuality = enumValueOrDefault(sObj.optString("graphicsQuality"), GraphicsQuality.HIGH),
                 targetFps = sObj.optInt("targetFps", 60).coerceIn(30, 60),
-                musicVolume = sObj.optDouble("musicVolume", 0.70).toFloat().coerceIn(0f, 1f),
+                musicVolume = effectiveMusicVol,
                 sfxVolume = sObj.optDouble("sfxVolume", 0.85).toFloat().coerceIn(0f, 1f),
                 controlScheme = enumValueOrDefault(sObj.optString("controlScheme"), ControlScheme.TOUCH_BUTTONS),
                 steeringSensitivity = sObj.optDouble("steeringSensitivity", 1.0).toFloat().coerceIn(0.4f, 1.8f),
@@ -193,8 +197,8 @@ class SaveRepository(private val context: Context) {
             credits = root.optInt("credits", 350).coerceAtLeast(0),
             selectedKartId = root.optString("selectedKartId", defaults.selectedKartId),
             selectedRacerId = root.optString("selectedRacerId", defaults.selectedRacerId),
-            unlockedKarts = parseStringSet(root.optJSONArray("unlockedKarts"), defaults.unlockedKarts),
-            unlockedRacers = parseStringSet(root.optJSONArray("unlockedRacers"), defaults.unlockedRacers),
+            unlockedKarts = parseStringSet(root.optJSONArray("unlockedKarts"), defaults.unlockedKarts) + defaults.unlockedKarts,
+            unlockedRacers = parseStringSet(root.optJSONArray("unlockedRacers"), defaults.unlockedRacers) + defaults.unlockedRacers,
             unlockedPaints = parseStringSet(root.optJSONArray("unlockedPaints"), defaults.unlockedPaints),
             unlockedWheels = parseEnumSet(root.optJSONArray("unlockedWheels"), defaults.unlockedWheels),
             unlockedExhausts = parseEnumSet(root.optJSONArray("unlockedExhausts"), defaults.unlockedExhausts),

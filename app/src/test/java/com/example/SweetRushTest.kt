@@ -33,9 +33,9 @@ import java.io.File
 class SweetRushTest {
 
     @Test
-    fun `catalog contains 8 karts 8 racers 4 tracks 7 powerups and distinct physics tuning`() {
-        assertEquals(8, CatalogData.karts.size)
-        assertEquals(8, CatalogData.racers.size)
+    fun `catalog contains 12 movie karts 12 movie racers 4 tracks 7 powerups and distinct physics tuning`() {
+        assertEquals(12, CatalogData.karts.size)
+        assertEquals(12, CatalogData.racers.size)
         assertEquals(4, CatalogData.tracks.size)
         assertEquals(7, PowerUpType.entries.size)
         assertEquals(4, CatalogData.challenges.size)
@@ -45,6 +45,13 @@ class SweetRushTest {
         val caramel = CatalogData.kartById("caramel_thunder")
         assertNotEquals(strawberry.physicsTuning.massKg, chocolate.physicsTuning.massKg)
         assertNotEquals(strawberry.physicsTuning.lateralGrip, caramel.physicsTuning.lateralGrip)
+
+        // Ensure all 12 movie KartBodyStyle variants are represented across the 12 movie karts
+        assertEquals(12, CatalogData.karts.map { it.style }.toSet().size)
+        // Ensure all 12 movie racers and karts are unlocked by default in PlayerProfile
+        val defaultProfile = PlayerProfile()
+        assertEquals(12, defaultProfile.unlockedKarts.size)
+        assertEquals(12, defaultProfile.unlockedRacers.size)
     }
 
     @Test
@@ -465,10 +472,20 @@ class SweetRushTest {
         assertTrue("gumball_horizon.mp3 raw resource should have non-zero size", gumballBytes > 100_000)
         assertTrue("turbo_candy_drift.mp3 raw resource should have non-zero size", turboBytes > 100_000)
 
+        context.resources.openRawResourceFd(R.raw.gumball_horizon)?.use { afd ->
+            assertTrue("gumball_horizon.mp3 AssetFileDescriptor length should be > 4MB", afd.length > 4_000_000L)
+        }
+        context.resources.openRawResourceFd(R.raw.turbo_candy_drift)?.use { afd ->
+            assertTrue("turbo_candy_drift.mp3 AssetFileDescriptor length should be > 4MB", afd.length > 4_000_000L)
+        }
+
         val audioEngine = com.example.sweetrush.audio.CandyAudioEngine(context)
-        audioEngine.setVolumes(music = 0.8f, sfx = 0.85f)
+        audioEngine.setVolumes(music = 0.85f, sfx = 0.85f)
         audioEngine.playMusic(com.example.sweetrush.audio.MusicTrack.MENU)
-        audioEngine.switchBackgroundSong()
+        assertEquals("Gumball Horizon", audioEngine.activeSongTitle.value)
+        val switched = audioEngine.switchBackgroundSong()
+        assertEquals("Turbo Candy Drift", switched)
+        assertEquals("Turbo Candy Drift", audioEngine.activeSongTitle.value)
         audioEngine.playMusic(com.example.sweetrush.audio.MusicTrack.RACE)
         audioEngine.pauseMusic()
         audioEngine.resumeMusic()

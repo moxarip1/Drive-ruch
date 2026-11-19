@@ -111,100 +111,128 @@ object VehicleMeshBuilder {
 
         when (kart.style) {
             KartBodyStyle.STRAWBERRY_ROCKET -> {
-                // Sculpted glossy strawberry-glazed monocoque with chocolate-dipped nose tip
+                // =========================================================================
+                // OFFICIAL SUGAR RUSH "CANDY KART" (Made by Vanellope — Sketchfab Model)
+                // =========================================================================
+                val berryGlaze = primary         // Deep sugar-dusted berry-plum hood glaze (0xFF7B2851)
+                val hotPinkIcing = secondary     // Bright hot-pink piped icing squiggles (0xFFFF2E88)
+                val mintIcing = accent           // Mint-green nose frosting & side scripts (0xFF3CE8B5)
+                val chocoFudge = 0xFF3A1E18L     // Dark chocolate rear deck & spoiler icing
+
+                // 1. Two-tone Lofted Confectionery Body: Dark Chocolate Rear Hull -> Sugar-Dusted Berry Front Hood
                 acc.addLoftedHull(
                     listOf(
-                        LoftStation(-1.50f, 0.66f, 0.36f, 0.88f, primary, secondary),
-                        LoftStation(-0.58f, 0.78f, 0.36f, 0.92f, primary, secondary),
-                        LoftStation(0.42f, 0.72f, 0.36f, 0.86f, primary, primary),
-                        LoftStation(1.25f, 0.54f, 0.38f, 0.72f, secondary, primary),
-                        LoftStation(1.78f, 0.26f, 0.40f, 0.54f, darkCocoa, darkCocoa)
+                        LoftStation(-1.52f, 0.72f, 0.36f, 0.90f, chocoFudge, chocoFudge),
+                        LoftStation(-0.56f, 0.80f, 0.35f, 0.92f, chocoFudge, berryGlaze),
+                        LoftStation(0.24f, 0.72f, 0.35f, 0.88f, berryGlaze, hotPinkIcing),
+                        LoftStation(1.12f, 0.64f, 0.37f, 0.76f, berryGlaze, berryGlaze),
+                        LoftStation(1.78f, 0.30f, 0.39f, 0.54f, mintIcing, berryGlaze)
                     ),
                     matType = CandyMaterials.MAT_CANDY
                 )
-                // Golden strawberry seed dimples along flanks & hood
-                val seedCoords = listOf(
-                    Vec3(-0.62f, 0.68f, 0.45f), Vec3(0.62f, 0.68f, 0.45f),
-                    Vec3(-0.56f, 0.64f, 0.85f), Vec3(0.56f, 0.64f, 0.85f),
-                    Vec3(-0.68f, 0.70f, -0.35f), Vec3(0.68f, 0.70f, -0.35f),
-                    Vec3(-0.30f, 0.78f, 0.95f), Vec3(0.30f, 0.78f, 0.95f),
-                    Vec3(0f, 0.72f, 1.26f)
-                )
-                for (s in seedCoords) {
-                    acc.addSphere(s.x, s.y, s.z, 0.045f, 0.035f, 0.065f, 4, 6, 0xFFFFE066L, matType = CandyMaterials.MAT_CHROME)
-                }
-                // Waffle-cone side turbo intakes with whipped strawberry cream swirl cores
+
+                // 2. Mint-Green Frosted Nose Tip with Rainbow Sprinkles & Big Red Cherry/Strawberry Candy Ornament
+                acc.addSphere(0f, 0.56f, 1.68f, 0.44f, 0.16f, 0.28f, 7, 10, mintIcing, creamWhite, CandyMaterials.MAT_MARSHMALLOW)
+                addCandySprinkles(acc, 0f, 0.68f, 1.66f, 0.36f, 0.18f, count = 12)
+                acc.addSphere(0f, 0.78f, 1.56f, 0.16f, 0.17f, 0.18f, 7, 10, 0xFFFF2438L, 0xFFFF6E40L, CandyMaterials.MAT_CANDY)
+                // Swirled Pink-and-Cream Marshmallow Twist Headlights on Front Hood Corners
                 for (side in listOf(-1f, 1f)) {
-                    val sx = side * 0.78f
-                    acc.addHorizontalCylinderZ(sx, 0.58f, -0.14f, 0.22f, 0.16f, 1.28f, 10, waferGold, secondary, CandyMaterials.MAT_WAFER)
-                    acc.addSphere(sx, 0.58f, 0.50f, 0.18f, 0.18f, 0.12f, 5, 8, creamWhite, secondary, CandyMaterials.MAT_MARSHMALLOW)
-                    addPipedFrostingLine(acc, Vec3(sx, 0.78f, -0.68f), Vec3(sx, 0.76f, 0.42f), 6, 0.085f, creamWhite, secondary)
+                    acc.addSphere(side * 0.46f, 0.64f, 1.48f, 0.13f, 0.13f, 0.15f, 6, 8, creamWhite, hotPinkIcing, CandyMaterials.MAT_MARSHMALLOW)
+                    acc.addTorus(side * 0.46f, 0.64f, 1.50f, 0.09f, 0.032f, 10, 5, hotPinkIcing, creamWhite, verticalArch = true, matType = CandyMaterials.MAT_CANDY)
                 }
-                // Green strawberry leaf calyx crown behind cockpit
-                for (leafAngle in listOf(-0.55f, -0.22f, 0f, 0.22f, 0.55f)) {
-                    acc.addBeveledBox(
-                        sin(leafAngle) * 0.42f,
-                        0.86f,
-                        -0.88f - cos(leafAngle) * 0.18f,
-                        0.22f,
-                        0.08f,
-                        0.44f,
-                        0.35f,
-                        0.50f,
-                        0xFF2ECC71L,
-                        0xFF69F0AEL,
-                        CandyMaterials.MAT_CANDY
-                    )
+
+                // 3. Hot-Pink Piped Icing Squiggle Lines Across the Berry Hood & Chocolate Rear Deck
+                addPipedFrostingLine(acc, Vec3(-0.34f, 0.82f, 0.56f), Vec3(0.08f, 0.75f, 1.38f), 8, 0.055f, hotPinkIcing, hotPinkIcing)
+                addPipedFrostingLine(acc, Vec3(0.36f, 0.82f, 0.52f), Vec3(-0.12f, 0.78f, 1.18f), 8, 0.055f, hotPinkIcing, hotPinkIcing)
+                addPipedFrostingLine(acc, Vec3(-0.48f, 0.78f, 0.94f), Vec3(0.46f, 0.77f, 0.98f), 9, 0.052f, hotPinkIcing, creamWhite)
+                // White & Pink Piped Icing Rim around the Open Cockpit Tub
+                addPipedFrostingLine(acc, Vec3(-0.56f, 0.85f, -0.58f), Vec3(-0.54f, 0.82f, 0.46f), 8, 0.052f, creamWhite, hotPinkIcing)
+                addPipedFrostingLine(acc, Vec3(0.56f, 0.85f, -0.58f), Vec3(0.54f, 0.82f, 0.46f), 8, 0.052f, creamWhite, hotPinkIcing)
+
+                // 4. Dense Multi-Color Rainbow & Star Sprinkles on Hood Flanks and Chocolate Rear Deck
+                addCandySprinkles(acc, -0.44f, 0.78f, 0.96f, 0.24f, 0.42f, count = 16)
+                addCandySprinkles(acc, 0.44f, 0.78f, 0.96f, 0.24f, 0.42f, count = 16)
+                addCandySprinkles(acc, 0f, 0.88f, -0.96f, 0.56f, 0.36f, count = 26)
+
+                // 5. 4 Angled Candy-Cane / Peppermint Stick Side Exhaust Pipes on Each Flank (Mint & Red/Orange Striped)
+                val pipeOffsetsZ = listOf(-0.24f, -0.02f, 0.20f, 0.42f)
+                val pipeStripeColors = listOf(mintIcing, 0xFFFF3D47L, 0xFFFF9100L, 0xFFFF3D8BL)
+                for (side in listOf(-1f, 1f)) {
+                    for ((idx, pz) in pipeOffsetsZ.withIndex()) {
+                        val pStart = Vec3(side * 0.68f, 0.44f, pz)
+                        val pMid = Vec3(side * 0.92f, 0.50f, pz - 0.10f)
+                        val pTip = Vec3(side * 1.02f, 0.68f, pz - 0.24f)
+                        val cStripe = pipeStripeColors[idx % pipeStripeColors.size]
+                        addCandyCaneTube(acc, pStart, pMid, 0.048f, 4, cStripe, creamWhite)
+                        addCandyCaneTube(acc, pMid, pTip, 0.050f, 5, cStripe, creamWhite)
+                    }
+                    // "Made by Vanellope" Mint & Pink Icing Signature Script Plaque along Side Doors
+                    addPipedFrostingLine(acc, Vec3(side * 0.77f, 0.66f, -0.52f), Vec3(side * 0.77f, 0.68f, -0.08f), 6, 0.036f, mintIcing, hotPinkIcing)
                 }
-                // Wafer & frosting front splitter bumper with piped cream puffs
-                acc.addBeveledBox(0f, 0.36f, 1.68f, 1.58f, 0.14f, 0.38f, 0.92f, 0.78f, waferGold, creamWhite, CandyMaterials.MAT_WAFER)
-                addPipedFrostingLine(acc, Vec3(-0.64f, 0.51f, 1.72f), Vec3(0.64f, 0.51f, 1.72f), 7, 0.075f, creamWhite, primary)
-                // Twin strawberry-wafer rocket fins & bi-plane biscuit spoiler
-                acc.addBeveledBox(-0.70f, 0.88f, -1.18f, 0.12f, 0.56f, 0.70f, 0.9f, 0.72f, secondary, accent, CandyMaterials.MAT_CANDY)
-                acc.addBeveledBox(0.70f, 0.88f, -1.18f, 0.12f, 0.56f, 0.70f, 0.9f, 0.72f, secondary, accent, CandyMaterials.MAT_CANDY)
-                acc.addBeveledBox(0f, 1.20f, -1.26f, 1.62f, 0.10f, 0.42f, 0.95f, 0.85f, waferGold, primary, CandyMaterials.MAT_WAFER)
-                addPipedFrostingLine(acc, Vec3(-0.72f, 1.31f, -1.26f), Vec3(0.72f, 1.31f, -1.26f), 8, 0.065f, creamWhite, secondary)
-                acc.addBeveledBox(0f, 0.38f, -1.54f, 1.48f, 0.18f, 0.24f, 0.9f, 0.85f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
+
+                // 6. Iconic Layered Ice-Cream Wafer-Sandwich Rear Spoiler with Dripping Dark Chocolate Glaze
+                // Striped Candy-Cane Wing Struts
+                addCandyCaneTube(acc, Vec3(-0.36f, 0.84f, -1.16f), Vec3(-0.42f, 1.24f, -1.30f), 0.054f, 6, hotPinkIcing, creamWhite)
+                addCandyCaneTube(acc, Vec3(0.36f, 0.84f, -1.16f), Vec3(0.42f, 1.24f, -1.30f), 0.054f, 6, waferGold, creamWhite)
+                // Pink Strawberry Ice-Cream Center Slab
+                acc.addBeveledBox(0f, 1.24f, -1.30f, 1.66f, 0.14f, 0.46f, 0.96f, 0.92f, 0xFFFF7EB6L, hotPinkIcing, CandyMaterials.MAT_MARSHMALLOW)
+                // Upper Thick Melted Dark Chocolate Glaze Layer
+                acc.addBeveledBox(0f, 1.33f, -1.30f, 1.70f, 0.09f, 0.50f, 0.95f, 0.90f, chocoFudge, 0xFF4E2A1EL, CandyMaterials.MAT_CARAMEL)
+                // Sculpted Chocolate Glaze Drips hanging along the Spoiler Perimeter
+                val spoilerDripsX = listOf(-0.74f, -0.44f, -0.14f, 0.18f, 0.48f, 0.74f)
+                for ((di, dx) in spoilerDripsX.withIndex()) {
+                    val dripLen = if (di % 2 == 0) 0.11f else 0.08f
+                    acc.addSphere(dx, 1.25f, -1.05f, 0.065f, dripLen, 0.055f, 5, 6, chocoFudge, matType = CandyMaterials.MAT_CARAMEL)
+                    acc.addSphere(dx, 1.25f, -1.55f, 0.065f, dripLen, 0.055f, 5, 6, chocoFudge, matType = CandyMaterials.MAT_CARAMEL)
+                }
+                // Translucent Orange Gummy-Candy Windscreen Shield in front of the driver
+                acc.addSphere(0f, 0.98f, 0.38f, 0.34f, 0.24f, 0.16f, 7, 10, 0xFFFF7A29L, 0xFFFFB74DL, CandyMaterials.MAT_GUMMY)
+                acc.addBeveledBox(0f, 0.38f, -1.54f, 1.48f, 0.18f, 0.24f, 0.9f, 0.85f, chocoFudge, matType = CandyMaterials.MAT_CARAMEL)
             }
 
             KartBodyStyle.PEPPERMINT_RACER -> {
-                // Open-wheel Sugar Rush Formula-1 candy-cane racer with striped peppermint fuselage
+                // Taffyta Muttonfudge's "Pink Lightning" Open-Wheel Hard-Candy Formula Racer
                 acc.addLoftedHull(
                     listOf(
-                        LoftStation(-1.46f, 0.52f, 0.35f, 0.90f, primary, secondary),
-                        LoftStation(-0.80f, 0.64f, 0.34f, 0.86f, secondary, primary),
-                        LoftStation(-0.10f, 0.62f, 0.34f, 0.82f, primary, secondary),
-                        LoftStation(0.58f, 0.46f, 0.36f, 0.76f, secondary, primary),
-                        LoftStation(1.22f, 0.32f, 0.38f, 0.62f, primary, secondary),
-                        LoftStation(1.80f, 0.16f, 0.38f, 0.48f, secondary, primary)
+                        LoftStation(-1.46f, 0.56f, 0.35f, 0.90f, primary, secondary),
+                        LoftStation(-0.80f, 0.66f, 0.34f, 0.86f, primary, primary),
+                        LoftStation(-0.10f, 0.64f, 0.34f, 0.82f, primary, secondary),
+                        LoftStation(0.58f, 0.50f, 0.36f, 0.76f, primary, primary),
+                        LoftStation(1.22f, 0.36f, 0.38f, 0.62f, primary, secondary),
+                        LoftStation(1.82f, 0.20f, 0.38f, 0.48f, secondary, primary)
                     ),
                     matType = CandyMaterials.MAT_CANDY
                 )
-                // Candy-cane striped sidepods & tubular spaceframe bars
-                acc.addBeveledBox(-0.64f, 0.50f, -0.22f, 0.46f, 0.34f, 1.20f, 0.82f, 0.78f, secondary, primary, CandyMaterials.MAT_CANDY)
-                acc.addBeveledBox(0.64f, 0.50f, -0.22f, 0.46f, 0.34f, 1.20f, 0.82f, 0.78f, secondary, primary, CandyMaterials.MAT_CANDY)
+                // Glossy Strawberry Hard-Candy Sidepods with White Polka-Dot Candy Trim
+                acc.addBeveledBox(-0.64f, 0.50f, -0.22f, 0.46f, 0.34f, 1.20f, 0.82f, 0.78f, primary, secondary, CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0.64f, 0.50f, -0.22f, 0.46f, 0.34f, 1.20f, 0.82f, 0.78f, primary, secondary, CandyMaterials.MAT_CANDY)
+                for (side in listOf(-1f, 1f)) {
+                    for (dz in listOf(-0.56f, -0.20f, 0.16f)) {
+                        acc.addSphere(side * 0.88f, 0.64f, dz, 0.045f, 0.075f, 0.075f, 5, 6, creamWhite, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    }
+                    // Iconic Lollipop Side Mirrors on White Candy Sticks (from Sketchfab model)
+                    acc.addStrut(Vec3(side * 0.44f, 0.84f, 0.36f), Vec3(side * 0.72f, 1.12f, 0.38f), 0.032f, 6, creamWhite, CandyMaterials.MAT_CHROME)
+                    addPeppermintDisc(acc, side * 0.74f, 1.16f, 0.38f, 0.14f, 0.038f, primary, creamWhite, verticalX = false)
+                }
                 addCandyCaneTube(acc, Vec3(-0.76f, 0.68f, -0.82f), Vec3(-0.48f, 0.62f, 0.88f), 0.055f, 8, primary, creamWhite)
                 addCandyCaneTube(acc, Vec3(0.76f, 0.68f, -0.82f), Vec3(0.48f, 0.62f, 0.88f), 0.055f, 8, primary, creamWhite)
-                // Swirled Peppermint Disc badges on sidepods & nose
-                addPeppermintDisc(acc, -0.88f, 0.66f, -0.20f, 0.22f, 0.04f, primary, creamWhite, verticalX = true)
-                addPeppermintDisc(acc, 0.88f, 0.66f, -0.20f, 0.22f, 0.04f, primary, creamWhite, verticalX = true)
-                // Multi-element wafer & peppermint front F1 wing with round peppermint disc endplates
+                // Multi-element Pink Lightning front F1 wing with round lollipop disc endplates
                 acc.addBeveledBox(0f, 0.33f, 1.68f, 1.80f, 0.08f, 0.40f, 0.98f, 0.85f, creamWhite, primary, CandyMaterials.MAT_CANDY)
                 acc.addBeveledBox(0f, 0.41f, 1.62f, 1.64f, 0.06f, 0.26f, 0.96f, 0.85f, primary, accent, CandyMaterials.MAT_CANDY)
                 addPeppermintDisc(acc, -0.92f, 0.46f, 1.66f, 0.22f, 0.05f, primary, creamWhite, verticalX = true)
                 addPeppermintDisc(acc, 0.92f, 0.46f, 1.66f, 0.22f, 0.05f, primary, creamWhite, verticalX = true)
-                // Overhead Mint Airbox Scoop + Candy-Cane Rear Wing Struts & Peppermint Endplates
+                // Heart-Candy Airbox Scoop + Candy-Cane Rear Wing Struts & Peppermint Endplates
                 acc.addHorizontalCylinderZ(0f, 1.24f, -0.58f, 0.18f, 0.16f, 0.56f, 10, primary, creamWhite, CandyMaterials.MAT_CANDY)
                 addCandyCaneTube(acc, Vec3(-0.34f, 0.82f, -1.24f), Vec3(-0.46f, 1.28f, -1.32f), 0.05f, 6, primary, creamWhite)
                 addCandyCaneTube(acc, Vec3(0.34f, 0.82f, -1.24f), Vec3(0.46f, 1.28f, -1.32f), 0.05f, 6, primary, creamWhite)
-                acc.addBeveledBox(0f, 1.28f, -1.34f, 1.68f, 0.10f, 0.44f, 0.95f, 0.85f, creamWhite, primary, CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, 1.28f, -1.34f, 1.68f, 0.10f, 0.44f, 0.95f, 0.85f, primary, creamWhite, CandyMaterials.MAT_CANDY)
                 addPeppermintDisc(acc, -0.86f, 1.28f, -1.34f, 0.24f, 0.05f, primary, creamWhite, verticalX = true)
                 addPeppermintDisc(acc, 0.86f, 1.28f, -1.34f, 0.24f, 0.05f, primary, creamWhite, verticalX = true)
                 acc.addBeveledBox(0f, 0.36f, -1.52f, 1.32f, 0.16f, 0.24f, 0.9f, 0.85f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
             }
 
             KartBodyStyle.CHOCOLATE_CRUISER -> {
-                // Muscular Fudge-Brownie & Wafer Muscle Kart with 3D Molded Chocolate Bar Hood Squares
+                // Rancis Fluggerbutter's "Peanut Butter Cup" Chocolate & Golden Peanut-Butter Wedge Kart
                 acc.addLoftedHull(
                     listOf(
                         LoftStation(-1.50f, 0.84f, 0.36f, 0.94f, primary, secondary),
@@ -215,10 +243,20 @@ object VehicleMeshBuilder {
                     ),
                     matType = CandyMaterials.MAT_CARAMEL
                 )
-                // Wafer-cookie layered stripe along both body sides
-                acc.addBeveledBox(-0.84f, 0.56f, 0.08f, 0.12f, 0.16f, 2.55f, 0.92f, 0.95f, waferGold, creamWhite, CandyMaterials.MAT_WAFER)
-                acc.addBeveledBox(0.84f, 0.56f, 0.08f, 0.12f, 0.16f, 2.55f, 0.92f, 0.95f, waferGold, creamWhite, CandyMaterials.MAT_WAFER)
-                // 3D Molded Chocolate Bar Squares on Hood & Rear Deck
+                // Fluted Reese's Peanut-Butter-Cup Ridges along both body sides
+                for (side in listOf(-1f, 1f)) {
+                    for (rib in -5..5) {
+                        val rz = rib * 0.22f
+                        acc.addCylinder(side * 0.85f, 0.44f, rz, 0.055f, 0.068f, 0.36f, 6, if (rib % 2 == 0) primary else secondary, accent, CandyMaterials.MAT_CARAMEL)
+                    }
+                }
+                // Molded Chocolate Roof Canopy Pillars & Peanut-Butter-Cup Roof Top (matching Sketchfab model)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addStrut(Vec3(side * 0.42f, 0.88f, 0.42f), Vec3(side * 0.34f, 1.48f, 0.10f), 0.048f, 6, primary, CandyMaterials.MAT_CARAMEL)
+                    acc.addStrut(Vec3(side * 0.44f, 0.88f, -0.56f), Vec3(side * 0.36f, 1.48f, -0.44f), 0.052f, 6, primary, CandyMaterials.MAT_CARAMEL)
+                }
+                acc.addCylinder(0f, 1.46f, -0.16f, 0.44f, 0.50f, 0.14f, 14, primary, secondary, CandyMaterials.MAT_CARAMEL)
+                // 3D Molded Chocolate Bar Squares on Hood
                 for (row in 0..1) {
                     for (col in -1..1) {
                         val sqX = col * 0.34f
@@ -226,23 +264,15 @@ object VehicleMeshBuilder {
                         acc.addBeveledBox(sqX, 0.78f, sqZ, 0.28f, 0.10f, 0.30f, 0.76f, 0.76f, primary, secondary, CandyMaterials.MAT_CARAMEL)
                     }
                 }
-                // Supercharged Wafer & Caramel Triple-Barrel Blower Scoop
-                acc.addBeveledBox(0f, 0.88f, 0.72f, 0.62f, 0.24f, 0.68f, 0.85f, 0.80f, waferGold, accent, CandyMaterials.MAT_WAFER)
-                for (bx in listOf(-0.18f, 0f, 0.18f)) {
-                    acc.addHorizontalCylinderZ(bx, 1.02f, 1.06f, 0.075f, 0.075f, 0.12f, 8, chrome, accent, CandyMaterials.MAT_CHROME)
-                }
-                // Melted Golden Caramel Drip Valance along front & rear fenders
-                addPipedFrostingLine(acc, Vec3(-0.76f, 0.76f, -1.20f), Vec3(-0.76f, 0.72f, 1.30f), 9, 0.08f, accent, waferGold)
-                addPipedFrostingLine(acc, Vec3(0.76f, 0.76f, -1.20f), Vec3(0.76f, 0.72f, 1.30f), 9, 0.08f, accent, waferGold)
                 // Chocolate & Wafer Bullbars + Caramel Ducktail Spoiler
-                acc.addBeveledBox(0f, 0.42f, 1.72f, 1.70f, 0.24f, 0.28f, 0.95f, 0.82f, chrome, accent, CandyMaterials.MAT_CHROME)
-                acc.addBeveledBox(0f, 0.42f, -1.58f, 1.70f, 0.24f, 0.26f, 0.95f, 0.85f, chrome, darkCocoa, CandyMaterials.MAT_CHROME)
-                acc.addBeveledBox(0f, 1.06f, -1.36f, 1.68f, 0.18f, 0.38f, 0.94f, 0.80f, waferGold, accent, CandyMaterials.MAT_WAFER)
+                acc.addBeveledBox(0f, 0.42f, 1.72f, 1.70f, 0.24f, 0.28f, 0.95f, 0.82f, secondary, accent, CandyMaterials.MAT_CARAMEL)
+                acc.addBeveledBox(0f, 0.42f, -1.58f, 1.70f, 0.24f, 0.26f, 0.95f, 0.85f, darkCocoa, secondary, CandyMaterials.MAT_CARAMEL)
+                acc.addBeveledBox(0f, 1.06f, -1.36f, 1.68f, 0.18f, 0.38f, 0.94f, 0.80f, secondary, accent, CandyMaterials.MAT_WAFER)
                 addCandySprinkles(acc, 0f, 1.25f, -1.36f, 0.68f, 0.12f, count = 12)
             }
 
             KartBodyStyle.JELLYBEAN_MACHINE -> {
-                // Translucent Glossy Jellybean Capsule with Rainbow Gummy-Worm Headers & Citrus Grille
+                // Swizzle "The Swizz" Malarkey's "Tongue Twister" Neon Gummy & Swirl Lollipop Racer
                 acc.addLoftedHull(
                     listOf(
                         LoftStation(-1.44f, 0.68f, 0.38f, 0.90f, secondary, primary),
@@ -252,9 +282,7 @@ object VehicleMeshBuilder {
                     ),
                     matType = CandyMaterials.MAT_GUMMY
                 )
-                // Translucent Bubble Canopy Hood Dome
                 acc.addSphere(0f, 0.86f, 0.66f, 0.56f, 0.26f, 0.72f, 7, 12, 0xFF80FFE5L, primary, matType = CandyMaterials.MAT_GUMMY)
-                // Coiled Rainbow Gummy-Worm Side Tubes along both flanks
                 val gummyColors = longArrayOf(0xFFFF3D8BL, 0xFFFFD54FL, 0xFF3CE8B5L, 0xFF5CE1E6L)
                 for (side in listOf(-1f, 1f)) {
                     for (seg in 0 until 7) {
@@ -265,7 +293,6 @@ object VehicleMeshBuilder {
                         acc.addSphere(side * 0.78f, yWave, z, 0.13f, 0.12f, 0.20f, 5, 8, c1, c2, matType = CandyMaterials.MAT_GUMMY)
                     }
                 }
-                // Jellybean Nose Grille & Sour-Ribbon Rear Wing
                 addPeppermintDisc(acc, 0f, 0.54f, 1.58f, 0.26f, 0.06f, accent, primary, verticalX = false)
                 acc.addBeveledBox(0f, 0.38f, 1.58f, 1.52f, 0.16f, 0.28f, 0.9f, 0.8f, chrome, accent, CandyMaterials.MAT_CHROME)
                 acc.addBeveledBox(0f, 0.38f, -1.50f, 1.46f, 0.18f, 0.24f, 0.9f, 0.8f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
@@ -275,77 +302,96 @@ object VehicleMeshBuilder {
             }
 
             KartBodyStyle.CARAMEL_THUNDER -> {
-                // Golden Molten-Toffee Hyper-Kart with Honeycomb Waffle Intakes & Dripped Caramel Fenders
+                // =========================================================================
+                // KING CANDY'S ROYAL SOVEREIGN KART (Matching Sketchfab `img_kart_king_candy.jpg`)
+                // =========================================================================
+                val royalPink = primary       // Salmon-pink royal chassis (0xFFFF5E7E)
+                val royalCream = secondary    // Whipped white-cream fenders & side trim (0xFFFFF8E7)
+                val royalGold = accent        // Golden crown & royal crest (0xFFFFC107)
                 acc.addLoftedHull(
                     listOf(
-                        LoftStation(-1.48f, 0.78f, 0.34f, 0.88f, primary, secondary),
-                        LoftStation(-0.40f, 0.84f, 0.34f, 0.86f, primary, primary),
-                        LoftStation(0.60f, 0.76f, 0.34f, 0.78f, primary, accent),
-                        LoftStation(1.44f, 0.58f, 0.34f, 0.58f, secondary, primary),
-                        LoftStation(1.78f, 0.34f, 0.36f, 0.44f, accent, secondary)
+                        LoftStation(-1.48f, 0.80f, 0.34f, 0.90f, royalPink, royalCream),
+                        LoftStation(-0.40f, 0.86f, 0.34f, 0.88f, royalPink, royalPink),
+                        LoftStation(0.60f, 0.78f, 0.34f, 0.80f, royalPink, royalCream),
+                        LoftStation(1.44f, 0.62f, 0.34f, 0.64f, royalPink, royalGold),
+                        LoftStation(1.80f, 0.42f, 0.36f, 0.50f, royalCream, royalGold)
                     ),
-                    matType = CandyMaterials.MAT_CARAMEL
+                    matType = CandyMaterials.MAT_CANDY
                 )
-                // Waffle-Biscuit Side Aero Pods with Molten Toffee Trim
-                acc.addBeveledBox(-0.82f, 0.54f, 0.02f, 0.28f, 0.26f, 1.48f, 0.86f, 0.84f, waferGold, secondary, CandyMaterials.MAT_WAFER)
-                acc.addBeveledBox(0.82f, 0.54f, 0.02f, 0.28f, 0.26f, 1.48f, 0.86f, 0.84f, waferGold, secondary, CandyMaterials.MAT_WAFER)
-                // Flared Caramel Front Fenders & Butterscotch Splitter Blades
-                acc.addBeveledBox(-0.84f, 0.62f, 0.94f, 0.30f, 0.24f, 0.76f, 0.85f, 0.85f, accent, primary, CandyMaterials.MAT_CARAMEL)
-                acc.addBeveledBox(0.84f, 0.62f, 0.94f, 0.30f, 0.24f, 0.76f, 0.85f, 0.85f, accent, primary, CandyMaterials.MAT_CARAMEL)
-                acc.addBeveledBox(0f, 0.34f, 1.74f, 1.70f, 0.10f, 0.36f, 0.96f, 0.82f, chrome, accent, CandyMaterials.MAT_CHROME)
-                // Twin Caramel-Swirl Roof Turbines & Dual-Element Toffee Hyper-Wing
-                acc.addHorizontalCylinderZ(-0.26f, 0.92f, -0.88f, 0.14f, 0.11f, 0.58f, 8, accent, secondary, CandyMaterials.MAT_CARAMEL)
-                acc.addHorizontalCylinderZ(0.26f, 0.92f, -0.88f, 0.14f, 0.11f, 0.58f, 8, accent, secondary, CandyMaterials.MAT_CARAMEL)
-                acc.addStrut(Vec3(-0.46f, 0.82f, -1.28f), Vec3(-0.58f, 1.24f, -1.36f), 0.05f, 6, chrome)
-                acc.addStrut(Vec3(0.46f, 0.82f, -1.28f), Vec3(0.58f, 1.24f, -1.36f), 0.05f, 6, chrome)
-                acc.addBeveledBox(0f, 1.24f, -1.36f, 1.76f, 0.10f, 0.44f, 0.96f, 0.85f, accent, primary, CandyMaterials.MAT_CARAMEL)
-                acc.addBeveledBox(0f, 1.36f, -1.40f, 1.48f, 0.07f, 0.30f, 0.94f, 0.85f, waferGold, accent, CandyMaterials.MAT_WAFER)
-                acc.addBeveledBox(0f, 0.38f, -1.54f, 1.56f, 0.18f, 0.24f, 0.9f, 0.85f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
+                // Royal Cream Scalloped Side Fenders & Golden Piped Trim
+                acc.addBeveledBox(-0.84f, 0.56f, 0.04f, 0.26f, 0.24f, 1.56f, 0.88f, 0.86f, royalCream, royalGold, CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBeveledBox(0.84f, 0.56f, 0.04f, 0.26f, 0.24f, 1.56f, 0.88f, 0.86f, royalCream, royalGold, CandyMaterials.MAT_MARSHMALLOW)
+                addPipedFrostingLine(acc, Vec3(-0.74f, 0.78f, -1.10f), Vec3(-0.66f, 0.72f, 1.32f), 10, 0.068f, royalCream, royalGold)
+                addPipedFrostingLine(acc, Vec3(0.74f, 0.78f, -1.10f), Vec3(0.66f, 0.72f, 1.32f), 10, 0.068f, royalCream, royalGold)
+                // Glowing Golden Front Royal Crest Grille & Crown Emblem on Nose
+                acc.addSphere(0f, 0.58f, 1.78f, 0.28f, 0.20f, 0.10f, 7, 10, royalGold, 0xFFFFF59DL, CandyMaterials.MAT_EMISSIVE)
+                // Giant Sculpted Golden Royal Crown Behind the Cockpit Seat (Signature feature from Sketchfab model!)
+                val crownZ = -0.84f
+                acc.addCylinder(0f, 0.90f, crownZ, 0.44f, 0.54f, 0.48f, 12, royalGold, 0xFFFFA000L, CandyMaterials.MAT_CHROME)
+                for (i in 0 until 7) {
+                    val a = (i.toFloat() / 6f - 0.5f) * PI.toFloat() * 1.15f
+                    val px = sin(a) * 0.50f
+                    val pz = crownZ - cos(a) * 0.26f
+                    acc.addCylinder(px, 1.36f, pz, 0.08f, 0.02f, 0.26f, 6, royalGold, royalCream, CandyMaterials.MAT_CHROME)
+                    acc.addSphere(px, 1.64f, pz, 0.065f, 0.065f, 0.065f, 5, 6, if (i % 2 == 0) royalPink else 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Twin Royal Pennant Flags behind the Crown
+                for (side in listOf(-1f, 1f)) {
+                    acc.addStrut(Vec3(side * 0.48f, 0.88f, -1.24f), Vec3(side * 0.56f, 1.76f, -1.36f), 0.032f, 6, royalGold, CandyMaterials.MAT_CHROME)
+                    acc.addBeveledBox(side * 0.56f, 1.66f, -1.48f, 0.04f, 0.16f, 0.26f, 0.8f, 0.8f, royalPink, royalGold, CandyMaterials.MAT_CANDY)
+                }
+                acc.addBeveledBox(0f, 0.38f, -1.54f, 1.56f, 0.18f, 0.24f, 0.9f, 0.85f, royalCream, royalGold, CandyMaterials.MAT_MARSHMALLOW)
             }
 
             KartBodyStyle.CUPCAKE_KART -> {
-                // Fluted Pastel Cupcake-Liner Tub + Puffed Sponge Cake + Swirled Whipped-Cream Dome + Sprinkles & Cherry
-                acc.addCylinder(0f, 0.34f, 0.04f, 0.80f, 1.00f, 0.54f, 16, primary, secondary, matType = CandyMaterials.MAT_WAFER)
-                // 16 Pleated Cupcake Paper Liner Ribs around the lower tub
-                val pleats = 16
-                for (i in 0 until pleats) {
-                    val angle = (i.toFloat() / pleats) * (2f * PI.toFloat())
-                    val px = cos(angle) * 0.92f
-                    val pz = 0.04f + sin(angle) * 0.98f
-                    val ribHex = if (i % 2 == 0) primary else secondary
-                    acc.addCylinder(px, 0.35f, pz, 0.07f, 0.095f, 0.52f, 6, ribHex, creamWhite, matType = CandyMaterials.MAT_WAFER)
+                // =========================================================================
+                // CANDLEHEAD'S BIRTHDAY CAKE KART (5 Lit Birthday Candles at Rear — Sketchfab)
+                // =========================================================================
+                val cakeChoco = primary       // Rich chocolate sponge cake body (0xFF5D2E1E)
+                val pinkFrost = secondary     // Bright strawberry-pink cake frosting top (0xFFFF7EB9)
+                val mintTrim = accent         // Mint-green frosting trim (0xFF3CE8B5)
+                // Chocolate Cake Wedge Hull topped with Thick Pink Birthday Frosting
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.46f, 0.78f, 0.34f, 0.92f, cakeChoco, pinkFrost),
+                        LoftStation(-0.42f, 0.86f, 0.34f, 0.90f, cakeChoco, pinkFrost),
+                        LoftStation(0.54f, 0.76f, 0.35f, 0.80f, cakeChoco, pinkFrost),
+                        LoftStation(1.42f, 0.62f, 0.36f, 0.64f, cakeChoco, pinkFrost),
+                        LoftStation(1.76f, 0.38f, 0.38f, 0.48f, pinkFrost, mintTrim)
+                    ),
+                    matType = CandyMaterials.MAT_CARAMEL
+                )
+                // Thick Pink Birthday Cake Frosting Blanket over the Hood & Rear Deck
+                acc.addBeveledBox(0f, 0.86f, 0.86f, 1.18f, 0.10f, 1.06f, 0.86f, 0.82f, pinkFrost, creamWhite, CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBeveledBox(0f, 0.92f, -1.04f, 1.52f, 0.12f, 0.68f, 0.90f, 0.88f, pinkFrost, creamWhite, CandyMaterials.MAT_MARSHMALLOW)
+                // Piped Whipped-Cream Scallop Borders along the Cake Sides
+                addPipedFrostingLine(acc, Vec3(-0.74f, 0.78f, -1.24f), Vec3(-0.56f, 0.68f, 1.48f), 11, 0.075f, creamWhite, pinkFrost)
+                addPipedFrostingLine(acc, Vec3(0.74f, 0.78f, -1.24f), Vec3(0.56f, 0.68f, 1.48f), 11, 0.075f, creamWhite, pinkFrost)
+                addCandySprinkles(acc, 0f, 0.94f, 0.88f, 0.48f, 0.40f, count = 18)
+                // 5 Tall Lit Pink-and-White Striped Birthday Candles Standing in a Row at the Rear!
+                val candleXs = listOf(-0.58f, -0.29f, 0f, 0.29f, 0.58f)
+                for (cx in candleXs) {
+                    acc.addSphere(cx, 0.98f, -1.16f, 0.11f, 0.07f, 0.11f, 5, 6, mintTrim, creamWhite, CandyMaterials.MAT_MARSHMALLOW)
+                    addCandyCaneTube(acc, Vec3(cx, 1.00f, -1.16f), Vec3(cx, 1.58f, -1.18f), 0.062f, 6, pinkFrost, creamWhite)
+                    // Glowing Golden Birthday Candle Flame
+                    acc.addSphere(cx, 1.68f, -1.18f, 0.058f, 0.11f, 0.058f, 5, 6, 0xFFFFD600L, 0xFFFF6D00L, CandyMaterials.MAT_EMISSIVE)
                 }
-                // Golden Puffed Sponge Cake Upper Deck & Swirled Frosting Collars
-                acc.addSphere(0f, 0.88f, 0.18f, 0.92f, 0.32f, 1.08f, 7, 14, secondary, creamWhite, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Multi-Tier Swirled Whipped-Cream Frosting Rear Engine Mound
-                acc.addSphere(0f, 1.02f, -0.82f, 0.56f, 0.24f, 0.56f, 6, 12, creamWhite, secondary, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addSphere(0f, 1.18f, -0.84f, 0.40f, 0.22f, 0.40f, 6, 10, secondary, creamWhite, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addSphere(0f, 1.36f, -0.86f, 0.22f, 0.18f, 0.22f, 5, 8, accent, matType = CandyMaterials.MAT_CANDY)
-                // Rainbow Sugar Sprinkles scattered across the cupcake frosting dome
-                addCandySprinkles(acc, 0f, 1.08f, 0.42f, 0.62f, 0.42f, count = 18)
-                addCandySprinkles(acc, 0f, 1.20f, -0.82f, 0.44f, 0.36f, count = 14)
-                // Rolled Wafer-Stick Front & Rear Bumpers + Frosting Spoiler
-                acc.addBeveledBox(0f, 0.36f, 1.52f, 1.48f, 0.14f, 0.30f, 0.9f, 0.8f, waferGold, accent, CandyMaterials.MAT_WAFER)
-                addPipedFrostingLine(acc, Vec3(-0.58f, 0.50f, 1.54f), Vec3(0.58f, 0.50f, 1.54f), 7, 0.075f, creamWhite, primary)
-                acc.addBeveledBox(0f, 0.36f, -1.42f, 1.44f, 0.16f, 0.24f, 0.9f, 0.8f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
-                acc.addBeveledBox(0f, 1.16f, -1.26f, 1.48f, 0.10f, 0.34f, 0.92f, 0.85f, creamWhite, secondary, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBeveledBox(0f, 0.36f, 1.62f, 1.48f, 0.14f, 0.28f, 0.9f, 0.8f, waferGold, mintTrim, CandyMaterials.MAT_WAFER)
+                acc.addBeveledBox(0f, 0.36f, -1.46f, 1.48f, 0.16f, 0.24f, 0.9f, 0.8f, cakeChoco, matType = CandyMaterials.MAT_CARAMEL)
             }
 
             KartBodyStyle.DONUT_DRIFTER -> {
-                // Giant Golden-Fried Donut Torus Body + Scalloped Pink Glaze Icing + 24 Rainbow Sprinkles
+                // Gloyd Orangeboar's "Pumpkin Corn Racer" & Glazed Donut Drift Ring
                 acc.addTorus(0f, 0.58f, 0.06f, 0.92f, 0.38f, 20, 10, waferGold, primary, matType = CandyMaterials.MAT_WAFER)
-                // Upper Glossy Strawberry/Chocolate Glaze Icing Ring
                 acc.addTorus(0f, 0.72f, 0.06f, 0.90f, 0.26f, 20, 8, primary, secondary, matType = CandyMaterials.MAT_CANDY)
-                // Scalloped Icing Drips around the outer donut perimeter
                 val dripCount = 18
                 for (i in 0 until dripCount) {
                     val a = (i.toFloat() / dripCount) * (2f * PI.toFloat())
                     val dx = cos(a) * 1.10f
                     val dz = 0.06f + sin(a) * 1.12f
                     val dropY = 0.62f + (i % 2) * 0.05f
-                    acc.addSphere(dx, dropY, dz, 0.11f, 0.14f, 0.11f, 5, 6, primary, secondary, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(dx, dropY, dz, 0.11f, 0.14f, 0.11f, 5, 6, primary, accent, matType = CandyMaterials.MAT_CANDY)
                 }
-                // 24 3D Rainbow Sprinkles embedded into the top donut glaze ring
                 val sprinkleCount = 24
                 for (i in 0 until sprinkleCount) {
                     val a = (i.toFloat() / sprinkleCount) * (2f * PI.toFloat())
@@ -355,41 +401,179 @@ object VehicleMeshBuilder {
                     val col = SPRINKLE_PALETTE[i % SPRINKLE_PALETTE.size]
                     acc.addBox(sx, 0.96f, sz, 0.11f, 0.045f, 0.045f, col, matType = CandyMaterials.MAT_CANDY)
                 }
-                // Powdered-Sugar Front Drift Splitter & Mini-Donut Rear Spoiler
                 acc.addBeveledBox(0f, 0.36f, 1.56f, 1.54f, 0.14f, 0.30f, 0.92f, 0.8f, chrome, accent, CandyMaterials.MAT_CHROME)
                 acc.addBeveledBox(0f, 0.36f, -1.46f, 1.48f, 0.16f, 0.24f, 0.92f, 0.8f, darkCocoa, matType = CandyMaterials.MAT_CARAMEL)
                 acc.addStrut(Vec3(-0.42f, 0.84f, -1.16f), Vec3(-0.50f, 1.16f, -1.26f), 0.05f, 6, waferGold, CandyMaterials.MAT_WAFER)
                 acc.addStrut(Vec3(0.42f, 0.84f, -1.16f), Vec3(0.50f, 1.16f, -1.26f), 0.05f, 6, waferGold, CandyMaterials.MAT_WAFER)
-                acc.addBeveledBox(0f, 1.16f, -1.26f, 1.56f, 0.10f, 0.40f, 0.94f, 0.85f, secondary, primary, CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, 1.16f, -1.26f, 1.56f, 0.10f, 0.40f, 0.94f, 0.85f, primary, accent, CandyMaterials.MAT_CANDY)
                 addCandySprinkles(acc, 0f, 1.27f, -1.26f, 0.66f, 0.14f, count = 10)
             }
 
             KartBodyStyle.MARSHMALLOW_SPEEDSTER -> {
-                // Quilted Toasted-Marshmallow Twin Pontoons + S'more Graham-Chocolate Deck + Cotton-Candy Aero Nose
+                // =========================================================================
+                // ADORABEEZLE WINTERPOP'S "ROCKET POP" POPSICLE KART (Red / White / Blue)
+                // =========================================================================
+                val popRed = primary          // Cherry Rocket-Pop Red Front (0xFFE51C38)
+                val popWhite = secondary      // Lemon-Ice White Mid Hull (0xFFFFFFFF)
+                val popBlue = accent          // Blue-Raspberry Rear & Spoiler (0xFF1E88E5)
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.52f, 0.74f, 0.35f, 0.88f, popBlue, popBlue),
+                        LoftStation(-0.54f, 0.80f, 0.35f, 0.88f, popBlue, popWhite),
+                        LoftStation(0.32f, 0.78f, 0.35f, 0.84f, popWhite, popWhite),
+                        LoftStation(1.06f, 0.68f, 0.36f, 0.74f, popRed, popWhite),
+                        LoftStation(1.80f, 0.36f, 0.38f, 0.56f, popRed, popRed)
+                    ),
+                    matType = CandyMaterials.MAT_CANDY
+                )
+                // Fluted Rocket-Pop Popsicle Groove Ribs along Both Sides
                 for (side in listOf(-1f, 1f)) {
-                    val px = side * 0.60f
-                    acc.addHorizontalCylinderZ(px, 0.58f, 0.08f, 0.34f, 0.30f, 2.62f, 14, primary, secondary, CandyMaterials.MAT_MARSHMALLOW)
-                    // Quilted marshmallow puff rings along each pontoon
-                    for (puff in -2..2) {
-                        val pz = 0.08f + puff * 0.46f
-                        acc.addSphere(px, 0.60f, pz, 0.36f, 0.32f, 0.24f, 6, 10, creamWhite, secondary, CandyMaterials.MAT_MARSHMALLOW)
-                    }
-                    // Golden toasted marshmallow nose cap
-                    acc.addSphere(px, 0.58f, 1.40f, 0.31f, 0.28f, 0.22f, 6, 10, waferGold, creamWhite, CandyMaterials.MAT_CARAMEL)
+                    acc.addHorizontalCylinderZ(side * 0.74f, 0.58f, -0.84f, 0.18f, 0.18f, 0.88f, 10, popBlue, popWhite, CandyMaterials.MAT_CANDY)
+                    acc.addHorizontalCylinderZ(side * 0.72f, 0.58f, 0.04f, 0.18f, 0.18f, 0.88f, 10, popWhite, popRed, CandyMaterials.MAT_MARSHMALLOW)
+                    acc.addHorizontalCylinderZ(side * 0.66f, 0.56f, 0.90f, 0.16f, 0.14f, 0.84f, 10, popRed, popRed, CandyMaterials.MAT_CANDY)
                 }
-                // S'more Graham Cracker & Melted Chocolate Center Bridge Deck
-                acc.addBeveledBox(0f, 0.46f, 0.08f, 1.22f, 0.14f, 2.30f, 0.92f, 0.88f, waferGold, waferGold, CandyMaterials.MAT_WAFER)
-                acc.addBeveledBox(0f, 0.58f, 0.08f, 1.16f, 0.12f, 2.22f, 0.90f, 0.86f, darkCocoa, secondary, CandyMaterials.MAT_CARAMEL)
-                // Fluffy Spun Cotton-Candy Nose Fairing
-                acc.addSphere(0f, 0.72f, 1.02f, 0.48f, 0.24f, 0.58f, 6, 10, secondary, accent, CandyMaterials.MAT_MARSHMALLOW)
-                addPipedFrostingLine(acc, Vec3(-0.56f, 0.88f, -0.95f), Vec3(0.56f, 0.88f, -0.95f), 7, 0.09f, creamWhite, accent)
-                acc.addBeveledBox(0f, 0.38f, 1.60f, 1.56f, 0.14f, 0.28f, 0.92f, 0.8f, chrome, primary, CandyMaterials.MAT_CHROME)
-                acc.addBeveledBox(0f, 1.16f, -1.24f, 1.54f, 0.12f, 0.38f, 0.92f, 0.85f, accent, creamWhite, CandyMaterials.MAT_MARSHMALLOW)
+                // Wooden Popsicle-Stick Rear Bumper & Blue-Raspberry Rocket Wing
+                acc.addBeveledBox(0f, 0.42f, -1.62f, 0.68f, 0.10f, 0.36f, 0.92f, 0.92f, waferGold, waferGold, CandyMaterials.MAT_WAFER)
+                acc.addStrut(Vec3(-0.42f, 0.82f, -1.24f), Vec3(-0.48f, 1.24f, -1.34f), 0.055f, 6, popBlue, CandyMaterials.MAT_CANDY)
+                acc.addStrut(Vec3(0.42f, 0.82f, -1.24f), Vec3(0.48f, 1.24f, -1.34f), 0.055f, 6, popBlue, CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, 1.24f, -1.34f, 1.66f, 0.12f, 0.42f, 0.94f, 0.86f, popBlue, popWhite, CandyMaterials.MAT_CANDY)
+            }
+
+            KartBodyStyle.CHERRY_PIE_KART -> {
+                // =========================================================================
+                // JUBILEENA BING-BING'S "CHERRY BOMB" PIE SLICE KART (`img_kart_jubileena.jpg`)
+                // =========================================================================
+                val cherryRed = primary       // Glossy Cherry Pie Filling Red (0xFFE51C38)
+                val pieCrust = secondary      // Golden Baked Flaky Pie Crust (0xFFF4C27F)
+                val pinkIcing = accent        // Pink Icing Ribbon (0xFFFF758F)
+                // Triangular Pie-Slice Wedge Hull (Wide Crimped Rear Crust tapering to Pointed Pie-Tip Nose)
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.50f, 0.88f, 0.34f, 0.88f, pieCrust, cherryRed),
+                        LoftStation(-0.48f, 0.82f, 0.34f, 0.84f, cherryRed, pieCrust),
+                        LoftStation(0.52f, 0.68f, 0.35f, 0.76f, cherryRed, pieCrust),
+                        LoftStation(1.36f, 0.48f, 0.36f, 0.64f, pieCrust, cherryRed),
+                        LoftStation(1.84f, 0.22f, 0.38f, 0.52f, pieCrust, pieCrust)
+                    ),
+                    matType = CandyMaterials.MAT_WAFER
+                )
+                // Upper Lattice Pie-Crust Strips & Crimped Pie-Crust Edge Scallops
+                addPipedFrostingLine(acc, Vec3(-0.82f, 0.82f, -1.36f), Vec3(-0.22f, 0.58f, 1.68f), 11, 0.072f, pieCrust, waferGold)
+                addPipedFrostingLine(acc, Vec3(0.82f, 0.82f, -1.36f), Vec3(0.22f, 0.58f, 1.68f), 11, 0.072f, pieCrust, waferGold)
+                addPipedFrostingLine(acc, Vec3(-0.84f, 0.90f, -1.42f), Vec3(0.84f, 0.90f, -1.42f), 9, 0.095f, pieCrust, waferGold)
+                // Glossy Red Cherries bulging along the Open Pie-Slice Sides & Hood!
+                for (side in listOf(-1f, 1f)) {
+                    for (ci in 0 until 6) {
+                        val cz = -1.10f + ci * 0.42f
+                        val cx = side * (0.76f - ci * 0.075f)
+                        acc.addSphere(cx, 0.60f, cz, 0.14f, 0.14f, 0.14f, 6, 8, cherryRed, pinkIcing, CandyMaterials.MAT_CANDY)
+                    }
+                }
+                // Giant Cherry-Pie Crust Rear Spoiler with Twin Cherries on Top
+                acc.addStrut(Vec3(-0.44f, 0.86f, -1.26f), Vec3(-0.52f, 1.24f, -1.36f), 0.055f, 6, pieCrust, CandyMaterials.MAT_WAFER)
+                acc.addStrut(Vec3(0.44f, 0.86f, -1.26f), Vec3(0.52f, 1.24f, -1.36f), 0.055f, 6, pieCrust, CandyMaterials.MAT_WAFER)
+                acc.addBeveledBox(0f, 1.24f, -1.36f, 1.64f, 0.11f, 0.40f, 0.94f, 0.86f, pieCrust, cherryRed, CandyMaterials.MAT_WAFER)
+                acc.addSphere(0f, 0.72f, 1.32f, 0.18f, 0.18f, 0.18f, 6, 8, cherryRed, pinkIcing, CandyMaterials.MAT_CANDY)
+            }
+
+            KartBodyStyle.FRO_CONE_KART -> {
+                // =========================================================================
+                // SNOWANNA RAINBEAU'S "FRO CONE" SNOW-CONE KART (`img_kart_snowanna.jpg`)
+                // =========================================================================
+                val conePink = primary        // Hot-Pink Paper Snow-Cone Cup Body (0xFFFF3D9A)
+                val grapeScoop = secondary    // Purple Air Scoop & Trim (0xFF7B2CBF)
+                val sherbetOrange = accent    // Orange-Sherbet Accents (0xFFFF9E00)
+                // Tilted Pink Paper Snow-Cone Cup Cockpit & Rear Cone Tub
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.52f, 0.42f, 0.38f, 0.78f, creamWhite, conePink),
+                        LoftStation(-0.62f, 0.76f, 0.36f, 0.92f, conePink, conePink),
+                        LoftStation(0.28f, 0.84f, 0.35f, 0.94f, creamWhite, conePink),
+                        LoftStation(0.96f, 0.62f, 0.36f, 0.80f, grapeScoop, sherbetOrange),
+                        LoftStation(1.72f, 0.52f, 0.38f, 0.72f, 0xFF80F8FFL, creamWhite)
+                    ),
+                    matType = CandyMaterials.MAT_CANDY
+                )
+                // White Rolled Paper-Cup Rim around the Middle Cockpit
+                acc.addTorus(0f, 0.78f, -0.04f, 0.82f, 0.075f, 16, 6, creamWhite, conePink, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Translucent Ice-Cube Front Engine Block with Purple Intake Scoop (exact match to `img_kart_snowanna.jpg`)
+                acc.addBeveledBox(0f, 0.64f, 1.28f, 0.92f, 0.36f, 0.78f, 0.92f, 0.92f, 0xFFB2F5FFL, 0xFFE0FFFFL, CandyMaterials.MAT_GUMMY)
+                acc.addBeveledBox(0f, 0.98f, 1.18f, 0.46f, 0.16f, 0.44f, 0.84f, 0.84f, grapeScoop, conePink, CandyMaterials.MAT_CANDY)
+                // Red & Orange Shaved-Ice Side Exhaust Pipes
+                for (side in listOf(-1f, 1f)) {
+                    addCandyCaneTube(acc, Vec3(side * 0.64f, 0.52f, 0.62f), Vec3(side * 0.84f, 0.64f, -0.48f), 0.058f, 6, 0xFFFF1744L, sherbetOrange)
+                }
+                acc.addBeveledBox(0f, 0.38f, -1.50f, 1.42f, 0.16f, 0.24f, 0.9f, 0.85f, grapeScoop, conePink, CandyMaterials.MAT_CANDY)
+            }
+
+            KartBodyStyle.TIRAMISSILE_KART -> {
+                // =========================================================================
+                // CRUMBELINA DICARAMELLO'S "TIRA-MISSILE #8" (`img_kart_crumbelina.jpg`)
+                // =========================================================================
+                val mascarponeCream = primary // Whipped Mascarpone Cream White (0xFFFFF8EE)
+                val espressoBrown = secondary // Dark Espresso Cocoa Stripes (0xFF4A2511)
+                val ladyfingerGold = accent   // Ladyfinger Savoiardi Wafer Gold (0xFFD4A373)
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.48f, 0.76f, 0.35f, 0.88f, espressoBrown, mascarponeCream),
+                        LoftStation(-0.42f, 0.84f, 0.34f, 0.90f, mascarponeCream, espressoBrown),
+                        LoftStation(0.56f, 0.76f, 0.35f, 0.82f, mascarponeCream, espressoBrown),
+                        LoftStation(1.42f, 0.58f, 0.36f, 0.68f, espressoBrown, mascarponeCream),
+                        LoftStation(1.80f, 0.36f, 0.38f, 0.52f, mascarponeCream, ladyfingerGold)
+                    ),
+                    matType = CandyMaterials.MAT_MARSHMALLOW
+                )
+                // Diagonal Espresso-Cocoa Tiramisu Racing Stripes Across the Hood & Flanks
+                for (stripe in -2..2) {
+                    val sz = stripe * 0.52f
+                    acc.addBeveledBox(0f, 0.78f, sz, 1.36f, 0.08f, 0.18f, 0.90f, 0.85f, espressoBrown, ladyfingerGold, CandyMaterials.MAT_CARAMEL)
+                }
+                // Ladyfinger Biscuit Side Skirts & "#8" Racing Medallion Roundels on Hood and Doors
+                for (side in listOf(-1f, 1f)) {
+                    acc.addBeveledBox(side * 0.82f, 0.52f, 0.02f, 0.14f, 0.18f, 2.20f, 0.92f, 0.92f, ladyfingerGold, espressoBrown, CandyMaterials.MAT_WAFER)
+                    addPeppermintDisc(acc, side * 0.86f, 0.68f, 0.18f, 0.18f, 0.03f, mascarponeCream, espressoBrown, verticalX = true)
+                }
+                addPeppermintDisc(acc, 0f, 0.74f, 1.24f, 0.22f, 0.03f, mascarponeCream, espressoBrown, verticalX = false)
+                // Espresso Wafer Rear Spoiler
+                acc.addStrut(Vec3(-0.44f, 0.84f, -1.24f), Vec3(-0.50f, 1.22f, -1.34f), 0.05f, 6, espressoBrown, CandyMaterials.MAT_CARAMEL)
+                acc.addStrut(Vec3(0.44f, 0.84f, -1.24f), Vec3(0.50f, 1.22f, -1.34f), 0.05f, 6, espressoBrown, CandyMaterials.MAT_CARAMEL)
+                acc.addBeveledBox(0f, 1.22f, -1.34f, 1.62f, 0.10f, 0.40f, 0.94f, 0.86f, espressoBrown, mascarponeCream, CandyMaterials.MAT_WAFER)
+            }
+
+            KartBodyStyle.MINT_CANDY_KART -> {
+                // =========================================================================
+                // MINTY ZAKI'S "MELON MINT CRUISER" (Mint Ice-Cream & Choco-Chip Racer)
+                // =========================================================================
+                val mintIce = primary         // Mint-Green Ice Cream Hull (0xFF2CE6B0)
+                val darkChip = secondary      // Dark Chocolate Chips (0xFF3B1E12)
+                val cherryAccent = accent     // Maraschino Cherry Accent (0xFFFF2E63)
+                acc.addLoftedHull(
+                    listOf(
+                        LoftStation(-1.46f, 0.76f, 0.35f, 0.88f, mintIce, darkChip),
+                        LoftStation(-0.42f, 0.84f, 0.34f, 0.90f, mintIce, mintIce),
+                        LoftStation(0.54f, 0.76f, 0.35f, 0.82f, mintIce, darkChip),
+                        LoftStation(1.40f, 0.58f, 0.36f, 0.66f, mintIce, creamWhite),
+                        LoftStation(1.78f, 0.34f, 0.38f, 0.50f, creamWhite, mintIce)
+                    ),
+                    matType = CandyMaterials.MAT_CANDY
+                )
+                // 3D Dark Chocolate Chips Studded Across the Mint Ice-Cream Hood & Rear Deck
+                for (row in -2..2) {
+                    for (col in -1..1) {
+                        acc.addSphere(col * 0.38f, 0.82f, row * 0.48f, 0.08f, 0.05f, 0.08f, 5, 6, darkChip, matType = CandyMaterials.MAT_CARAMEL)
+                    }
+                }
+                addPipedFrostingLine(acc, Vec3(-0.72f, 0.78f, -1.16f), Vec3(-0.56f, 0.68f, 1.38f), 10, 0.068f, creamWhite, mintIce)
+                addPipedFrostingLine(acc, Vec3(0.72f, 0.78f, -1.16f), Vec3(0.56f, 0.68f, 1.38f), 10, 0.068f, creamWhite, mintIce)
+                acc.addSphere(0f, 0.74f, 1.36f, 0.16f, 0.16f, 0.16f, 6, 8, cherryAccent, creamWhite, CandyMaterials.MAT_CANDY)
+                acc.addStrut(Vec3(-0.42f, 0.84f, -1.24f), Vec3(-0.48f, 1.22f, -1.32f), 0.05f, 6, darkChip, CandyMaterials.MAT_CARAMEL)
+                acc.addStrut(Vec3(0.42f, 0.84f, -1.24f), Vec3(0.48f, 1.22f, -1.32f), 0.05f, 6, darkChip, CandyMaterials.MAT_CARAMEL)
+                acc.addBeveledBox(0f, 1.22f, -1.32f, 1.60f, 0.10f, 0.38f, 0.94f, 0.86f, mintIce, darkChip, CandyMaterials.MAT_CANDY)
             }
         }
 
-        // 2. Sculpted Candy Wheel Fenders with Piped Frosting Trim (except Open-Wheel Peppermint F1)
-        if (kart.style != KartBodyStyle.PEPPERMINT_RACER) {
+        // 2. Sculpted Candy Wheel Fenders with Piped Frosting Trim (except Open-Wheel Official Candy Kart & Peppermint F1)
+        if (kart.style != KartBodyStyle.PEPPERMINT_RACER && kart.style != KartBodyStyle.STRAWBERRY_ROCKET) {
             val archMat = when (kart.style) {
                 KartBodyStyle.JELLYBEAN_MACHINE -> CandyMaterials.MAT_GUMMY
                 KartBodyStyle.CARAMEL_THUNDER, KartBodyStyle.CHOCOLATE_CRUISER -> CandyMaterials.MAT_CARAMEL
@@ -701,182 +885,191 @@ object VehicleMeshBuilder {
             acc.addBeveledBox(ex, ey + 0.078f, ez + 0.008f, 0.082f, 0.018f, 0.024f, 0.85f, 0.85f, hHex, sHex)
         }
 
-        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Headgear
+        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Movie Headgear
         when (racer.id) {
             "berry_blitz" -> {
-                // Strawberry-pink hair cap + swept bangs + bouncy twin pigtails with mint leaf ribbons + Golden Strawberry Crown & brow goggles
-                val hairHex = 0xFFD81B60L
-                val hairHi = 0xFFFF5C8DL
-                // Back & top hair volume
-                acc.addSphere(0f, headY + 0.05f, headZ - 0.03f, 0.228f, 0.195f, 0.215f, 8, 12, hairHex, hairHi, matType = CandyMaterials.MAT_CANDY)
-                // Side hair locks framing face & front swept bangs
+                // VANELLOPE VON SCHWEETZ: Glossy Black Hair + High Ponytail tied with Red Licorice Twist + Candy Sprinkles in Hair + Mint Hoodie Hood
+                val blackHair = 0xFF14131AL
+                val hairSpec = 0xFF2B2838L
+                val licoriceRed = 0xFFFF1744L
+                // Mint Hoodie Hood folded behind her neck
+                acc.addTorus(0f, 0.44f, -0.06f, 0.19f, 0.068f, 12, 6, 0xFF2CE6B0L, 0xFF1FAF86L, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Glossy black hair cap & side bangs framing face
+                acc.addSphere(0f, headY + 0.055f, headZ - 0.03f, 0.228f, 0.198f, 0.218f, 8, 12, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
                 for (side in listOf(-1f, 1f)) {
-                    acc.addSphere(side * 0.175f, headY + 0.02f, headZ + 0.09f, 0.062f, 0.125f, 0.075f, 6, 8, hairHex, hairHi)
-                    acc.addSphere(side * 0.07f, headY + 0.135f, headZ + 0.155f, 0.085f, 0.055f, 0.065f, 5, 7, hairHi, hairHex)
-                    // Mint-leaf ponytail ribbon ties + bouncy strawberry pigtails
-                    val px = side * 0.24f
-                    val py = headY + 0.08f
-                    val pz = headZ - 0.05f
-                    acc.addSphere(px, py, pz, 0.052f, 0.052f, 0.052f, 5, 6, 0xFF2ED8A3L, matType = CandyMaterials.MAT_CANDY)
-                    acc.addSphere(px + side * 0.09f, py - 0.04f, pz - 0.04f, 0.095f, 0.145f, 0.095f, 7, 9, hairHex, hairHi, matType = CandyMaterials.MAT_CANDY)
-                    acc.addSphere(px + side * 0.12f, py - 0.16f, pz - 0.06f, 0.068f, 0.085f, 0.068f, 6, 8, hairHi, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(side * 0.175f, headY + 0.02f, headZ + 0.09f, 0.062f, 0.125f, 0.075f, 6, 8, blackHair, hairSpec)
+                    acc.addSphere(side * 0.075f, headY + 0.135f, headZ + 0.155f, 0.088f, 0.055f, 0.065f, 5, 7, blackHair, hairSpec)
                 }
-                // Forehead Racing Goggles pushed up on brow
-                acc.addTorus(0f, headY + 0.125f, headZ + 0.02f, 0.205f, 0.022f, 12, 5, cream, gold)
-                for (side in listOf(-1f, 1f)) {
-                    acc.addCylinder(side * 0.085f, headY + 0.125f, headZ + 0.175f, 0.055f, 0.055f, 0.035f, 10, gold, matType = CandyMaterials.MAT_CHROME)
-                    acc.addSphere(side * 0.085f, headY + 0.135f, headZ + 0.195f, 0.044f, 0.044f, 0.018f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+                // High Ponytail tied with Red Licorice Twist Bow
+                acc.addTorus(0f, headY + 0.18f, headZ - 0.14f, 0.068f, 0.026f, 10, 5, licoriceRed, 0xFFFF5252L, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(-0.07f, headY + 0.19f, headZ - 0.14f, 0.045f, 0.028f, 0.028f, 5, 6, licoriceRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0.07f, headY + 0.19f, headZ - 0.14f, 0.045f, 0.028f, 0.028f, 5, 6, licoriceRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.23f, headZ - 0.24f, 0.135f, 0.165f, 0.145f, 8, 10, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
+                // Colorful Candy Sprinkles & Heart Candies embedded in Vanellope's black hair!
+                for (sp in 0 until 12) {
+                    val a = (sp.toFloat() / 12f) * (2f * PI.toFloat())
+                    val sx = cos(a) * 0.17f
+                    val sz = headZ - 0.02f + sin(a) * 0.16f
+                    val col = SPRINKLE_PALETTE[sp % SPRINKLE_PALETTE.size]
+                    acc.addSphere(sx, headY + 0.18f + (sp % 3) * 0.025f, sz, 0.032f, 0.024f, 0.032f, 4, 5, col, matType = CandyMaterials.MAT_CANDY)
                 }
-                // Royal Strawberry Crown on top of head
-                acc.addCylinder(0f, headY + 0.195f, headZ - 0.01f, 0.115f, 0.135f, 0.085f, 10, gold, cream, matType = CandyMaterials.MAT_CHROME)
-                acc.addSphere(0f, headY + 0.265f, headZ - 0.01f, 0.065f, 0.075f, 0.065f, 6, 8, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
             }
 
             "minty_swirl" -> {
-                // Mint-and-white swirled pompadour hair + Open-Face Peppermint Aero Helmet + Chrome Aviation Goggles on forehead
-                acc.addSphere(0f, headY + 0.055f, headZ - 0.02f, 0.232f, 0.205f, 0.222f, 9, 12, hHex, cream, matType = CandyMaterials.MAT_CANDY)
-                // Mint pompadour swirl quiff peeking out front
-                acc.addSphere(0f, headY + 0.155f, headZ + 0.165f, 0.095f, 0.068f, 0.085f, 6, 8, 0xFF3CE8B5L, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Peppermint swirl ear pods on helmet sides
+                // TAFFYTA MUTTONFUDGE: Golden-Blonde Bob Hair + Pink Strawberry Hard-Candy Helmet with White Dots & Green Leaf Crown
+                val blondeHair = 0xFFFFE082L
+                val strawberryPink = 0xFFFF2E7EL
+                val leafGreen = 0xFF2ECC71L
+                // Blonde side hair locks peeking under helmet
                 for (side in listOf(-1f, 1f)) {
-                    acc.addCylinder(side * 0.225f, headY, headZ, 0.075f, 0.075f, 0.045f, 10, 0xFFFF2448L, cream, matType = CandyMaterials.MAT_CANDY)
-                    acc.addSphere(side * 0.245f, headY + 0.02f, headZ, 0.032f, 0.055f, 0.055f, 5, 6, 0xFF3CE8B5L, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addSphere(side * 0.195f, headY - 0.04f, headZ + 0.06f, 0.065f, 0.115f, 0.078f, 6, 8, blondeHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
-                // Twin chrome aviation goggles on helmet brow + top peppermint fin
+                // Glossy Pink Strawberry Helmet Dome
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 9, 12, strawberryPink, 0xFFFF80ABL, matType = CandyMaterials.MAT_CANDY)
+                // White Strawberry Seed Dots on Helmet + Green Strawberry Calyx Leaves & Stem on Top
+                for (i in 0 until 8) {
+                    val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.19f, headY + 0.16f, headZ + sin(a) * 0.18f, 0.026f, 0.026f, 0.026f, 4, 5, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                }
+                acc.addSphere(0f, headY + 0.275f, headZ - 0.01f, 0.135f, 0.038f, 0.135f, 6, 8, leafGreen, 0xFF00E676L, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.28f, headZ - 0.01f, 0.024f, 0.018f, 0.08f, 6, leafGreen, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            "frosting_faye" -> {
+                // CANDLEHEAD: Pastel Mint-Green Hair + Pink Frosted Cupcake Helmet + Lit Birthday Candle & Glowing Flame on Top!
+                val mintHair = 0xFF64FFDAL
+                val cakePink = 0xFFFF80ABL
                 for (side in listOf(-1f, 1f)) {
-                    acc.addTorus(side * 0.085f, headY + 0.13f, headZ + 0.185f, 0.052f, 0.016f, 10, 5, 0xFFE5EAF0L, gold, verticalArch = true, matType = CandyMaterials.MAT_CHROME)
-                    acc.addSphere(side * 0.085f, headY + 0.13f, headZ + 0.192f, 0.042f, 0.042f, 0.016f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addSphere(side * 0.195f, headY - 0.03f, headZ + 0.06f, 0.068f, 0.125f, 0.082f, 6, 8, mintHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
-                acc.addBeveledBox(0f, headY + 0.25f, headZ - 0.02f, 0.065f, 0.085f, 0.26f, 0.6f, 0.8f, 0xFFFF2448L, cream, CandyMaterials.MAT_CANDY)
+                // Cupcake Frosting Helmet Dome with White Piped Scallop Rim
+                acc.addSphere(0f, headY + 0.08f, headZ - 0.01f, 0.240f, 0.205f, 0.230f, 9, 12, cakePink, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addTorus(0f, headY + 0.10f, headZ - 0.01f, 0.225f, 0.036f, 12, 6, cream, cakePink, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Signature Birthday Candle & Glowing Flame on Top of Helmet
+                addCandyCaneTube(acc, Vec3(0f, headY + 0.26f, headZ - 0.01f), Vec3(0f, headY + 0.44f, headZ - 0.01f), 0.042f, 5, cream, cakePink)
+                acc.addSphere(0f, headY + 0.50f, headZ - 0.01f, 0.046f, 0.085f, 0.046f, 5, 6, 0xFFFFD600L, 0xFFFF6D00L, CandyMaterials.MAT_EMISSIVE)
             }
 
             "coco_dash" -> {
-                // Spiky dark-chocolate layered hair locks + Golden Caramel DJ Racing Headphones + Amber Visor Crest
-                val chocoHair = 0xFF3B1E12L
-                val caramelHi = 0xFFD99B52L
-                acc.addSphere(0f, headY + 0.05f, headZ - 0.03f, 0.225f, 0.19f, 0.215f, 8, 12, chocoHair, caramelHi, matType = CandyMaterials.MAT_CARAMEL)
-                // Sculpted spiky chocolate hair tufts across top & front
-                val spikeOffsets = listOf(
-                    Triple(0f, 0.23f, 0.08f),
-                    Triple(-0.11f, 0.21f, 0.06f),
-                    Triple(0.11f, 0.21f, 0.06f),
-                    Triple(-0.08f, 0.22f, -0.08f),
-                    Triple(0.08f, 0.22f, -0.08f),
-                    Triple(0f, 0.15f, 0.17f)
-                )
-                for ((sx, sy, sz) in spikeOffsets) {
-                    acc.addCylinder(sx, headY + sy - 0.06f, headZ + sz, 0.068f, 0.012f, 0.12f, 6, chocoHair, caramelHi, matType = CandyMaterials.MAT_CARAMEL)
-                }
-                // Golden Caramel Over-Ear DJ Headphones
-                acc.addTorus(0f, headY + 0.06f, headZ, 0.235f, 0.028f, 14, 6, gold, 0xFF4E2A1EL, verticalArch = true, matType = CandyMaterials.MAT_CHROME)
-                for (side in listOf(-1f, 1f)) {
-                    acc.addSphere(side * 0.235f, headY, headZ, 0.048f, 0.082f, 0.076f, 6, 8, gold, 0xFF3B1E12L, matType = CandyMaterials.MAT_CHROME)
-                    acc.addSphere(side * 0.258f, headY, headZ, 0.022f, 0.048f, 0.044f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
-                }
-                // Sleek flip-up amber forehead visor bar
-                acc.addBeveledBox(0f, headY + 0.115f, headZ + 0.185f, 0.26f, 0.052f, 0.045f, 0.85f, 0.85f, vHex, gold, CandyMaterials.MAT_EMISSIVE)
+                // RANCIS FLUGGERBUTTER: Swept Golden-Blonde Hair + Tilted Red/Brown Fluted Reese's Peanut-Butter-Cup Hat
+                val blondeHair = 0xFFFFD54FL
+                val pbCupRed = 0xFFD82E2EL
+                val chocoTrim = 0xFF4E2A1EL
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.226f, 0.192f, 0.216f, 8, 12, blondeHair, 0xFFFFF59DL, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Swept front blonde bangs
+                acc.addSphere(0.06f, headY + 0.135f, headZ + 0.165f, 0.115f, 0.058f, 0.068f, 6, 8, blondeHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Inverted Fluted Peanut-Butter-Cup Hat on Top of Head
+                acc.addCylinder(0f, headY + 0.18f, headZ - 0.01f, 0.175f, 0.215f, 0.135f, 14, pbCupRed, chocoTrim, matType = CandyMaterials.MAT_WAFER)
+                acc.addTorus(0f, headY + 0.185f, headZ - 0.01f, 0.185f, 0.026f, 12, 5, gold, chocoTrim, matType = CandyMaterials.MAT_CHROME)
             }
 
-            "jelly_spark" -> {
-                // Translucent Gummy-Bear Ears Racing Hood + Neon Berry Bob Hair + Glowing Cyan Star Glasses on brow
-                val gummyHood = pHex
-                val gummyHi = sHex
-                // Gummy bear racing hood wrapping the head (leaving face open)
-                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.235f, 0.215f, 0.220f, 9, 12, gummyHood, gummyHi, matType = CandyMaterials.MAT_GUMMY)
-                // Side neon hair bangs peeking from hood
+            "jubileena" -> {
+                // JUBILEENA BING-BING: Glossy Red Cherry Helmet with Green Stem + Twin Crimson Pigtails
+                val cherryRed = 0xFFE51C38L
+                val leafGreen = 0xFF2ECC71L
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 9, 12, cherryRed, 0xFFFF758FL, matType = CandyMaterials.MAT_CANDY)
+                // Curved Green Cherry Stem & Leaf on Top of Helmet
+                acc.addStrut(Vec3(0f, headY + 0.27f, headZ - 0.01f), Vec3(0.06f, headY + 0.42f, headZ - 0.06f), 0.024f, 6, leafGreen, CandyMaterials.MAT_CANDY)
+                acc.addSphere(-0.06f, headY + 0.28f, headZ, 0.075f, 0.025f, 0.045f, 5, 6, leafGreen, matType = CandyMaterials.MAT_CANDY)
+                // Twin Red Cherry Pigtails with White Pie-Crust Ribbons
                 for (side in listOf(-1f, 1f)) {
-                    acc.addSphere(side * 0.155f, headY + 0.05f, headZ + 0.135f, 0.058f, 0.105f, 0.055f, 5, 7, 0xFF00E5FFL, gummyHood, matType = CandyMaterials.MAT_GUMMY)
-                    // Cute round 3D Gummy Bear Ears on top corners of the hood
-                    acc.addSphere(side * 0.165f, headY + 0.215f, headZ + 0.02f, 0.075f, 0.078f, 0.048f, 6, 8, gummyHood, gummyHi, matType = CandyMaterials.MAT_GUMMY)
-                    acc.addSphere(side * 0.165f, headY + 0.215f, headZ + 0.048f, 0.042f, 0.044f, 0.022f, 5, 6, 0xFFFFF59DL, matType = CandyMaterials.MAT_EMISSIVE)
-                    // Glowing cyan star goggles resting on forehead
-                    acc.addSphere(side * 0.088f, headY + 0.125f, headZ + 0.185f, 0.058f, 0.046f, 0.022f, 5, 6, 0xFF76FF03L, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addSphere(side * 0.235f, headY - 0.03f, headZ - 0.03f, 0.052f, 0.052f, 0.052f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    acc.addSphere(side * 0.295f, headY - 0.10f, headZ - 0.04f, 0.082f, 0.115f, 0.082f, 6, 8, cherryRed, 0xFFFF5252L, matType = CandyMaterials.MAT_CANDY)
                 }
             }
 
-            "caramel_nova" -> {
-                // Golden-toffee hair + long sculpted streaming ponytail + Winged Valkyrie Butterscotch Crown Tiara
-                val goldHair = 0xFFE6A100L
-                val toffeeHi = 0xFFFFE082L
-                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.226f, 0.198f, 0.215f, 8, 12, goldHair, toffeeHi, matType = CandyMaterials.MAT_CARAMEL)
-                // Long flowing golden ponytail arching behind the driver
-                acc.addSphere(0f, headY + 0.06f, headZ - 0.22f, 0.065f, 0.065f, 0.065f, 5, 6, pHex, matType = CandyMaterials.MAT_CHROME)
-                acc.addStrut(
-                    Vec3(0f, headY + 0.05f, headZ - 0.23f),
-                    Vec3(0f, headY - 0.14f, headZ - 0.42f),
-                    0.078f, 8, goldHair, CandyMaterials.MAT_CARAMEL
-                )
-                acc.addSphere(0f, headY - 0.16f, headZ - 0.44f, 0.065f, 0.085f, 0.075f, 6, 8, toffeeHi, goldHair, matType = CandyMaterials.MAT_CARAMEL)
-                // Golden Valkyrie Tiara Crown + Swept Side Wings
-                acc.addBeveledBox(0f, headY + 0.165f, headZ + 0.155f, 0.22f, 0.075f, 0.045f, 0.7f, 0.85f, gold, cream, CandyMaterials.MAT_CHROME)
-                acc.addSphere(0f, headY + 0.175f, headZ + 0.182f, 0.036f, 0.048f, 0.022f, 5, 6, 0xFFFF3D00L, matType = CandyMaterials.MAT_EMISSIVE)
-                for (side in listOf(-1f, 1f)) {
-                    acc.addStrut(
-                        Vec3(side * 0.20f, headY + 0.08f, headZ + 0.04f),
-                        Vec3(side * 0.31f, headY + 0.24f, headZ - 0.08f),
-                        0.036f, 6, gold, CandyMaterials.MAT_CHROME
-                    )
+            "snowanna" -> {
+                // SNOWANNA RAINBEAU: Giant Rainbow Shaved-Ice Afro Hair (Pink, Orange, Yellow, Green, Cyan, Purple Puffs!)
+                val rainbowCols = longArrayOf(0xFFFF3D9AL, 0xFFFF9E00L, 0xFFFFEA00L, 0xFF00E676L, 0xFF00E5FFL, 0xFFAA00FFL)
+                // Core Afro Sphere
+                acc.addSphere(0f, headY + 0.14f, headZ - 0.03f, 0.34f, 0.31f, 0.32f, 10, 14, 0xFFFF3D9AL, 0xFFFF9E00L, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // 12 Rainbow Shaved-Ice Afro Puffs Around the Crown
+                for (i in 0 until 12) {
+                    val a = (i.toFloat() / 12f) * (2f * PI.toFloat())
+                    val rx = cos(a) * 0.24f
+                    val rz = headZ - 0.03f + sin(a) * 0.22f
+                    val ry = headY + 0.14f + (i % 3) * 0.055f
+                    val c1 = rainbowCols[i % rainbowCols.size]
+                    val c2 = rainbowCols[(i + 1) % rainbowCols.size]
+                    acc.addSphere(rx, ry, rz, 0.135f, 0.135f, 0.135f, 6, 8, c1, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
             }
 
-            "vanilla_twirl" -> {
-                // Frosted vanilla twin curls + Puffed Whipped-Cream Pastry Chef Beret topped with sprinkles & Maraschino Cherry
-                val vanillaHair = 0xFFFFF3D6L
-                val pinkCurl = 0xFFFF85C2L
-                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.222f, 0.185f, 0.210f, 8, 12, vanillaHair, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Twin vanilla side-curls framing the cheeks
+            "crumbelina" -> {
+                // CRUMBELINA DICARAMELLO: Espresso-Brown Curls +Whipped-Cream & Cocoa Tiramisu Beret Hat with Ladyfinger Trim
+                val cocoaBrown = 0xFF4A2511L
+                val mascarpone = 0xFFFFF8EEL
                 for (side in listOf(-1f, 1f)) {
-                    acc.addSphere(side * 0.195f, headY - 0.05f, headZ + 0.08f, 0.065f, 0.115f, 0.068f, 6, 8, vanillaHair, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    acc.addSphere(side * 0.195f, headY - 0.04f, headZ + 0.06f, 0.068f, 0.120f, 0.075f, 6, 8, cocoaBrown, mascarpone, matType = CandyMaterials.MAT_CARAMEL)
                 }
-                // Puffed Pastry Chef Beret Hat
-                acc.addCylinder(0f, headY + 0.145f, headZ - 0.01f, 0.205f, 0.215f, 0.048f, 12, pinkCurl, cream, matType = CandyMaterials.MAT_CANDY)
-                acc.addSphere(0f, headY + 0.235f, headZ - 0.01f, 0.255f, 0.115f, 0.245f, 8, 12, cream, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Rainbow sprinkles + Glossy Maraschino Cherry on top of beret
-                for (sp in 0 until 8) {
-                    val a = (sp.toFloat() / 8f) * (2f * PI.toFloat())
-                    val sx = cos(a) * 0.14f
-                    val sz = headZ - 0.01f + sin(a) * 0.14f
-                    acc.addSphere(sx, headY + 0.31f, sz, 0.026f, 0.018f, 0.018f, 4, 5, SPRINKLE_PALETTE[sp % SPRINKLE_PALETTE.size], matType = CandyMaterials.MAT_CANDY)
-                }
-                acc.addSphere(0f, headY + 0.355f, headZ - 0.01f, 0.058f, 0.058f, 0.058f, 6, 8, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.145f, headZ - 0.01f, 0.205f, 0.215f, 0.048f, 12, cocoaBrown, gold, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addSphere(0f, headY + 0.235f, headZ - 0.01f, 0.255f, 0.115f, 0.245f, 8, 12, mascarpone, cocoaBrown, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, headY + 0.34f, headZ - 0.01f, 0.065f, 0.055f, 0.065f, 6, 8, cocoaBrown, gold, matType = CandyMaterials.MAT_CARAMEL)
+            }
+
+            "mallow_max" -> {
+                // ADORABEEZLE WINTERPOP: Red-White-Blue Rocket-Pop Astronaut Helmet + Fur Parka Collar + Cyan Visor
+                val popRed = 0xFFE51C38L
+                val popWhite = 0xFFFFFFFFL
+                val popBlue = 0xFF1E88E5L
+                // Fluffy White & Ice-Blue Parka Fur Hood Collar
+                acc.addTorus(0f, 0.46f, 0.0f, 0.185f, 0.062f, 12, 6, popWhite, 0xFF80D8FFL, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Three-Tier Rocket-Pop Helmet (Blue Lower -> White Mid -> Red Top Cone + Popsicle Stick Antenna)
+                acc.addSphere(0f, headY + 0.06f, headZ - 0.01f, 0.244f, 0.195f, 0.234f, 9, 12, popBlue, popWhite, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.15f, headZ - 0.01f, 0.215f, 0.165f, 0.095f, 12, popWhite, popRed, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addCylinder(0f, headY + 0.24f, headZ - 0.01f, 0.165f, 0.065f, 0.115f, 12, popRed, popRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.19f, 0.26f, 0.055f, 0.042f, 0.85f, 0.85f, 0xFF00E5FFL, popWhite, CandyMaterials.MAT_EMISSIVE)
             }
 
             "glazed_gus" -> {
-                // Chocolate-glazed hair + Frosted Donut Captain Cap with a sculpted mini glazed donut on top + Donut Earmuffs
-                val doughHex = 0xFFE6A95CL
-                val glazeHex = 0xFFFF4D94L
-                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.228f, 0.19f, 0.215f, 8, 12, 0xFF4A2518L, doughHex, matType = CandyMaterials.MAT_CARAMEL)
-                // Captain Cap visor brim & crown
-                acc.addBeveledBox(0f, headY + 0.135f, headZ + 0.175f, 0.25f, 0.032f, 0.11f, 0.85f, 0.9f, 0xFF3A1D12L, gold, CandyMaterials.MAT_CARAMEL)
-                acc.addCylinder(0f, headY + 0.14f, headZ - 0.01f, 0.21f, 0.23f, 0.11f, 12, doughHex, glazeHex, matType = CandyMaterials.MAT_WAFER)
-                // Sculpted frosted donut ring crowning the cap
-                acc.addTorus(0f, headY + 0.265f, headZ - 0.01f, 0.145f, 0.055f, 14, 7, glazeHex, doughHex, matType = CandyMaterials.MAT_CARAMEL)
-                // Side Donut Earmuffs
+                // GLOYD ORANGEBOAR: Pumpkin / Candy-Corn Trickster Cap with Yellow-Orange-White Stripes & Green Pumpkin Stem
+                val pumpkinOrange = 0xFFFF7A00L
+                val candyYellow = 0xFFFFD600L
+                val darkBrown = 0xFF3E1F0DL
+                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 9, 12, pumpkinOrange, candyYellow, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.185f, 0.24f, 0.035f, 0.10f, 0.85f, 0.9f, darkBrown, pumpkinOrange, CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, headY + 0.26f, headZ - 0.01f, 0.045f, 0.022f, 0.09f, 6, 0xFF2ECC71L, candyYellow, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            "minty_zaki" -> {
+                // MINTY ZAKI: Mint-Green Helmet & Big Red Maraschino Bow on Top
+                val mintGreen = 0xFF2CE6B0L
+                val bowRed = 0xFFFF2E63L
+                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 9, 12, mintGreen, cream, matType = CandyMaterials.MAT_CANDY)
+                // Giant Red Ribbon Bow on Top of Helmet
+                acc.addSphere(0f, headY + 0.275f, headZ + 0.02f, 0.048f, 0.048f, 0.048f, 5, 6, bowRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(-0.11f, headY + 0.285f, headZ + 0.02f, 0.085f, 0.058f, 0.045f, 6, 8, bowRed, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0.11f, headY + 0.285f, headZ + 0.02f, 0.085f, 0.058f, 0.045f, 6, 8, bowRed, cream, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            "toffee_rex" -> {
+                // KING CANDY: Royal Golden Crown with Glowing Gems + Pink Oversized Bow Tie on Chest + White Royal Hair Tufts
+                val royalGold = 0xFFFFC107L
+                val royalPink = 0xFFFF3D8BL
+                // Oversized Pink Royal Bow Tie on Chest
+                acc.addSphere(-0.085f, 0.42f, 0.175f, 0.068f, 0.046f, 0.032f, 5, 6, royalPink, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0.085f, 0.42f, 0.175f, 0.068f, 0.046f, 0.032f, 5, 6, royalPink, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, 0.42f, 0.182f, 0.035f, 0.035f, 0.030f, 5, 6, royalGold, matType = CandyMaterials.MAT_CHROME)
+                // White Side Hair Tufts & Purple Royal Brow
                 for (side in listOf(-1f, 1f)) {
-                    acc.addTorus(side * 0.225f, headY, headZ, 0.055f, 0.024f, 10, 5, glazeHex, doughHex, verticalArch = true, matType = CandyMaterials.MAT_CARAMEL)
+                    acc.addSphere(side * 0.22f, headY + 0.04f, headZ - 0.02f, 0.055f, 0.065f, 0.065f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                }
+                // Royal Golden Crown on King Candy's Head
+                acc.addCylinder(0f, headY + 0.19f, headZ - 0.01f, 0.145f, 0.175f, 0.135f, 10, royalGold, 0xFFFFA000L, matType = CandyMaterials.MAT_CHROME)
+                for (i in 0 until 5) {
+                    val a = (i.toFloat() / 5f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.16f, headY + 0.34f, headZ - 0.01f + sin(a) * 0.16f, 0.042f, 0.052f, 0.042f, 5, 6, if (i % 2 == 0) royalPink else 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
                 }
             }
 
             else -> {
-                // "fizz_pop": Fluffy Dual Cotton-Candy Space Buns (Pink & Sky-Blue) + Fizzy Pop-Rock Antenna Headband
-                val pinkFluff = 0xFFFF4081L
-                val blueFluff = 0xFF18FFFFL
-                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.225f, 0.195f, 0.215f, 8, 12, pinkFluff, blueFluff, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Left Pink & Right Sky-Blue Cotton-Candy Space Buns
-                acc.addSphere(-0.185f, headY + 0.205f, headZ - 0.01f, 0.110f, 0.110f, 0.110f, 7, 10, pinkFluff, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
-                acc.addSphere(0.185f, headY + 0.205f, headZ - 0.01f, 0.110f, 0.110f, 0.110f, 7, 10, blueFluff, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Twin Fizzy Antenna Springs with glowing candy orbs
-                for (side in listOf(-1f, 1f)) {
-                    val orbCol = if (side < 0) blueFluff else pinkFluff
-                    acc.addStrut(
-                        Vec3(side * 0.08f, headY + 0.18f, headZ + 0.04f),
-                        Vec3(side * 0.14f, headY + 0.34f, headZ + 0.08f),
-                        0.018f, 6, gold, CandyMaterials.MAT_CHROME
-                    )
-                    acc.addSphere(side * 0.14f, headY + 0.355f, headZ + 0.08f, 0.042f, 0.042f, 0.042f, 5, 6, orbCol, matType = CandyMaterials.MAT_EMISSIVE)
-                }
-                // Forehead Pop-Rock Neon Visor Shades
-                acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.185f, 0.25f, 0.052f, 0.036f, 0.9f, 0.9f, blueFluff, pinkFluff, CandyMaterials.MAT_EMISSIVE)
+                // SWIZZLE "THE SWIZZ" MALARKEY ("fizzy_pop"): Purple & Neon-Green Striped Stunt Helmet + Visor Shades
+                val swizzPurple = 0xFF7B2CBFL
+                val swizzGreen = 0xFF00E676L
+                val swizzBlue = 0xFF00B0FFL
+                acc.addSphere(0f, headY + 0.07f, headZ - 0.01f, 0.240f, 0.210f, 0.230f, 9, 12, swizzBlue, swizzPurple, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.24f, headZ - 0.01f, 0.075f, 0.075f, 0.28f, 0.7f, 0.85f, swizzGreen, swizzPurple, CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.188f, 0.25f, 0.052f, 0.036f, 0.9f, 0.9f, 0xFFFFEA00L, swizzGreen, CandyMaterials.MAT_EMISSIVE)
             }
         }
 
@@ -1000,10 +1193,11 @@ object VehicleMeshBuilder {
                     }
                 }
                 WheelDesign.PEPPERMINT_SWIRL -> {
-                    // Crisp white-icing sidewall dots
-                    for (k in 0 until 8) {
-                        val a = (k.toFloat() / 8f) * (2f * PI.toFloat())
-                        acc.addSphere(faceX, cos(a) * 0.36f, sin(a) * 0.36f, 0.018f, 0.036f, 0.036f, 4, 6, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CANDY)
+                    // Ribbed pink-and-gold cream-sandwich biscuit ridges + embossed strawberry center medallion
+                    for (k in 0 until 12) {
+                        val a = (k.toFloat() / 12f) * (2f * PI.toFloat())
+                        val ridgeHex = if (k % 2 == 0) 0xFFFF3D8BL else 0xFFFFB74DL
+                        acc.addSphere(faceX, cos(a) * 0.37f, sin(a) * 0.37f, 0.024f, 0.046f, 0.046f, 4, 6, ridgeHex, matType = CandyMaterials.MAT_CANDY)
                     }
                 }
                 WheelDesign.GUMMY_GLOW -> {
@@ -1045,6 +1239,7 @@ object VehicleMeshBuilder {
                 WheelDesign.CHOCO_COOKIE -> if (isSpoke) CandyMaterials.MAT_WAFER else CandyMaterials.MAT_CARAMEL
                 WheelDesign.GUMMY_GLOW -> if (isSpoke) CandyMaterials.MAT_GUMMY else CandyMaterials.MAT_CHROME
                 WheelDesign.GOLD_CARAMEL -> CandyMaterials.MAT_CHROME
+                WheelDesign.PEPPERMINT_SWIRL -> if (isSpoke) CandyMaterials.MAT_CANDY else CandyMaterials.MAT_WAFER
                 else -> if (isSpoke) CandyMaterials.MAT_CANDY else CandyMaterials.MAT_CHROME
             }
             val y0 = cos(a0) * rimR; val z0 = sin(a0) * rimR
@@ -1052,9 +1247,10 @@ object VehicleMeshBuilder {
             acc.addTri(halfW, 0f, 0f, halfW, y0, z0, halfW, y1, z1, rr, rg, rb, 1f, 0f, 0f, 1f, 0f, 0.5f, 1f, mat)
             acc.addTri(-halfW, 0f, 0f, -halfW, y1, z1, -halfW, y0, z0, rr, rg, rb, 1f, 0f, 0f, 1f, 0f, 0.5f, 1f, mat)
         }
-        // Center candy button hubcap spinner
-        acc.addSphere(halfW + 0.025f, 0f, 0f, 0.055f, 0.105f, 0.105f, 5, 8, design.primaryHex, design.rimHex, matType = CandyMaterials.MAT_CHROME)
-        acc.addSphere(-halfW - 0.025f, 0f, 0f, 0.055f, 0.105f, 0.105f, 5, 8, design.primaryHex, design.rimHex, matType = CandyMaterials.MAT_CHROME)
+        // Center strawberry/candy button hubcap spinner
+        val hubHex = if (design == WheelDesign.PEPPERMINT_SWIRL) 0xFFFF2438L else design.primaryHex
+        acc.addSphere(halfW + 0.025f, 0f, 0f, 0.058f, 0.115f, 0.115f, 6, 8, hubHex, design.rimHex, matType = CandyMaterials.MAT_CANDY)
+        acc.addSphere(-halfW - 0.025f, 0f, 0f, 0.058f, 0.115f, 0.115f, 6, 8, hubHex, design.rimHex, matType = CandyMaterials.MAT_CANDY)
         return acc.build()
     }
 

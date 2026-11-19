@@ -1,6 +1,7 @@
 package com.example.sweetrush.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +39,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -382,26 +386,66 @@ fun ChallengesScreen(
 }
 
 private fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle): String = when (style) {
-    com.example.sweetrush.model.KartBodyStyle.STRAWBERRY_ROCKET -> "شاسيه ويفر مقرمش • كريمة فراولة مخفوقة • مقدمة مغمسة بالشوكولاتة"
-    com.example.sweetrush.model.KartBodyStyle.PEPPERMINT_RACER -> "هيكل قصب السكر الحلزوني • أجنحة فورمولا ويفر • أقراص نعناع"
-    com.example.sweetrush.model.KartBodyStyle.CHOCOLATE_CRUISER -> "مربعات شوكولاتة داكنة بارزة • تيربو ويفر ثلاثي • كراميل ذائب"
-    com.example.sweetrush.model.KartBodyStyle.JELLYBEAN_MACHINE -> "كبسولة جيلي شفافة لامعة • أنابيب حلوى مطاطية ملونة • جناح حامض"
-    com.example.sweetrush.model.KartBodyStyle.CARAMEL_THUNDER -> "توفي ذهبي مصهور • فتحات وافل عسلية • جناح كراميل مزدوج"
-    com.example.sweetrush.model.KartBodyStyle.CUPCAKE_KART -> "قالب كب كيك مضلع • قبة كريمة مخفوقة • رشات سكر وكرز لامع"
-    com.example.sweetrush.model.KartBodyStyle.DONUT_DRIFTER -> "حلقة دونات ذهبية مزججة بالفراولة • قطرات آيسينغ • 24 حبيبة سكر"
-    com.example.sweetrush.model.KartBodyStyle.MARSHMALLOW_SPEEDSTER -> "أسطوانات مارشميلو محمصة • جسر بسكويت وشوكولاتة • غزل البنات"
+    com.example.sweetrush.model.KartBodyStyle.STRAWBERRY_ROCKET -> "السيارة الرسمية (Made by Vanellope) • شوكولاتة وويفر • كريمة وردية ورشات سكر • أنابيب حلوى وجناح بسكويت"
+    com.example.sweetrush.model.KartBodyStyle.PEPPERMINT_RACER -> "تافيتا (Pink Lightning) • هيكل حلوى وردية مصقولة • خطوط برق قصب السكر • أجنحة فورمولا"
+    com.example.sweetrush.model.KartBodyStyle.CUPCAKE_KART -> "كاندل هيد (Ice Cream & Birthday Cake) • كعكة عيد ميلاد • 5 شموع مشتعلة باللهب • كريمة نعناع"
+    com.example.sweetrush.model.KartBodyStyle.CHOCOLATE_CRUISER -> "رانسيس (Reese's Peanut Butter Cup) • قالب زبدة الفول السوداني المسنن • كراميل ذهبي وشوكولاتة"
+    com.example.sweetrush.model.KartBodyStyle.CHERRY_PIE_KART -> "جوبيلينا (Cherry Pie Tart) • فطيرة كرز مشبكة • حشوة ياقوتية وكريمة مخفوقة • كرز مزدوج"
+    com.example.sweetrush.model.KartBodyStyle.FRO_CONE_KART -> "سنوانا (Fro-Cone Snow Shaver) • مخروط ثلج مجروش بالتوت والبرتقال • شفرات جليد وأقراص ويفر"
+    com.example.sweetrush.model.KartBodyStyle.TIRAMISSILE_KART -> "كرامبيلينا (Tiramissile Espresso) • طبقات تيراميسو وبسكويت ليدي فينغر • مدافع إسبريسو مزدوجة"
+    com.example.sweetrush.model.KartBodyStyle.MARSHMALLOW_SPEEDSTER -> "أدورابيزل (Rocket Pop Missile) • صاروخ مثلجات ثلاثي الألوان (أحمر وأبيض وأزرق) • زعانف ثلجية"
+    com.example.sweetrush.model.KartBodyStyle.DONUT_DRIFTER -> "غلويد (Pumpkin Candy Corn) • مخروط حلوى الذرة ثلاثي الألوان • زينة قرع الهالوين البرتقالية"
+    com.example.sweetrush.model.KartBodyStyle.JELLYBEAN_MACHINE -> "سويزل (Tongue Twister) • صاروخ مصاصة حلزونية بـ 5 ألوان نيون • قضبان حلوى حامضة"
+    com.example.sweetrush.model.KartBodyStyle.MINT_CANDY_KART -> "مينتي زاكي (Velvet Mint Drop) • كبسولة نعناع زمردية يابانية • دوامات ماتشا وورق ذهب"
+    com.example.sweetrush.model.KartBodyStyle.CARAMEL_THUNDER -> "الملك كاندي (King Candy Royal Sovereign) • العربة الملكية المذهبة • تاج ورايات القصر"
 }
 
 private fun racerCharacterLookAr(racerId: String): String = when (racerId) {
-    "berry_blitz" -> "ذيل حصان مع فيونكة نعناع وحلوى • سترة سباق وتنورة مطوية • عيون أنمي زمردية"
-    "minty_swirl" -> "قبعة كابتن نعناع مع نظارات طيار • وشاح سباق متطاير • سترة رسمية مخططة"
-    "coco_dash" -> "تاج كراميل ذهبي ملكي • ياقة كريمة وعباءة كاكاو فاخرة • حزام سباق ذهبي"
-    "jelly_spark" -> "شعر جيلي شائك متوهج • سماعات DJ ونظارات نيون • سترة سايبر حامضة"
-    "caramel_nova" -> "خوذة كراميل ذهبية بقرون أجنحة • درع كتف لامع • قفازات سباق محترفة"
-    "vanilla_twirl" -> "قبعة شيف فانيليا مع كرزة وتفاصيل كريمة • ضفائر جانبية • مريلة مخبز ملكية"
-    "glazed_gus" -> "كاب دونات مقلوب مع نظارات شمسية • طوق دونات مزجج بالرشات • سترة دريفت"
-    "fizz_pop" -> "قرون استشعار فوارة متوهجة • تسريحة صودا مزدوجة • نظارات فقاعات كربونية"
-    else -> "شخصية ثلاثية الأبعاد بتفاصيل سينمائية كاملة"
+    "berry_blitz" -> "فانيلوبي فون شويتز • هودي نعناع أخضر وتنورة بنية • ذيل حصان مزين بالحلوى وخطوط السكر"
+    "minty_swirl" -> "تافيتا ميتونفدج • خوذة فراولة وردية مع فيونكة • بدلة سباق التوفي الوردي ونظارات"
+    "frosting_faye" -> "كاندل هيد • قبعة كب كيك نعناع مع شمعة عيد ميلاد مشتعلة فوق الرأس • سترة آيس كريم"
+    "coco_dash" -> "رانسيس فلوغلبيرغر • قبعة زبدة الفول السوداني المقلوبة • سترة شوكولاتة وكراميل رسمية"
+    "jubileena" -> "جوبيلينا بينغ-بينغ • قبعة فطيرة الكرز الحمراء مع ساق الكرز • سترة تارت الكرز"
+    "snowanna" -> "سنوانا رينبو • تسريحة أفرو قوس قزح العملاقة المتوهجة • سترة ديسكو مثلجات الفواكه"
+    "crumbelina" -> "كرامبيلينا دي كاراميلو • بيريه التيراميسو الإيطالي مع كريمة مخفوقة • وشاح إسبريسو"
+    "mallow_max" -> "أدورابيزل وينتربوب • قبعة فرو شتوية بيضاء مع كرات ثلج • معطف صاروخ المثلجات الأزرق"
+    "glazed_gus" -> "غلويد أورانجبور • قبعة حلوى الذرة المخروطية ثلاثية الألوان • سترة قرع الهالوين"
+    "fizzy_pop" -> "سويزل ذا مالارك • خوذة مصاصة حلزونية بنظارات نيون • سترة سباق الحلوى الفوارة"
+    "minty_zaki" -> "مينتي زاكي • فيونكة نعناع يابانية مع عود مصاصة أبيض • معطف النعناع الملكي الأخضر"
+    "toffee_rex" -> "الملك كاندي • التاج الذهبي الإمبراطوري وربطة الفراشة الوردية • الرداء الملكي البنفسجي"
+    else -> "شخصية رسمية ثلاثية الأبعاد من فيلم Sugar Rush"
+}
+
+private fun racerPortraitRes(racerId: String): Int = when (racerId) {
+    "berry_blitz" -> R.drawable.img_racer_vanellope
+    "minty_swirl" -> R.drawable.img_racer_taffyta
+    "frosting_faye" -> R.drawable.img_racer_candlehead
+    "coco_dash" -> R.drawable.img_racer_rancis
+    "jubileena" -> R.drawable.img_racer_jubileena
+    "snowanna" -> R.drawable.img_racer_snowanna
+    "crumbelina" -> R.drawable.img_racer_crumbelina
+    "mallow_max" -> R.drawable.img_racer_adorabeezle
+    "glazed_gus" -> R.drawable.img_racer_gloyd
+    "fizzy_pop" -> R.drawable.img_racer_swizzle
+    "minty_zaki" -> R.drawable.img_racer_minty_zaki
+    "toffee_rex" -> R.drawable.img_racer_king_candy
+    else -> R.drawable.img_racer_vanellope
+}
+
+private fun kartPreviewRes(kartId: String): Int = when (kartId) {
+    "strawberry_rocket" -> R.drawable.img_official_candy_kart
+    "peppermint_racer" -> R.drawable.img_kart_sugar_rush_car
+    "cupcake_kart" -> R.drawable.img_kart_storybook_lineup
+    "chocolate_cruiser" -> R.drawable.img_kart_sour_candy
+    "cherry_pie_kart" -> R.drawable.img_kart_jubileena
+    "fro_cone_kart" -> R.drawable.img_kart_snowanna
+    "tiramissile_kart" -> R.drawable.img_kart_crumbelina
+    "marshmallow_speedster" -> R.drawable.img_kart_storybook_lineup
+    "donut_drifter" -> R.drawable.img_kart_sour_candy
+    "jellybean_machine" -> R.drawable.img_kart_sugar_rush_car
+    "mint_candy_kart" -> R.drawable.img_kart_storybook_lineup
+    "caramel_thunder" -> R.drawable.img_kart_king_candy
+    else -> R.drawable.img_official_candy_kart
 }
 
 @Composable
@@ -441,7 +485,7 @@ fun GarageAndCharacterScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             CandyScreenHeader(
-                title = if (activeTab == 0) "Racer Roster • المتسابقون" else "Sugar Rush Kart Bakery • مصنع حلوى السيارات",
+                title = if (activeTab == 0) "Sugar Rush Movie Racers • متسابقو الفيلم (12)" else "Sugar Rush Kart Bakery • سيارات الفيلم (12)",
                 profile = profile,
                 onBack = onBack
             )
@@ -474,33 +518,49 @@ fun GarageAndCharacterScreen(
                                     .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Column {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(14.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(primaryColorHex))
-                                                .border(1.5.dp, Color(secondaryColorHex), CircleShape)
-                                        )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Image(
+                                        painter = painterResource(
+                                            id = if (activeTab == 0) racerPortraitRes(selectedRacer.id) else kartPreviewRes(selectedKart.id)
+                                        ),
+                                        contentDescription = "Selected Movie Character / Kart Reference",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(width = 56.dp, height = 40.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(14.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(primaryColorHex))
+                                                    .border(1.5.dp, Color(secondaryColorHex), CircleShape)
+                                            )
+                                            Text(
+                                                text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = FrostingWhite,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                         Text(
-                                            text = "${selectedRacer.name} • #${selectedKart.racingNumber} ${selectedKart.name}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = FrostingWhite,
+                                            text = if (activeTab == 0) racerCharacterLookAr(selectedRacer.id) else kartBakeryRecipeAr(selectedKart.style),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = CaramelGold,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                    Text(
-                                        text = kartBakeryRecipeAr(selectedKart.style),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = CaramelGold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
                                 }
                             }
 
@@ -708,21 +768,15 @@ fun GarageAndCharacterScreen(
                                             .padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
+                                        Image(
+                                            painter = painterResource(id = racerPortraitRes(racer.id)),
+                                            contentDescription = racer.name,
+                                            contentScale = ContentScale.Crop,
                                             modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(racer.suitPrimaryHex))
-                                                .border(2.5.dp, Color(racer.suitSecondaryHex), CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(16.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(racer.helmetHex))
-                                            )
-                                        }
+                                                .size(54.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .border(2.dp, if (selected) CaramelGold else Color(racer.suitPrimaryHex), RoundedCornerShape(14.dp))
+                                        )
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text("${racer.name} — ${racer.title}", style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
@@ -754,6 +808,7 @@ fun GarageAndCharacterScreen(
                                 items(CatalogData.karts) { kart ->
                                     val unlocked = profile.unlockedKarts.contains(kart.id)
                                     val selected = profile.selectedKartId == kart.id
+                                    val isOfficialKart = kart.id == "strawberry_rocket"
                                     Row(
                                         modifier = Modifier
                                             .testTag("kart_item_${kart.id}")
@@ -762,30 +817,65 @@ fun GarageAndCharacterScreen(
                                             .background(if (selected) CandyPink.copy(alpha = 0.32f) else BerryPurple)
                                             .border(
                                                 2.dp,
-                                                if (selected) CaramelGold else Color.White.copy(alpha = 0.2f),
+                                                if (selected) CaramelGold else if (isOfficialKart) MintCream.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.2f),
                                                 RoundedCornerShape(16.dp)
                                             )
                                             .clickable { onSelectKart(kart.id) }
                                             .padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(46.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(
-                                                    Brush.linearGradient(
-                                                        listOf(Color(kart.defaultPrimaryHex), Color(kart.defaultSecondaryHex))
+                                        Box(contentAlignment = Alignment.BottomEnd) {
+                                            Image(
+                                                painter = painterResource(id = kartPreviewRes(kart.id)),
+                                                contentDescription = kart.name,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .size(width = 72.dp, height = 50.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .border(
+                                                        2.dp,
+                                                        if (selected || isOfficialKart) CaramelGold else Color(kart.accentHex),
+                                                        RoundedCornerShape(12.dp)
                                                     )
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .padding(2.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(BerryDeep.copy(alpha = 0.88f))
+                                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    text = "#${kart.racingNumber}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = CaramelGold,
+                                                    fontWeight = FontWeight.Bold
                                                 )
-                                                .border(2.dp, Color(kart.accentHex), RoundedCornerShape(12.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text("#${kart.racingNumber}", style = MaterialTheme.typography.labelLarge, color = BerryDeep)
+                                            }
                                         }
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(kart.name, style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(kart.name, style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
+                                                if (isOfficialKart) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(50))
+                                                            .background(CaramelGold)
+                                                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "OFFICIAL ★ الرسمية",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = BerryDeep,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             Text(
                                                 text = kartBakeryRecipeAr(kart.style),
                                                 style = MaterialTheme.typography.labelSmall,

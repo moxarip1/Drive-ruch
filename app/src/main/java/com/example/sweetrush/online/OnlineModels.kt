@@ -3,6 +3,7 @@ package com.example.sweetrush.online
 import androidx.annotation.Keep
 import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.TrackId
+import com.example.sweetrush.model.WorldRegion
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
@@ -71,6 +72,7 @@ data class OnlineRoomDoc(
     val status: String = "WAITING", // WAITING, COUNTDOWN, RACING, FINISHED
     val mode: String = GameMode.QUICK_RACE.name,
     val trackId: String = TrackId.PEPPERMINT_PLAZA.name,
+    val regionId: String = WorldRegion.CANDY_CITY.name,
     val teamSize: Long = 2L, // 1, 2, or 4
     val maxPlayers: Long = 8L,
     val fillWithAi: Boolean = true,
@@ -79,6 +81,7 @@ data class OnlineRoomDoc(
     @ServerTimestamp val updatedAt: Timestamp? = null
 ) {
     fun parsedTrackId(): TrackId = enumValues<TrackId>().firstOrNull { it.name == trackId } ?: TrackId.PEPPERMINT_PLAZA
+    fun parsedRegion(): WorldRegion = enumValues<WorldRegion>().firstOrNull { it.name == regionId } ?: WorldRegion.CANDY_CITY
     fun parsedMode(): GameMode = when (mode) {
         "GATHERING_HUB", "FREE_ROAM" -> GameMode.FREE_ROAM
         else -> GameMode.QUICK_RACE

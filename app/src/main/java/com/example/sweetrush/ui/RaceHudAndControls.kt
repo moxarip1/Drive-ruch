@@ -138,7 +138,12 @@ fun RaceHudScreen(
     onToggleDebug: () -> Unit = {},
     onOpenWorldMap: () -> Unit = {},
     onEnterPortalRace: () -> Unit = {},
-    onUpgradeCompany: () -> Unit = {}
+    onUpgradeCompany: () -> Unit = {},
+    isMusicEnabled: Boolean = true,
+    currentSongTitle: String = "Turbo Candy Drift",
+    onToggleMusic: () -> Unit = {},
+    onSwitchMusicTrack: () -> Unit = {},
+    onReturnOnlineLobby: () -> Unit = {}
 ) {
     BackHandler { onPauseToggle(!isPaused) }
 
@@ -605,6 +610,60 @@ fun RaceHudScreen(
                         horizontalAlignment = Alignment.End
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // 1-Tap In-Game Music ON / OFF Toggle Button
+                            Row(
+                                modifier = Modifier
+                                    .testTag("hud_toggle_music_button")
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(
+                                        if (isMusicEnabled) MintDark.copy(alpha = 0.88f)
+                                        else StrawberryRed.copy(alpha = 0.88f)
+                                    )
+                                    .border(
+                                        1.5.dp,
+                                        if (isMusicEnabled) MintCream else CaramelGold,
+                                        RoundedCornerShape(24.dp)
+                                    )
+                                    .clickable { onToggleMusic() }
+                                    .padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = if (isMusicEnabled) "🔊" else "🔇",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                                Text(
+                                    text = if (isMusicEnabled) "ON" else "OFF",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // 1-Tap MP3 Soundtrack Switcher Button
+                            Row(
+                                modifier = Modifier
+                                    .testTag("hud_switch_music_button")
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(BerryDeep.copy(alpha = 0.82f))
+                                    .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(24.dp))
+                                    .clickable { onSwitchMusicTrack() }
+                                    .padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("🎵", style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    text = if (currentSongTitle.contains("Turbo", ignoreCase = true)) "TURBO" else "GUMBALL",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = CaramelGold,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // Camera Angle Preset Cycle Button
                             Row(
                                 modifier = Modifier
@@ -1152,15 +1211,64 @@ fun RaceHudScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .width(340.dp)
+                        .width(360.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(BerryPurple)
                         .border(2.5.dp, Color.White.copy(alpha = 0.65f), RoundedCornerShape(28.dp))
-                        .padding(22.dp),
+                        .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text("RACE PAUSED", style = MaterialTheme.typography.displayMedium, color = FrostingWhite)
+
+                    // In-Game Music ON/OFF & Uploaded Track Switcher Row inside Pause Menu
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .testTag("pause_toggle_music_button")
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isMusicEnabled) MintDark else StrawberryRed)
+                                .border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                                .clickable { onToggleMusic() }
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isMusicEnabled) "🔊 الموسيقى: شغالة" else "🔇 الموسيقى: متوقفة",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = FrostingWhite,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .testTag("pause_switch_music_button")
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(BerryDeep)
+                                .border(1.5.dp, CaramelGold, RoundedCornerShape(14.dp))
+                                .clickable { onSwitchMusicTrack() }
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "🎵 $currentSongTitle",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CaramelGold,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
                     CandyButton(
                         text = "RESUME RACE",
                         onClick = { onPauseToggle(false) },
@@ -1181,8 +1289,23 @@ fun RaceHudScreen(
                         textColor = BerryDeep,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (hud.isOnlineSession) {
+                        CandyButton(
+                            text = "العودة للوبي مع الفريق • SQUAD LOBBY",
+                            onClick = {
+                                onPauseToggle(false)
+                                onReturnOnlineLobby()
+                            },
+                            testTag = "pause_return_lobby_button",
+                            icon = Icons.Filled.Public,
+                            topColor = SkyCandy,
+                            bottomColor = Color(0xFF0288D1),
+                            textColor = BerryDeep,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     CandyButton(
-                        text = "QUIT TO MENU",
+                        text = if (hud.isOnlineSession) "مغادرة الغرفة للقائمة • LEAVE ROOM" else "QUIT TO MENU",
                         onClick = onQuitToMenu,
                         testTag = "quit_button",
                         icon = Icons.AutoMirrored.Filled.ExitToApp,

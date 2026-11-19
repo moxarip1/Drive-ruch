@@ -79,6 +79,7 @@ import com.example.sweetrush.model.GameMode
 import com.example.sweetrush.model.PlayerProfile
 import com.example.sweetrush.model.SquadTeam
 import com.example.sweetrush.model.TrackId
+import com.example.sweetrush.model.WorldRegion
 import com.example.sweetrush.online.FriendRequestDoc
 import com.example.sweetrush.online.FriendRosterEntry
 import com.example.sweetrush.online.OnlineRoomDoc
@@ -112,12 +113,14 @@ fun OnlineLobbyScreen(
     isBusy: Boolean,
     isRecordingVoice: Boolean,
     isVoiceMuted: Boolean,
+    isMusicEnabled: Boolean = true,
+    currentSongTitle: String = "Gumball Horizon",
     statusMessage: String?,
-    onCreateRoom: (teamSize: Int, mode: GameMode, trackId: TrackId, fillWithAi: Boolean, isGatheringHub: Boolean) -> Unit,
+    onCreateRoom: (teamSize: Int, mode: GameMode, trackId: TrackId, fillWithAi: Boolean, isGatheringHub: Boolean, region: WorldRegion) -> Unit,
     onEnterGatheringHub: () -> Unit,
     onJoinRoom: (roomCode: String) -> Unit,
     onLeaveRoom: () -> Unit,
-    onUpdateRoomConfig: (mode: GameMode, trackId: TrackId, teamSize: Int, fillWithAi: Boolean, isGatheringHub: Boolean) -> Unit,
+    onUpdateRoomConfig: (mode: GameMode, trackId: TrackId, teamSize: Int, fillWithAi: Boolean, isGatheringHub: Boolean, region: WorldRegion) -> Unit,
     onSelectTeamAndReady: (teamIndex: Int, ready: Boolean) -> Unit,
     onStartMatch: () -> Unit,
     onSendFriendRequest: (friendCode: String) -> Unit,
@@ -129,6 +132,8 @@ fun OnlineLobbyScreen(
     onSendQuickCallout: (text: String, teamOnly: Boolean) -> Unit,
     onToggleLiveMic: (teamOnly: Boolean) -> Unit,
     onToggleVoiceMute: () -> Unit,
+    onToggleMusic: () -> Unit = {},
+    onSwitchMusicTrack: () -> Unit = {},
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -141,6 +146,7 @@ fun OnlineLobbyScreen(
     var draftMode by remember { mutableStateOf(GameMode.QUICK_RACE) }
     var draftIsHub by remember { mutableStateOf(false) }
     var draftTrack by remember { mutableStateOf(TrackId.PEPPERMINT_PLAZA) }
+    var draftRegion by remember { mutableStateOf(WorldRegion.CANDY_CITY) }
     var draftFillAi by remember { mutableStateOf(true) }
     var joinCodeInput by remember { mutableStateOf("") }
 
@@ -169,7 +175,6 @@ fun OnlineLobbyScreen(
     val localPlayer = players.firstOrNull { it.userId == currentUserId }
     val localTeamIdx = localPlayer?.teamIndex?.toInt() ?: 0
     val localReady = localPlayer?.ready ?: false
-    val isHost = room?.hostUid == currentUserId
 
     val msgListState = rememberLazyListState()
     LaunchedEffect(messages.size) {
@@ -188,21 +193,83 @@ fun OnlineLobbyScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            CandyScreenHeader(
-                title = if (room != null) "3D Squad Lobby • #${room.roomCode}" else "Online Squads • Gathering Hub • Friends",
-                profile = profile,
-                onBack = onBack
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    CandyScreenHeader(
+                        title = if (room != null) "3D Squad Lobby • #${room.roomCode}" else "Online Squads • Gathering Hub • Friends",
+                        profile = profile,
+                        onBack = onBack
+                    )
+                }
+                Row(
+                    modifier = Modifier.padding(end = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .testTag("lobby_toggle_music_button")
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isMusicEnabled) MintDark.copy(alpha = 0.90f) else StrawberryRed.copy(alpha = 0.90f))
+                            .border(1.5.dp, if (isMusicEnabled) MintCream else CaramelGold, RoundedCornerShape(50))
+                            .clickable { onToggleMusic() }
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isMusicEnabled) "🔊 الموسيقى" else "🔇 صامت",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = FrostingWhite,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .testTag("lobby_switch_music_button")
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(BerryDeep.copy(alpha = 0.85f))
+                            .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(50))
+                            .clickable { onSwitchMusicTrack() }
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🎵 $currentSongTitle",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CaramelGold,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             if (statusMessage != null) {
+                val isDepartureAlert = statusMessage.startsWith("🚪")
                 Box(
                     modifier = Modifier
+                        .testTag("lobby_status_banner")
                         .padding(horizontal = 16.dp, vertical = 2.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MintCream)
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .background(if (isDepartureAlert) StrawberryRed else MintCream)
+                        .border(
+                            width = if (isDepartureAlert) 1.5.dp else 0.dp,
+                            color = if (isDepartureAlert) CaramelGold else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
                 ) {
-                    Text(statusMessage, style = MaterialTheme.typography.labelLarge, color = BerryDeep)
+                    Text(
+                        text = statusMessage,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isDepartureAlert) FrostingWhite else BerryDeep,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -215,10 +282,10 @@ fun OnlineLobbyScreen(
                 // LEFT PANE: Gathering Hub + Create / Join OR Active Squad Room
                 Column(
                     modifier = Modifier
-                        .weight(if (room != null) 0.92f else 1.20f)
+                        .weight(if (room != null) 0.96f else 1.20f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(22.dp))
-                        .background(BerryPurple.copy(alpha = if (room != null) 0.80f else 0.90f))
+                        .background(BerryPurple.copy(alpha = if (room != null) 0.82f else 0.90f))
                         .border(2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -242,7 +309,7 @@ fun OnlineLobbyScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("لوبي التجمع • CANDY GATHERING HUB", style = MaterialTheme.typography.labelLarge, color = CaramelGold)
                                 Text(
-                                    text = "Meet friends in Candy City Plaza, chat with open mic & cruise together",
+                                    text = "Meet friends in Candy City Plaza, choose any map/race & cruise together",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = FrostingWhite.copy(alpha = 0.85f)
                                 )
@@ -271,7 +338,7 @@ fun OnlineLobbyScreen(
                                     modifier = Modifier
                                         .testTag("team_size_$sz")
                                         .weight(1f)
-                                        .height(44.dp)
+                                        .height(42.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(if (selected) CaramelGold else BerryCard)
                                         .border(1.5.dp, if (selected) Color.White else Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
@@ -294,16 +361,16 @@ fun OnlineLobbyScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val modeChips = listOf(
-                                Triple(GameMode.QUICK_RACE, false, "RACE"),
-                                Triple(GameMode.FREE_ROAM, false, "WORLD"),
-                                Triple(GameMode.FREE_ROAM, true, "HUB")
+                                Triple(GameMode.QUICK_RACE, false, "🏁 سباق RACE"),
+                                Triple(GameMode.FREE_ROAM, false, "🌍 عالم WORLD"),
+                                Triple(GameMode.FREE_ROAM, true, "🏙️ تجمع HUB")
                             )
                             modeChips.forEach { (m, isHub, label) ->
                                 val sel = (draftMode == m && draftIsHub == isHub)
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(42.dp)
+                                        .height(40.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(if (sel) MintCream else BerryCard)
                                         .clickable {
@@ -328,14 +395,14 @@ fun OnlineLobbyScreen(
                             }
                         }
 
-                        // Track Chips (when Race mode selected)
+                        // Track Chips (when Race mode selected) OR Open-World Region Chips (when Free Roam / Hub selected)
                         if (draftMode == GameMode.QUICK_RACE && !draftIsHub) {
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 items(CatalogData.tracks) { tr ->
                                     val sel = draftTrack == tr.id
                                     Box(
                                         modifier = Modifier
-                                            .height(38.dp)
+                                            .height(36.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(if (sel) CandyPink else BerryCard)
                                             .border(1.dp, Color.White.copy(alpha = if (sel) 0.9f else 0.2f), RoundedCornerShape(10.dp))
@@ -347,17 +414,35 @@ fun OnlineLobbyScreen(
                                     }
                                 }
                             }
+                        } else {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(WorldRegion.entries) { reg ->
+                                    val sel = draftRegion == reg
+                                    Box(
+                                        modifier = Modifier
+                                            .height(36.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (sel) SkyCandy else BerryCard)
+                                            .border(1.dp, Color.White.copy(alpha = if (sel) 0.9f else 0.2f), RoundedCornerShape(10.dp))
+                                            .clickable { draftRegion = reg }
+                                            .padding(horizontal = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(reg.displayName, style = MaterialTheme.typography.labelSmall, color = if (sel) BerryDeep else FrostingWhite, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
 
                         CandyButton(
                             text = if (isBusy) "CREATING ROOM..." else "CREATE ONLINE ROOM",
-                            onClick = { onCreateRoom(draftTeamSize, draftMode, draftTrack, draftFillAi, draftIsHub) },
+                            onClick = { onCreateRoom(draftTeamSize, draftMode, draftTrack, draftFillAi, draftIsHub, draftRegion) },
                             testTag = "create_room_button",
                             icon = Icons.Filled.Groups,
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 46.dp,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -394,10 +479,11 @@ fun OnlineLobbyScreen(
                             )
                         }
                     } else {
-                        // ACTIVE ROOM VIEW
+                        // ACTIVE ROOM VIEW — Any friend in the lobby can pick maps, race tracks, or open-world regions & launch together!
                         val roomTeamSize = room.teamSize.toInt().coerceIn(1, 4)
                         val numTeams = (8 / roomTeamSize).coerceIn(1, 4)
                         val roomTrack = room.parsedTrackId()
+                        val roomRegion = room.parsedRegion()
                         val roomMode = room.parsedMode()
                         val roomIsHub = room.isGatheringHub()
 
@@ -412,7 +498,7 @@ fun OnlineLobbyScreen(
                                     .background(BerryDeep)
                                     .border(1.5.dp, CaramelGold, RoundedCornerShape(14.dp))
                                     .clickable { clipboard.setText(AnnotatedString(room.roomCode)) }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -421,7 +507,7 @@ fun OnlineLobbyScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     color = CaramelGold
                                 )
-                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy Room Code", tint = FrostingWhite, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy Room Code", tint = FrostingWhite, modifier = Modifier.size(15.dp))
                             }
 
                             Text(
@@ -431,83 +517,160 @@ fun OnlineLobbyScreen(
                             )
                         }
 
-                        // Host Configuration Bar
-                        if (isHost) {
+                        // Co-Op Map, Race & Open-World Destination Picker (Available to ALL friends standing in the lobby!)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(BerryDeep.copy(alpha = 0.65f))
+                                .border(1.dp, CaramelGold.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                                .padding(7.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            // Row 1: Mode switcher (Race / Open World / Hub) + Team Size + AI bots toggle
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val lobbyModes = listOf(
+                                    Triple(GameMode.QUICK_RACE, false, "🏁 سباق"),
+                                    Triple(GameMode.FREE_ROAM, false, "🌍 عالم مفتوح"),
+                                    Triple(GameMode.FREE_ROAM, true, "🏙️ التجمع")
+                                )
+                                lobbyModes.forEach { (m, isHubFlag, label) ->
+                                    val selected = (roomMode == m && roomIsHub == isHubFlag)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(9.dp))
+                                            .background(if (selected) MintCream else BerryCard)
+                                            .border(
+                                                1.dp,
+                                                if (selected) Color.White else Color.White.copy(alpha = 0.2f),
+                                                RoundedCornerShape(9.dp)
+                                            )
+                                            .clickable {
+                                                onUpdateRoomConfig(m, roomTrack, roomTeamSize, room.fillWithAi, isHubFlag, roomRegion)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (selected) BerryDeep else FrostingWhite,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+
                                 listOf(1, 2, 4).forEach { sz ->
                                     val sel = roomTeamSize == sz
                                     Box(
                                         modifier = Modifier
-                                            .height(38.dp)
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(9.dp))
                                             .background(if (sel) CaramelGold else BerryCard)
-                                            .clickable { onUpdateRoomConfig(roomMode, roomTrack, sz, room.fillWithAi, roomIsHub) }
-                                            .padding(horizontal = 10.dp),
+                                            .clickable {
+                                                onUpdateRoomConfig(roomMode, roomTrack, sz, room.fillWithAi, roomIsHub, roomRegion)
+                                            }
+                                            .padding(horizontal = 7.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text("${sz}P", style = MaterialTheme.typography.labelSmall, color = if (sel) BerryDeep else FrostingWhite)
+                                        Text("${sz}P", style = MaterialTheme.typography.labelSmall, color = if (sel) BerryDeep else FrostingWhite, fontWeight = FontWeight.Bold)
                                     }
                                 }
+
                                 Box(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(BerryCard)
+                                        .height(34.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(if (room.fillWithAi) MintDark else BerryCard)
                                         .clickable {
-                                            when {
-                                                roomIsHub -> onUpdateRoomConfig(GameMode.QUICK_RACE, roomTrack, roomTeamSize, room.fillWithAi, false)
-                                                roomMode == GameMode.FREE_ROAM -> onUpdateRoomConfig(GameMode.FREE_ROAM, roomTrack, roomTeamSize, room.fillWithAi, true)
-                                                else -> onUpdateRoomConfig(GameMode.FREE_ROAM, roomTrack, roomTeamSize, room.fillWithAi, false)
-                                            }
+                                            onUpdateRoomConfig(roomMode, roomTrack, roomTeamSize, !room.fillWithAi, roomIsHub, roomRegion)
                                         }
-                                        .padding(horizontal = 8.dp),
+                                        .padding(horizontal = 7.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = when {
-                                            roomIsHub -> "GATHERING HUB"
-                                            roomMode == GameMode.FREE_ROAM -> "OPEN WORLD"
-                                            else -> CatalogData.trackById(roomTrack).name
-                                        },
+                                        text = if (room.fillWithAi) "AI✓" else "AI✕",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = SkyCandy,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        color = FrostingWhite,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
-                                if (roomMode == GameMode.QUICK_RACE && !roomIsHub) {
-                                    Box(
-                                        modifier = Modifier
-                                            .height(38.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(CandyPink)
-                                            .clickable {
-                                                val allTracks = TrackId.entries
-                                                val nextTrack = allTracks[(roomTrack.ordinal + 1) % allTracks.size]
-                                                onUpdateRoomConfig(roomMode, nextTrack, roomTeamSize, room.fillWithAi, false)
-                                            }
-                                            .padding(horizontal = 10.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text("TRACK >", style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                            }
+
+                            // Row 2: Direct Race Track selector OR Open-World Region selector
+                            if (roomMode == GameMode.QUICK_RACE && !roomIsHub) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(CatalogData.tracks) { tr ->
+                                        val sel = roomTrack == tr.id
+                                        Box(
+                                            modifier = Modifier
+                                                .testTag("room_track_chip_${tr.id.name}")
+                                                .height(34.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(if (sel) CandyPink else BerryCard)
+                                                .border(
+                                                    1.dp,
+                                                    if (sel) Color.White else Color.White.copy(alpha = 0.22f),
+                                                    RoundedCornerShape(9.dp)
+                                                )
+                                                .clickable {
+                                                    onUpdateRoomConfig(GameMode.QUICK_RACE, tr.id, roomTeamSize, room.fillWithAi, false, roomRegion)
+                                                }
+                                                .padding(horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "🏁 ${tr.name}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = FrostingWhite,
+                                                fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(WorldRegion.entries) { reg ->
+                                        val sel = roomRegion == reg
+                                        Box(
+                                            modifier = Modifier
+                                                .testTag("room_region_chip_${reg.name}")
+                                                .height(34.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(if (sel) SkyCandy else BerryCard)
+                                                .border(
+                                                    1.dp,
+                                                    if (sel) Color.White else Color.White.copy(alpha = 0.22f),
+                                                    RoundedCornerShape(9.dp)
+                                                )
+                                                .clickable {
+                                                    onUpdateRoomConfig(GameMode.FREE_ROAM, roomTrack, roomTeamSize, room.fillWithAi, roomIsHub, reg)
+                                                }
+                                                .padding(horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "📍 ${reg.displayName}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (sel) BerryDeep else FrostingWhite,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        } else {
-                            Text(
-                                text = when {
-                                    roomIsHub -> "Mode: Gathering Hub (لوبي التجمع)"
-                                    roomMode == GameMode.FREE_ROAM -> "Mode: Open World Kingdom"
-                                    else -> "Track: ${CatalogData.trackById(roomTrack).name} • AI Bots: ${if (room.fillWithAi) "ON" else "OFF"}"
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                color = SkyCandy
-                            )
                         }
 
                         // Squad Teams Roster Grid
@@ -585,10 +748,10 @@ fun OnlineLobbyScreen(
                             }
                         }
 
-                        // Action Footer
+                        // Action Footer — Any member in the room can launch the chosen Race Track or Open-World Region together!
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             CandyButton(
                                 text = "LEAVE",
@@ -596,33 +759,31 @@ fun OnlineLobbyScreen(
                                 testTag = "room_leave_button",
                                 topColor = StrawberryRed,
                                 bottomColor = CandyPinkDark,
-                                height = 48.dp,
-                                modifier = Modifier.width(96.dp)
+                                height = 46.dp,
+                                modifier = Modifier.width(86.dp)
                             )
                             CandyButton(
-                                text = if (localReady) "READY ✓" else "READY UP",
+                                text = if (localReady) "READY ✓" else "READY",
                                 onClick = { onSelectTeamAndReady(localTeamIdx, !localReady) },
                                 testTag = "room_ready_button",
                                 icon = Icons.Filled.Check,
                                 topColor = if (localReady) MintCream else GrapeJelly,
                                 bottomColor = if (localReady) MintDark else Color(0xFF4527A0),
                                 textColor = if (localReady) BerryDeep else FrostingWhite,
-                                height = 48.dp,
-                                modifier = Modifier.weight(1f)
+                                height = 46.dp,
+                                modifier = Modifier.weight(0.85f)
                             )
-                            if (isHost) {
-                                CandyButton(
-                                    text = if (roomIsHub) "ENTER WORLD" else "START!",
-                                    onClick = onStartMatch,
-                                    testTag = "room_start_button",
-                                    icon = Icons.Filled.PlayArrow,
-                                    topColor = CaramelGold,
-                                    bottomColor = Butterscotch,
-                                    textColor = BerryDeep,
-                                    height = 48.dp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                            CandyButton(
+                                text = if (roomMode == GameMode.FREE_ROAM || roomIsHub) "دخول العالم" else "ابدأ السباق!",
+                                onClick = onStartMatch,
+                                testTag = "room_start_button",
+                                icon = Icons.Filled.PlayArrow,
+                                topColor = CaramelGold,
+                                bottomColor = Butterscotch,
+                                textColor = BerryDeep,
+                                height = 46.dp,
+                                modifier = Modifier.weight(1.15f)
+                            )
                         }
                     }
                 }

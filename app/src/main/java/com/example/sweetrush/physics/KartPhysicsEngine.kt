@@ -676,15 +676,15 @@ class KartPhysicsEngine(
             }
 
             val packetDt = if (k.remoteLastPacketWallNs > 0L) {
-                ((nowNs - k.remoteLastPacketWallNs) / 1_000_000_000.0f).coerceIn(0.03f, 0.35f)
+                ((nowNs - k.remoteLastPacketWallNs) / 1_000_000_000.0f).coerceIn(0.025f, 0.45f)
             } else {
-                0.08f
+                0.055f
             }
 
             // Skip duplicate snapshot emission if coordinates & yaw did not change
             val movedSq = (inX - k.remoteTargetX) * (inX - k.remoteTargetX) + (inZ - k.remoteTargetZ) * (inZ - k.remoteTargetZ)
             val yawDiff = normalizeAngle(inYaw - k.remoteTargetYawRad)
-            if (k.remoteHasUpdate && movedSq < 0.0001f && abs(yawDiff) < 0.0005f && abs(inSpeed - k.remoteTargetSpeed) < 0.01f) {
+            if (k.remoteHasUpdate && movedSq < 0.00002f && abs(yawDiff) < 0.0002f && abs(inSpeed - k.remoteTargetSpeed) < 0.005f) {
                 k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
                 k.isDrifting = doc.drifting
                 k.isNitroActive = doc.nitroActive
@@ -692,17 +692,19 @@ class KartPhysicsEngine(
             }
 
             k.remoteLastPacketWallNs = nowNs
-            k.remoteSyncIntervalSec = (k.remoteSyncIntervalSec * 0.65f + packetDt * 0.35f).coerceIn(0.045f, 0.25f)
+            k.remoteSyncIntervalSec = (k.remoteSyncIntervalSec * 0.60f + packetDt * 0.40f).coerceIn(0.035f, 0.35f)
 
             val headingVx = sin(inYaw) * inSpeed
             val headingVz = cos(inYaw) * inSpeed
-            if (k.remoteHasUpdate && movedSq < 225f) {
+            if (k.remoteHasUpdate && movedSq < 900f) {
                 val obsVx = (inX - k.remoteTargetX) / packetDt
                 val obsVz = (inZ - k.remoteTargetZ) / packetDt
-                // Blend observed chord velocity with heading velocity for dead-reckoning continuity
-                k.remoteVelX = headingVx * 0.68f + obsVx * 0.32f
-                k.remoteVelZ = headingVz * 0.68f + obsVz * 0.32f
-                k.remoteYawRate = (yawDiff / packetDt).coerceIn(-3.6f, 3.6f)
+                // Blend heading velocity with observed chord velocity for accurate cornering & drift vectors
+                k.remoteVelX = headingVx * 0.72f + obsVx * 0.28f
+                k.remoteVelZ = headingVz * 0.72f + obsVz * 0.28f
+                val obsYawRate = (yawDiff / packetDt).coerceIn(-4.2f, 4.2f)
+                val steerYawRate = (-doc.steerVisualRad.toFloat() * 3.1f * (inSpeed / 24f).coerceIn(0f, 1.4f)).coerceIn(-4.2f, 4.2f)
+                k.remoteYawRate = obsYawRate * 0.65f + steerYawRate * 0.35f
             } else {
                 k.remoteVelX = headingVx
                 k.remoteVelZ = headingVz
@@ -714,6 +716,9 @@ class KartPhysicsEngine(
                 k.y = inY
                 k.z = inZ
                 k.yawRad = inYaw
+                k.speed = inSpeed
+                k.vx = headingVx
+                k.vz = headingVz
             }
 
             k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
@@ -733,61 +738,97 @@ class KartPhysicsEngine(
             }
             k.isDrifting = doc.drifting
             k.isNitroActive = doc.nitroActive
+            if (doc.nitroActive) {
+                k.boostTimer = maxOf(k.boostTimer, 0.25f)
+            }
+            if (doc.drifting) {
+                k.driftDir = if (doc.steerVisualRad < -0.02) 1f else if (doc.steerVisualRad > 0.02) -1f else k.driftDir
+                k.driftCharge = (k.driftCharge + packetDt * 1.3f).coerceAtMost(2.5f)
+            } else {
+                k.driftCharge = 0f
+            }
         }
 
         return OnlineRosterDiff(joinedNames = joinedNames, leftNames = leftNames)
     }
 
     private fun stepRemoteKart(k: KartRuntimeState, dt: Float) {
-        if (!k.remoteHasUpdate) return
-        k.remoteSyncAgeSec = (k.remoteSyncAgeSec + dt).coerceAtMost(0.55f)
+        if (!k.remoteHasUpdate) {
+            // Keep idle wheels/suspension grounded before first packet arrives
+            val groundY = surfaceSampler.sampleSurface(k.x, k.z, k.y).height
+            k.y += (groundY - k.y) * (14f * dt).coerceIn(0.08f, 0.75f)
+            return
+        }
+        k.remoteSyncAgeSec = (k.remoteSyncAgeSec + dt).coerceAtMost(0.95f)
 
-        // Smooth velocity dead-reckoning with gentle decay after 1.6x packet interval so karts never stutter or rubber-band
-        val maxExtrap = (k.remoteSyncIntervalSec * 1.8f).coerceIn(0.10f, 0.32f)
+        // Continuous Curved Dead-Reckoning up to 0.70s with smooth velocity decay so network jitter never causes stuttering
+        val maxExtrap = (k.remoteSyncIntervalSec * 3.2f).coerceIn(0.22f, 0.70f)
         val extrapTime = k.remoteSyncAgeSec.coerceAtMost(maxExtrap)
-        val predYaw = k.remoteTargetYawRad + k.remoteYawRate * (extrapTime * 0.65f)
-        val predX = k.remoteTargetX + k.remoteVelX * extrapTime
-        val predZ = k.remoteTargetZ + k.remoteVelZ * extrapTime
+        val decay = if (k.remoteSyncAgeSec <= k.remoteSyncIntervalSec * 1.5f) {
+            1.0f
+        } else {
+            (1.0f - (k.remoteSyncAgeSec - k.remoteSyncIntervalSec * 1.5f) * 1.15f).coerceIn(0.15f, 1.0f)
+        }
+
+        val predYaw = k.remoteTargetYawRad + k.remoteYawRate * extrapTime * 0.75f * decay
+        // Integrate curved velocity vector along predicted yaw arc
+        val midYaw = k.remoteTargetYawRad + k.remoteYawRate * extrapTime * 0.38f * decay
+        val curvedVx = sin(midYaw) * k.remoteTargetSpeed * 0.65f + k.remoteVelX * 0.35f
+        val curvedVz = cos(midYaw) * k.remoteTargetSpeed * 0.65f + k.remoteVelZ * 0.35f
+
+        val predX = k.remoteTargetX + curvedVx * extrapTime * decay
+        val predZ = k.remoteTargetZ + curvedVz * extrapTime * decay
 
         val errX = predX - k.x
         val errZ = predZ - k.z
         val distSq = errX * errX + errZ * errZ
 
-        if (distSq > 900f) {
-            // Hard snap only if teleported > 30m (e.g. region fast-travel)
+        if (distSq > 3600f) {
+            // Hard snap only if teleported > 60m (e.g. region fast-travel)
             k.x = predX
             k.y = k.remoteTargetY
             k.z = predZ
             k.yawRad = predYaw
-            k.vx = k.remoteVelX
-            k.vz = k.remoteVelZ
+            k.vx = curvedVx
+            k.vz = curvedVz
         } else {
-            // Critically-damped spring + velocity integration: moves continuously every 60fps frame with zero stepping
-            val catchupRate = if (distSq > 16f) 14.5f else 9.5f
-            val corrAlpha = (catchupRate * dt).coerceIn(0.04f, 0.55f)
-            k.x += k.remoteVelX * dt + errX * corrAlpha
-            k.z += k.remoteVelZ * dt + errZ * corrAlpha
+            // Adaptive Hermite spring + velocity integration: glides seamlessly at 60fps
+            val catchupRate = when {
+                distSq > 64f -> 20.0f
+                distSq > 9f -> 15.5f
+                else -> 12.0f
+            }
+            val corrAlpha = (catchupRate * dt).coerceIn(0.05f, 0.68f)
+            k.x += curvedVx * decay * dt + errX * corrAlpha
+            k.z += curvedVz * decay * dt + errZ * corrAlpha
 
-            val yawAlpha = (12.5f * dt).coerceIn(0.05f, 0.65f)
-            k.yawRad = lerpAngle(k.yawRad + k.remoteYawRate * 0.5f * dt, predYaw, yawAlpha)
+            val yawAlpha = (16.0f * dt).coerceIn(0.08f, 0.75f)
+            k.yawRad = lerpAngle(k.yawRad + k.remoteYawRate * decay * 0.65f * dt, predYaw, yawAlpha)
 
             val groundY = surfaceSampler.sampleSurface(k.x, k.z, k.y).height
             val targetY = maxOf(k.remoteTargetY, groundY)
-            k.y += (targetY - k.y) * (14f * dt).coerceIn(0.08f, 0.75f)
-            k.isGrounded = (k.y - groundY) <= 0.24f
+            k.y += (targetY - k.y) * (18f * dt).coerceIn(0.10f, 0.85f)
+            k.isGrounded = (k.y - groundY) <= 0.26f
         }
 
         // Smooth speed, wheel rotation, 4-wheel suspension & chassis roll/pitch so remote character & kart look 100% alive
-        k.speed += (k.remoteTargetSpeed - k.speed) * (14f * dt).coerceIn(0.1f, 0.85f)
+        k.speed += (k.remoteTargetSpeed * decay - k.speed) * (16f * dt).coerceIn(0.12f, 0.90f)
         k.vx = sin(k.yawRad) * k.speed
         k.vz = cos(k.yawRad) * k.speed
-        k.steerVisualRad += (k.remoteTargetSteerRad - k.steerVisualRad) * (14f * dt).coerceAtMost(1f)
+        k.steerVisualRad += (k.remoteTargetSteerRad - k.steerVisualRad) * (18f * dt).coerceAtMost(1f)
         k.wheelSpinRad += k.speed * dt * 1.45f
+        if (k.boostTimer > 0f && !k.isNitroActive) {
+            k.boostTimer = (k.boostTimer - dt).coerceAtLeast(0f)
+        }
 
-        val targetRoll = (if (k.isDrifting) -k.steerVisualRad * 0.30f else -k.steerVisualRad * 0.16f).coerceIn(-0.20f, 0.20f)
-        k.bodyRollRad += (targetRoll - k.bodyRollRad) * (11f * dt).coerceAtMost(1f)
-        val targetPitch = if (k.isNitroActive) -0.045f else 0f
-        k.bodyPitchRad += (targetPitch - k.bodyPitchRad) * (9f * dt).coerceAtMost(1f)
+        val targetRoll = (if (k.isDrifting) -k.steerVisualRad * 0.34f else -k.steerVisualRad * 0.18f).coerceIn(-0.22f, 0.22f)
+        k.bodyRollRad += (targetRoll - k.bodyRollRad) * (13f * dt).coerceAtMost(1f)
+        val targetPitch = when {
+            !k.isGrounded -> ((k.remoteTargetY - k.y) * 0.18f).coerceIn(-0.22f, 0.22f)
+            k.isNitroActive -> -0.052f
+            else -> 0f
+        }
+        k.bodyPitchRad += (targetPitch - k.bodyPitchRad) * (11f * dt).coerceAtMost(1f)
 
         val fwdX = sin(k.yawRad)
         val fwdZ = cos(k.yawRad)
@@ -809,7 +850,18 @@ class KartPhysicsEngine(
             k.wheelCompression[i] = comp
             k.wheelContacts[i] = clearance <= 0.24f
             val targetOffset = if (k.wheelContacts[i]) (comp - 0.5f) * 0.18f else -0.08f
-            k.wheelYOffsets[i] += (targetOffset - k.wheelYOffsets[i]) * (16f * dt).coerceAtMost(1f)
+            k.wheelYOffsets[i] += (targetOffset - k.wheelYOffsets[i]) * (18f * dt).coerceAtMost(1f)
+        }
+
+        // Update track progress & lap score in real time for closed-track races
+        if (!isFreeRoam) {
+            val proj = track.projectOntoTrack(k.x, k.z, k.nodeHintIndex)
+            k.nodeHintIndex = proj.nodeIndex
+            k.lateralOffset = proj.lateralOffset
+            val computedScore = k.currentLap * 1000f + proj.progress * 900f
+            if (!k.finished) {
+                k.raceScore = maxOf(k.raceScore, computedScore)
+            }
         }
     }
 
