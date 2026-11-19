@@ -81,6 +81,8 @@ class SaveRepository(private val context: Context) {
         root.put("racesWon", p.racesWon)
         root.put("grandPrixGoldTrophies", p.grandPrixGoldTrophies)
         root.put("grandPrixBestPoints", p.grandPrixBestPoints)
+        root.put("companyLevel", p.companyLevel)
+        root.put("companyContractsCompleted", p.companyContractsCompleted)
 
         val customObj = JSONObject()
         p.kartCustomizations.forEach { (kartId, custom) ->
@@ -207,6 +209,8 @@ class SaveRepository(private val context: Context) {
             racesWon = root.optInt("racesWon", 0).coerceAtLeast(0),
             grandPrixGoldTrophies = root.optInt("grandPrixGoldTrophies", 0).coerceAtLeast(0),
             grandPrixBestPoints = root.optInt("grandPrixBestPoints", 0).coerceAtLeast(0),
+            companyLevel = root.optInt("companyLevel", 1).coerceIn(1, 10),
+            companyContractsCompleted = root.optInt("companyContractsCompleted", 0).coerceAtLeast(0),
             settings = settings
         )
     }

@@ -137,7 +137,8 @@ fun RaceHudScreen(
     onQuitToMenu: () -> Unit,
     onToggleDebug: () -> Unit = {},
     onOpenWorldMap: () -> Unit = {},
-    onEnterPortalRace: () -> Unit = {}
+    onEnterPortalRace: () -> Unit = {},
+    onUpgradeCompany: () -> Unit = {}
 ) {
     BackHandler { onPauseToggle(!isPaused) }
 
@@ -324,6 +325,125 @@ fun RaceHudScreen(
                                         color = CaramelGold
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    if (isFreeRoam) {
+                        val targetBearingRad = atan2(
+                            (hud.activeContractTargetX - hud.playerWorldX).toDouble(),
+                            (hud.activeContractTargetZ - hud.playerWorldZ).toDouble()
+                        ).toFloat()
+                        val relDeg = Math.toDegrees((targetBearingRad - hud.playerYawRad).toDouble()).toFloat()
+
+                        Column(
+                            modifier = Modifier
+                                .testTag("hud_company_card")
+                                .width(276.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(BerryDeep.copy(alpha = 0.78f))
+                                .border(
+                                    1.5.dp,
+                                    if (hud.companyCargoLoaded) MintCream else CaramelGold.copy(alpha = 0.85f),
+                                    RoundedCornerShape(18.dp)
+                                )
+                                .padding(horizontal = 11.dp, vertical = 7.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "🏢 ${hud.companyRankTitleAr} (Lv.${hud.companyLevel})",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = CaramelGold,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "راتب الشركة: +${hud.companyPassiveDividendCc} CC • عقود: ${hud.companyContractsCompleted}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MintCream,
+                                        maxLines = 1
+                                    )
+                                }
+                                if (hud.companyLevel < 7) {
+                                    Box(
+                                        modifier = Modifier
+                                            .testTag("hud_upgrade_company_button")
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(CaramelGold)
+                                            .clickable { onUpgradeCompany() }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "ترقية ${hud.companyUpgradeCostCc} CC",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = BerryDeep,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(BerryPurple.copy(alpha = 0.82f))
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .background(if (hud.companyCargoLoaded) MintCream else CaramelGold),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowUpward,
+                                        contentDescription = "اتجاه عقد الشركة",
+                                        tint = BerryDeep,
+                                        modifier = Modifier
+                                            .size(17.dp)
+                                            .rotate(relDeg)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = hud.activeContractStepAr,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = FrostingWhite,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "🎯 ${hud.activeContractTargetNameAr} • ${hud.activeContractDistanceM} م",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (hud.companyCargoLoaded) MintCream else SkyCandy,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            hud.nearbyCitizenStatusAr?.let { citizenLine ->
+                                Text(
+                                    text = citizenLine,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite.copy(alpha = 0.92f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("hud_citizen_activity_strip")
+                                )
                             }
                         }
                     }
@@ -1214,6 +1334,21 @@ private fun TrackMiniMap(hud: RaceHudSnapshot, modifier: Modifier = Modifier) {
             }
             path.close()
             drawPath(path, Color.White.copy(alpha = 0.45f), style = Stroke(width = 5f))
+
+            if (hud.isFreeRoam) {
+                val targetPt = mapPt(hud.activeContractTargetX, hud.activeContractTargetZ)
+                drawCircle(
+                    color = if (hud.companyCargoLoaded) MintCream else CaramelGold,
+                    radius = 8.5f,
+                    center = targetPt,
+                    style = Stroke(width = 2.5f)
+                )
+                drawCircle(
+                    color = if (hud.companyCargoLoaded) MintCream else CaramelGold,
+                    radius = 4.2f,
+                    center = targetPt
+                )
+            }
 
             for (dot in hud.mapDots) {
                 val p = mapPt(dot.x, dot.z)

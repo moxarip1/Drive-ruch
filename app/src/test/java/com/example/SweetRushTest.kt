@@ -456,5 +456,190 @@ class SweetRushTest {
         renderer.focusShowroomCamera("AUTO")
         assertTrue(renderer.showroomAutoRotate)
     }
+
+    @Test
+    fun `uploaded mp3 background music raw resources exist and audio engine cycles tracks cleanly`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val gumballBytes = context.resources.openRawResource(R.raw.gumball_horizon).use { it.available() }
+        val turboBytes = context.resources.openRawResource(R.raw.turbo_candy_drift).use { it.available() }
+        assertTrue("gumball_horizon.mp3 raw resource should have non-zero size", gumballBytes > 100_000)
+        assertTrue("turbo_candy_drift.mp3 raw resource should have non-zero size", turboBytes > 100_000)
+
+        val audioEngine = com.example.sweetrush.audio.CandyAudioEngine(context)
+        audioEngine.setVolumes(music = 0.8f, sfx = 0.85f)
+        audioEngine.playMusic(com.example.sweetrush.audio.MusicTrack.MENU)
+        audioEngine.switchBackgroundSong()
+        audioEngine.playMusic(com.example.sweetrush.audio.MusicTrack.RACE)
+        audioEngine.pauseMusic()
+        audioEngine.resumeMusic()
+        audioEngine.release()
+    }
+
+    @Test
+    fun `remote friend kart advances monotonically without rubber band stutter and detects friend join and leave`() {
+        val friendA = com.example.sweetrush.physics.OnlineRacerParticipant(
+            userId = "friend_a",
+            displayName = "Omar",
+            racerId = "berry_blitz",
+            kartId = "strawberry_rocket",
+            customization = KartCustomization(),
+            teamIndex = 0
+        )
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.FREE_ROAM,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            isOnlineSession = true,
+            teamSize = 2,
+            localTeamIndex = 0,
+            localDisplayName = "Mbihi",
+            onlineParticipants = listOf(friendA),
+            fillWithAi = false
+        )
+        engine.raceStarted = true
+        val remoteKart = engine.karts.first { it.isRemotePlayer && it.remoteUid == "friend_a" }
+
+        // First telemetry packet at z = 100 moving forward (+Z) at 30 m/s
+        engine.updateRemoteStates(
+            listOf(
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_a",
+                    displayName = "Omar",
+                    x = 0.0,
+                    y = remoteKart.y.toDouble(),
+                    z = 100.0,
+                    yawRad = 0.0,
+                    speed = 30.0
+                )
+            )
+        )
+        var lastZ = remoteKart.z
+        repeat(5) {
+            engine.step(1f / 60f, PlayerInputState(throttle = true))
+            assertTrue("Remote kart should advance smoothly forward every frame", remoteKart.z > lastZ)
+            lastZ = remoteKart.z
+        }
+
+        // Second packet arrives ~83ms later at z = 102.5 (30 m/s * 0.0833s) -> kart must NOT snap backward!
+        val zBeforePacket = remoteKart.z
+        engine.updateRemoteStates(
+            listOf(
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_a",
+                    displayName = "Omar",
+                    x = 0.0,
+                    y = remoteKart.y.toDouble(),
+                    z = 102.5,
+                    yawRad = 0.0,
+                    speed = 30.0
+                )
+            )
+        )
+        engine.step(1f / 60f, PlayerInputState(throttle = true))
+        assertTrue(
+            "Remote kart must continue moving forward smoothly on packet arrival without snapping backward ($zBeforePacket -> ${remoteKart.z})",
+            remoteKart.z >= zBeforePacket
+        )
+
+        // New friend joins mid-session in Open World / Gathering Hub
+        val joinDiff = engine.updateRemoteStates(
+            listOf(
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_a",
+                    displayName = "Omar",
+                    x = 0.0,
+                    y = remoteKart.y.toDouble(),
+                    z = 105.0,
+                    yawRad = 0.0,
+                    speed = 30.0
+                ),
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_b",
+                    displayName = "Khalid",
+                    x = 4.0,
+                    y = remoteKart.y.toDouble(),
+                    z = 102.0,
+                    yawRad = 0.0,
+                    speed = 25.0
+                )
+            )
+        )
+        assertEquals(listOf("Khalid"), joinDiff.joinedNames)
+        assertTrue(engine.karts.any { it.isRemotePlayer && it.remoteUid == "friend_b" })
+
+        // Friend Omar leaves the room / Open World
+        val leaveDiff = engine.updateRemoteStates(
+            listOf(
+                com.example.sweetrush.online.RoomPlayerDoc(
+                    userId = "friend_b",
+                    displayName = "Khalid",
+                    x = 4.0,
+                    y = remoteKart.y.toDouble(),
+                    z = 104.0,
+                    yawRad = 0.0,
+                    speed = 25.0
+                )
+            )
+        )
+        assertEquals(listOf("Omar"), leaveDiff.leftNames)
+        assertFalse("Departed friend kart should be removed from active 3D scene", engine.karts.any { it.remoteUid == "friend_a" })
+    }
+
+    @Test
+    fun `open world populates 71 living candy citizens across all 5 regions and executes Sweet Rush Corp logistics contracts`() {
+        assertTrue("Open world should have at least 65 living citizens", OpenWorldKingdom.citizens.size >= 65)
+        assertEquals(5, OpenWorldKingdom.citizens.map { it.region }.toSet().size)
+        assertEquals(5, OpenWorldKingdom.companyDepots.size)
+        assertEquals(5, OpenWorldKingdom.companyContracts.size)
+
+        val decoTypes = OpenWorldKingdom.decorations.map { it.type }.toSet()
+        assertTrue("Open world should include 3D Sweet Rush Corp HQ skyscraper", decoTypes.contains(DecoType.SWEET_CORP_HQ))
+        assertTrue("Open world should include 3D regional company depots", decoTypes.contains(DecoType.SWEET_CORP_DEPOT))
+
+        // Verify citizen animation pose sampling and player-proximity greeting
+        val sampleNpc = OpenWorldKingdom.citizens.first()
+        val poseFar = OpenWorldKingdom.sampleCitizenPose(sampleNpc, timeSec = 2.5f, playerX = 999f, playerZ = 999f)
+        val poseNear = OpenWorldKingdom.sampleCitizenPose(sampleNpc, timeSec = 2.5f, playerX = poseFar.x + 2f, playerZ = poseFar.z + 2f)
+        assertFalse(poseFar.isWaving)
+        assertTrue("Citizen should wave when player approaches within 16m", poseNear.isWaving)
+
+        // Verify Sweet Rush Corp. pickup -> cargo loaded -> delivery -> contract completion & promotion
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.FREE_ROAM,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            startRegion = WorldRegion.CANDY_CITY,
+            initialCompanyLevel = 1,
+            initialCompanyContractsCompleted = 1
+        )
+        assertFalse(engine.companyCargoLoaded)
+        val contract = engine.activeCompanyContract()
+        val pickupDepot = OpenWorldKingdom.companyDepotById(contract.pickupDepotId)
+        val dropoffDepot = OpenWorldKingdom.companyDepotById(contract.deliveryDepotId)
+
+        // Drive onto pickup pad
+        engine.playerKart.x = pickupDepot.padPos.x
+        engine.playerKart.z = pickupDepot.padPos.z
+        engine.playerKart.y = pickupDepot.padPos.y
+        val pickupEvents = engine.step(1f / 30f, PlayerInputState(throttle = false))
+        assertTrue("Entering pickup pad should load company cargo", engine.companyCargoLoaded)
+        assertTrue(pickupEvents.any { it.type == com.example.sweetrush.physics.RaceEventType.COMPANY_CARGO_PICKUP })
+
+        // Drive onto dropoff pad
+        engine.playerKart.x = dropoffDepot.padPos.x
+        engine.playerKart.z = dropoffDepot.padPos.z
+        engine.playerKart.y = dropoffDepot.padPos.y
+        val deliveryEvents = engine.step(1f / 30f, PlayerInputState(throttle = false))
+        assertFalse("Entering dropoff pad should unload cargo and complete contract", engine.companyCargoLoaded)
+        assertEquals(2, engine.companyContractsCompleted)
+        assertEquals(2, engine.companyLevel)
+        assertTrue(deliveryEvents.any { it.type == com.example.sweetrush.physics.RaceEventType.COMPANY_DELIVERY_COMPLETED })
+    }
 }
 

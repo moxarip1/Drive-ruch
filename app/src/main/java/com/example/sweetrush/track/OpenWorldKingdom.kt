@@ -59,6 +59,56 @@ data class WorldMiniChallenge(
     val targetSpeedKmh: Int = 0
 )
 
+data class WorldCompanyDepot(
+    val id: String,
+    val nameAr: String,
+    val branchTitleAr: String,
+    val managerNameAr: String,
+    val region: WorldRegion,
+    val padPos: Vec3,
+    val buildingPos: Vec3,
+    val buildingYawRad: Float,
+    val accentHex: Long,
+    val isHeadquarters: Boolean = false
+)
+
+data class WorldCompanyContract(
+    val id: String,
+    val titleAr: String,
+    val cargoNameAr: String,
+    val pickupDepotId: String,
+    val deliveryDepotId: String,
+    val baseRewardCredits: Int,
+    val rewardXp: Int
+)
+
+data class WorldCitizenNpc(
+    val id: String,
+    val nameAr: String,
+    val roleAr: String,
+    val variant: CitizenVariant,
+    val region: WorldRegion,
+    val homePos: Vec3,
+    val walkRadius: Float,
+    val walkSpeed: Float,
+    val phaseOffset: Float,
+    val primaryHex: Long,
+    val secondaryHex: Long,
+    val hatHex: Long,
+    val greetingAr: String
+)
+
+data class CitizenAnimatedPose(
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val yawRad: Float,
+    val bobY: Float,
+    val tiltRollRad: Float,
+    val isWaving: Boolean,
+    val distSqToPlayer: Float
+)
+
 data class TerrainChunkData(
     val cx: Int,
     val cz: Int,
@@ -88,6 +138,9 @@ object OpenWorldKingdom : WorldSurfaceSampler {
     val collectibles: List<WorldCollectible>
     val racePortals: List<WorldRacePortal>
     val miniChallenges: List<WorldMiniChallenge>
+    val companyDepots: List<WorldCompanyDepot>
+    val companyContracts: List<WorldCompanyContract>
+    val citizens: List<WorldCitizenNpc>
     val decorations: List<DecorationInstance>
     val solidObstacles: List<SolidObstacle>
     val obstacleGrid: SpatialObstacleGrid
@@ -100,12 +153,72 @@ object OpenWorldKingdom : WorldSurfaceSampler {
         collectibles = buildCollectibles()
         racePortals = buildRacePortals()
         miniChallenges = buildMiniChallenges()
+        companyDepots = buildCompanyDepots()
+        companyContracts = buildCompanyContracts()
         decorations = buildWorldDecorations()
+        citizens = buildWorldCitizens()
         solidObstacles = decorations.mapNotNull { d ->
             val r = solidCollisionRadius(d.type, d.scale)
             if (r > 0f) SolidObstacle(d.pos.x, d.pos.y, d.pos.z, r, solidHeightFor(d.type, d.scale), isBuildingDeco(d.type)) else null
         }
         obstacleGrid = SpatialObstacleGrid(solidObstacles, cellSize = 24f)
+    }
+
+    fun companyDepotById(id: String): WorldCompanyDepot =
+        companyDepots.firstOrNull { it.id == id } ?: companyDepots.first()
+
+    fun companyRankTitleAr(level: Int): String = when {
+        level <= 1 -> "متدرب في شركة سويت راش"
+        level == 2 -> "سائق شحن الحلويات"
+        level == 3 -> "مشرف خطوط التوزيع"
+        level == 4 -> "مدير فرع إقليمي"
+        level == 5 -> "مدير العمليات الملكية"
+        level == 6 -> "نائب رئيس الشركة"
+        else -> "رئيس مجلس شركة سويت راش 👑"
+    }
+
+    fun companyUpgradeCost(currentLevel: Int): Int = 220 + (currentLevel - 1) * 160
+
+    fun companyPassiveDividendForLevel(level: Int): Int = 45 + (level - 1) * 30
+
+    fun sampleCitizenPose(
+        npc: WorldCitizenNpc,
+        timeSec: Float,
+        playerX: Float = 9999f,
+        playerZ: Float = 9999f
+    ): CitizenAnimatedPose {
+        val t = timeSec * npc.walkSpeed + npc.phaseOffset
+        val localX = cos(t) * npc.walkRadius
+        val localZ = sin(t * 0.85f) * (npc.walkRadius * 0.68f)
+        val wx = npc.homePos.x + localX
+        val wz = npc.homePos.z + localZ
+        val wy = sampleHeightOnly(wx, wz)
+
+        val dxToPlayer = playerX - wx
+        val dzToPlayer = playerZ - wz
+        val distSq = dxToPlayer * dxToPlayer + dzToPlayer * dzToPlayer
+        val nearPlayer = distSq < 22f * 22f
+
+        val velX = -sin(t) * npc.walkRadius * npc.walkSpeed
+        val velZ = cos(t * 0.85f) * (npc.walkRadius * 0.68f) * (npc.walkSpeed * 0.85f)
+        val walkYaw = atan2(velX, velZ)
+        val facePlayerYaw = atan2(dxToPlayer, dzToPlayer)
+        val yaw = if (nearPlayer) facePlayerYaw else walkYaw
+
+        val stridePhase = timeSec * (if (nearPlayer) 7.5f else 5.8f) + npc.phaseOffset * 3f
+        val bobY = abs(sin(stridePhase)) * 0.14f
+        val tiltRoll = sin(stridePhase) * (if (nearPlayer) 0.14f else 0.08f)
+
+        return CitizenAnimatedPose(
+            x = wx,
+            y = wy,
+            z = wz,
+            yawRad = yaw,
+            bobY = bobY,
+            tiltRollRad = tiltRoll,
+            isWaving = nearPlayer,
+            distSqToPlayer = distSq
+        )
     }
 
     fun regionAt(x: Float, z: Float): WorldRegion {
@@ -773,6 +886,290 @@ object OpenWorldKingdom : WorldSurfaceSampler {
         )
     }
 
+    private fun buildCompanyDepots(): List<WorldCompanyDepot> {
+        return listOf(
+            WorldCompanyDepot(
+                id = "depot_city_hq",
+                nameAr = "المقر الرئيسي لشركة سويت راش",
+                branchTitleAr = "كاندي سيتي • الإدارة المركزية",
+                managerNameAr = "الرئيس التنفيذي كراميلو",
+                region = WorldRegion.CANDY_CITY,
+                padPos = Vec3(34f, sampleHeightOnly(34f, -34f), -34f),
+                buildingPos = Vec3(46f, sampleHeightOnly(46f, -46f), -46f),
+                buildingYawRad = -0.78f,
+                accentHex = 0xFFFF3D8B,
+                isHeadquarters = true
+            ),
+            WorldCompanyDepot(
+                id = "depot_choco_factory",
+                nameAr = "فرع مصنع الشوكولاتة الملكي",
+                branchTitleAr = "جبال الشوكولاتة • خط الصهر",
+                managerNameAr = "المهندس كاكاو",
+                region = WorldRegion.CHOCOLATE_MOUNTAINS,
+                padPos = Vec3(215f, sampleHeightOnly(215f, -195f), -195f),
+                buildingPos = Vec3(202f, sampleHeightOnly(202f, -210f), -210f),
+                buildingYawRad = 0.65f,
+                accentHex = 0xFFFF9800
+            ),
+            WorldCompanyDepot(
+                id = "depot_gumdrop_lab",
+                nameAr = "مختبر الجيلي والكريستال",
+                branchTitleAr = "غابة الجيلي • التطوير السكري",
+                managerNameAr = "الدكتورة جيليانا",
+                region = WorldRegion.GUMDROP_FOREST,
+                padPos = Vec3(-215f, sampleHeightOnly(-215f, -185f), -185f),
+                buildingPos = Vec3(-230f, sampleHeightOnly(-230f, -200f), -200f),
+                buildingYawRad = 0.72f,
+                accentHex = 0xFF3CE8B5
+            ),
+            WorldCompanyDepot(
+                id = "depot_cupcake_bakery",
+                nameAr = "مخبز وادي الكب كيك المركزي",
+                branchTitleAr = "وادي الكب كيك • إنتاج الكريمة",
+                managerNameAr = "الشيف فانيليا",
+                region = WorldRegion.CUPCAKE_VALLEY,
+                padPos = Vec3(-195f, sampleHeightOnly(-195f, 185f), 185f),
+                buildingPos = Vec3(-180f, sampleHeightOnly(-180f, 172f), 172f),
+                buildingYawRad = -2.2f,
+                accentHex = 0xFFD980FA
+            ),
+            WorldCompanyDepot(
+                id = "depot_coast_port",
+                nameAr = "ميناء ساحل النعناع التجاري",
+                branchTitleAr = "ساحل النعناع • التصدير البحري",
+                managerNameAr = "القبطان مينتو",
+                region = WorldRegion.PEPPERMINT_COAST,
+                padPos = Vec3(215f, sampleHeightOnly(215f, 195f), 195f),
+                buildingPos = Vec3(200f, sampleHeightOnly(200f, 182f), 182f),
+                buildingYawRad = 2.3f,
+                accentHex = 0xFF5CE1E6
+            )
+        )
+    }
+
+    private fun buildCompanyContracts(): List<WorldCompanyContract> {
+        return listOf(
+            WorldCompanyContract(
+                id = "contract_frosting_express",
+                titleAr = "عقد توريد الكريمة الفاخرة",
+                cargoNameAr = "صناديق كريمة الفراولة الملكية",
+                pickupDepotId = "depot_city_hq",
+                deliveryDepotId = "depot_cupcake_bakery",
+                baseRewardCredits = 220,
+                rewardXp = 120
+            ),
+            WorldCompanyContract(
+                id = "contract_cocoa_gold",
+                titleAr = "شحنة الكاكاو الذهبي الساخن",
+                cargoNameAr = "سبائك الشوكولاتة والكراميل",
+                pickupDepotId = "depot_cupcake_bakery",
+                deliveryDepotId = "depot_choco_factory",
+                baseRewardCredits = 250,
+                rewardXp = 135
+            ),
+            WorldCompanyContract(
+                id = "contract_gummy_crystals",
+                titleAr = "نقل بلورات الطاقة السكرية",
+                cargoNameAr = "كبشولات الجيلي المضيئة",
+                pickupDepotId = "depot_choco_factory",
+                deliveryDepotId = "depot_gumdrop_lab",
+                baseRewardCredits = 260,
+                rewardXp = 140
+            ),
+            WorldCompanyContract(
+                id = "contract_peppermint_cargo",
+                titleAr = "تصدير شحنة النعناع المثلج",
+                cargoNameAr = "أسطوانات شراب النعناع الفوار",
+                pickupDepotId = "depot_gumdrop_lab",
+                deliveryDepotId = "depot_coast_port",
+                baseRewardCredits = 280,
+                rewardXp = 150
+            ),
+            WorldCompanyContract(
+                id = "contract_hq_vip_return",
+                titleAr = "توريد أرباح الفروع للمقر الرئيسي",
+                cargoNameAr = "خزينة الحلوى الذهبية الخاصة بالشركة",
+                pickupDepotId = "depot_coast_port",
+                deliveryDepotId = "depot_city_hq",
+                baseRewardCredits = 310,
+                rewardXp = 165
+            )
+        )
+    }
+
+    private fun buildWorldCitizens(): List<WorldCitizenNpc> {
+        val list = mutableListOf<WorldCitizenNpc>()
+        val rng = Random(992025)
+        val colors = listOf(0xFFFF3D8BL, 0xFF3CE8B5L, 0xFFFFB800L, 0xFF5CE1E6L, 0xFFD980FAL, 0xFFFF5252L)
+
+        // 1. Branch Managers & Corporate Staff stationed right at the 5 Sweet Rush Corp. Depots
+        companyDepots.forEachIndexed { idx, depot ->
+            val variant = when {
+                depot.isHeadquarters -> CitizenVariant.CORP_EXECUTIVE
+                depot.region == WorldRegion.CHOCOLATE_MOUNTAINS -> CitizenVariant.FACTORY_ENGINEER
+                depot.region == WorldRegion.CUPCAKE_VALLEY -> CitizenVariant.BAKER_CHEF
+                depot.region == WorldRegion.PEPPERMINT_COAST -> CitizenVariant.PEPPERMINT_GUARD
+                else -> CitizenVariant.CORP_EXECUTIVE
+            }
+            val managerPos = depot.padPos + Vec3(5.8f, 0f, 3.5f)
+            list.add(
+                WorldCitizenNpc(
+                    id = "citizen_mgr_${depot.id}",
+                    nameAr = depot.managerNameAr,
+                    roleAr = depot.nameAr,
+                    variant = variant,
+                    region = depot.region,
+                    homePos = Vec3(managerPos.x, sampleHeightOnly(managerPos.x, managerPos.z), managerPos.z),
+                    walkRadius = 1.6f,
+                    walkSpeed = 0.7f,
+                    phaseOffset = idx * 1.1f,
+                    primaryHex = depot.accentHex,
+                    secondaryHex = 0xFFFFD54FL,
+                    hatHex = depot.accentHex,
+                    greetingAr = "مرحباً بك في ${depot.nameAr}! الشحنات والأرباح جاهزة 🏢🍬"
+                )
+            )
+            // Two logistics assistants at each depot
+            for (a in 0..1) {
+                val ax = depot.padPos.x + (if (a == 0) -6.2f else 6.4f)
+                val az = depot.padPos.z - 4.8f
+                val roleVariant = if (a == 0) CitizenVariant.FACTORY_ENGINEER else CitizenVariant.BAKER_CHEF
+                list.add(
+                    WorldCitizenNpc(
+                        id = "citizen_staff_${depot.id}_$a",
+                        nameAr = if (a == 0) "موظف الشحن سكر" else "مسؤول الجودة لوز",
+                        roleAr = "شركة سويت راش • لوجستيات",
+                        variant = roleVariant,
+                        region = depot.region,
+                        homePos = Vec3(ax, sampleHeightOnly(ax, az), az),
+                        walkRadius = 2.8f,
+                        walkSpeed = 0.95f + a * 0.2f,
+                        phaseOffset = (idx * 2 + a) * 0.85f,
+                        primaryHex = colors[(idx + a) % colors.size],
+                        secondaryHex = 0xFFFFF8F2L,
+                        hatHex = depot.accentHex,
+                        greetingAr = "نجهز صناديق الحلوى لشركة سويت راش على مدار الساعة! 📦🚚"
+                    )
+                )
+            }
+        }
+
+        // 2. Candy City Plaza & Downtown Sidewalk Residents (20 living citizens)
+        val cityNames = listOf(
+            Triple("الشيف مارشميلو", "كبير خبازي الساحة", CitizenVariant.BAKER_CHEF),
+            Triple("الشرطي نعناع", "حارس مرور كاندي سيتي", CitizenVariant.PEPPERMINT_GUARD),
+            Triple("المستشار توفي", "مدير استثمارات سويت راش", CitizenVariant.CORP_EXECUTIVE),
+            Triple("الحلواني كرز", "بائع الآيس كريم", CitizenVariant.BAKER_CHEF),
+            Triple("سارة سبرينكل", "سكان كاندي سيتي", CitizenVariant.CANDY_CITIZEN),
+            Triple("المهندس ويفر", "مهندس أبراج الوافل", CitizenVariant.FACTORY_ENGINEER),
+            Triple("الكابتن دونات", "حارس البوابة الوردية", CitizenVariant.PEPPERMINT_GUARD),
+            Triple("ليلى ماكرون", "مصممة متجر الماكرون", CitizenVariant.CANDY_CITIZEN),
+            Triple("المدير فستق", "مجلس إدارة سويت راش", CitizenVariant.CORP_EXECUTIVE),
+            Triple("رامي جيلي", "ساعي بريد الحلويات", CitizenVariant.CANDY_CITIZEN)
+        )
+        val cityGreetings = listOf(
+            "يا لها من سيارة رائعة! هل تعمل مع شركة سويت راش؟ 🏎️✨",
+            "صباح السكر! المدينة مزدحمة اليوم بالمتسابقين والشاحنات 🍭",
+            "انتبه في المنعطفات، الكريمة طازجة على الرصيف! 🧁😄",
+            "شركة سويت راش رفعت رواتب سائقي التوصيل هذا الأسبوع! 💰🏢",
+            "أهلاً بك في قلب كاندي سيتي، استمتع بالموسيقى والسرعة! 🎶🍬"
+        )
+        for (i in 0 until 20) {
+            val angle = (i.toFloat() / 20f) * (2f * PI.toFloat()) + 0.18f
+            val radius = if (i % 2 == 0) 27.5f else 54f
+            val cx = cos(angle) * radius
+            val cz = sin(angle) * radius
+            val info = cityNames[i % cityNames.size]
+            val c1 = colors[i % colors.size]
+            val c2 = colors[(i + 2) % colors.size]
+            list.add(
+                WorldCitizenNpc(
+                    id = "citizen_city_$i",
+                    nameAr = info.first,
+                    roleAr = info.second,
+                    variant = info.third,
+                    region = WorldRegion.CANDY_CITY,
+                    homePos = Vec3(cx, sampleHeightOnly(cx, cz), cz),
+                    walkRadius = 3.2f + (i % 3) * 0.9f,
+                    walkSpeed = 0.85f + (i % 4) * 0.18f,
+                    phaseOffset = i * 0.62f,
+                    primaryHex = c1,
+                    secondaryHex = c2,
+                    hatHex = colors[(i + 1) % colors.size],
+                    greetingAr = cityGreetings[i % cityGreetings.size]
+                )
+            )
+        }
+
+        // 3. Regional Village, Factory, Bakery, Forest & Boardwalk Residents across the 4 outer regions (36 citizens)
+        val regionalHubs = listOf(
+            Triple(WorldRegion.CHOCOLATE_MOUNTAINS, Vec3(255f, 0f, -220f), listOf(
+                Triple("عامل الكاكاو بندق", "مصنع الشوكولاتة", CitizenVariant.FACTORY_ENGINEER),
+                Triple("الشيف نوتيلا", "مطبخ شلال الكراميل", CitizenVariant.BAKER_CHEF),
+                Triple("الحارس فادج", "أمن قلعة الشوكولاتة", CitizenVariant.PEPPERMINT_GUARD)
+            )),
+            Triple(WorldRegion.GUMDROP_FOREST, Vec3(-250f, 0f, -205f), listOf(
+                Triple("الباحثة غامي", "مختبر غابة الجيلي", CitizenVariant.CORP_EXECUTIVE),
+                Triple("حارس الغابة توت", "دورية أشجار المصاصة", CitizenVariant.PEPPERMINT_GUARD),
+                Triple("جامع الكريستال سكر", "سكان غابة الجيلي", CitizenVariant.CANDY_CITIZEN)
+            )),
+            Triple(WorldRegion.CUPCAKE_VALLEY, Vec3(-235f, 0f, 215f), listOf(
+                Triple("الشيف كريمة", "مخبز وادي الكب كيك", CitizenVariant.BAKER_CHEF),
+                Triple("تاجر الفانيليا", "سوق الحلويات الغربي", CitizenVariant.CORP_EXECUTIVE),
+                Triple("نجمة الكب كيك", "سكان وادي الكب كيك", CitizenVariant.CANDY_CITIZEN)
+            )),
+            Triple(WorldRegion.PEPPERMINT_COAST, Vec3(250f, 0f, 225f), listOf(
+                Triple("قبطان الميناء نعناع", "إدارة رصيف الساحل", CitizenVariant.PEPPERMINT_GUARD),
+                Triple("بائع البوظة الساحلي", "كورنيش ساحل النعناع", CitizenVariant.BAKER_CHEF),
+                Triple("مدير التصدير مرجان", "فرع شركة سويت راش البحري", CitizenVariant.CORP_EXECUTIVE)
+            ))
+        )
+
+        var regNpcIdx = 0
+        for ((reg, hubCenter, roles) in regionalHubs) {
+            for (j in 0 until 9) {
+                val a = (j.toFloat() / 9f) * (2f * PI.toFloat()) + 0.35f
+                val dist = 20f + (j % 3) * 14f
+                var rx = hubCenter.x + cos(a) * dist
+                var rz = hubCenter.z + sin(a) * dist
+                if (isOnAnyRoad(rx, rz, 4.5f)) {
+                    rx += cos(a) * 12f
+                    rz += sin(a) * 12f
+                }
+                val ry = max(0.1f, sampleHeightOnly(rx, rz))
+                val roleInfo = roles[j % roles.size]
+                val c1 = colors[(regNpcIdx + j) % colors.size]
+                val c2 = colors[(regNpcIdx + j + 3) % colors.size]
+                val greeting = when (reg) {
+                    WorldRegion.CHOCOLATE_MOUNTAINS -> "شلالات الشوكولاتة تعمل بأقصى طاقة لتزويد شركة سويت راش! 🍫⚙️"
+                    WorldRegion.GUMDROP_FOREST -> "بلورات السكر في الغابة جاهزة للشحن إلى المدينة! 🍬🌲"
+                    WorldRegion.CUPCAKE_VALLEY -> "رائحة الكب كيك الطازج تملأ الوادي! مرحباً بك 🧁✨"
+                    else -> "نسيم ساحل النعناع منعش اليوم، وسفن الشحن في انتظارك! 🌊🍭"
+                }
+                list.add(
+                    WorldCitizenNpc(
+                        id = "citizen_${reg.name.lowercase()}_$j",
+                        nameAr = roleInfo.first,
+                        roleAr = roleInfo.second,
+                        variant = roleInfo.third,
+                        region = reg,
+                        homePos = Vec3(rx, ry, rz),
+                        walkRadius = 2.6f + (rng.nextFloat() * 2.2f),
+                        walkSpeed = 0.80f + rng.nextFloat() * 0.45f,
+                        phaseOffset = regNpcIdx * 0.7f,
+                        primaryHex = c1,
+                        secondaryHex = c2,
+                        hatHex = reg.accentHex,
+                        greetingAr = greeting
+                    )
+                )
+                regNpcIdx++
+            }
+        }
+
+        return list
+    }
+
     private fun buildWorldDecorations(): List<DecorationInstance> {
         val decos = mutableListOf<DecorationInstance>()
         val rng = Random(202504)
@@ -780,13 +1177,16 @@ object OpenWorldKingdom : WorldSurfaceSampler {
 
         // Spatial non-overlap circles (x, z, clearanceRadius) so NO objects/houses spawn inside each other or on roads!
         val placedCircles = mutableListOf<Triple<Float, Float, Float>>()
-        val protectedZones = listOf(
+        val protectedZones = mutableListOf(
             Triple(0f, -22f, 15f),     // Candy City spawn
             Triple(245f, -210f, 15f),  // Chocolate Mountains spawn
             Triple(-245f, -195f, 15f), // Gumdrop Forest spawn
             Triple(-230f, 200f, 15f),  // Cupcake Valley spawn
             Triple(245f, 210f, 15f)    // Peppermint Coast spawn
         )
+        for (depot in companyDepots) {
+            protectedZones.add(Triple(depot.padPos.x, depot.padPos.z, 11.5f))
+        }
 
         fun tryAddWorldDeco(
             inst: DecorationInstance,
@@ -826,6 +1226,26 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             }
             decos.add(inst)
             return true
+        }
+
+        // Place Monumental Sweet Rush Corp. Headquarters & 4 Regional Logistics Branch Depots first!
+        for (depot in companyDepots) {
+            val bType = if (depot.isHeadquarters) DecoType.SWEET_CORP_HQ else DecoType.SWEET_CORP_DEPOT
+            val bScale = if (depot.isHeadquarters) 1.28f else 1.18f
+            val bx = depot.buildingPos.x
+            val bz = depot.buildingPos.z
+            val by = sampleHeightOnly(bx, bz)
+            decos.add(
+                DecorationInstance(
+                    type = bType,
+                    pos = Vec3(bx, by, bz),
+                    rotY = depot.buildingYawRad,
+                    scale = bScale,
+                    primaryColor = depot.accentHex,
+                    secondaryColor = 0xFFFFD54FL
+                )
+            )
+            placedCircles.add(Triple(bx, bz, solidCollisionRadius(bType, bScale)))
         }
 
         // Central Candy City Landmark Fountain & inner skyline ring

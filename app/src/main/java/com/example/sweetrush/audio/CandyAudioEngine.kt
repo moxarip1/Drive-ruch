@@ -1,18 +1,17 @@
 package com.example.sweetrush.audio
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.MediaPlayer
+import com.example.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
-import kotlin.math.exp
 import kotlin.math.sin
-import kotlin.math.tanh
 
 enum class MusicTrack {
     NONE,
@@ -34,11 +33,21 @@ enum class SoundEffect {
     LAP_COMPLETE
 }
 
-class CandyAudioEngine {
+/**
+ * Audio engine for Sweet Rush: Candy World.
+ * Plays the studio MP3 background soundtracks ("Gumball Horizon" & "Turbo Candy Drift")
+ * from res/raw via MediaPlayer with continuous playlist cycling, real-time volume control,
+ * and lifecycle pause/resume support, plus lightweight arcade SFX cues.
+ */
+class CandyAudioEngine(private val context: Context? = null) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var musicJob: Job? = null
+    private val playerLock = Any()
+
+    private var mediaPlayer: MediaPlayer? = null
     private var currentTrack: MusicTrack = MusicTrack.NONE
+    private var activeRawResId: Int = 0
+    private var isPausedByLifecycle: Boolean = false
 
     @Volatile
     var musicVolume: Float = 0.72f
@@ -48,186 +57,169 @@ class CandyAudioEngine {
 
     private val sampleRate = 22050
 
+    private val playlistResIds = intArrayOf(
+        R.raw.gumball_horizon,
+        R.raw.turbo_candy_drift
+    )
+
+    fun currentSongTitle(): String = when (activeRawResId) {
+        R.raw.turbo_candy_drift -> "Turbo Candy Drift"
+        R.raw.gumball_horizon -> "Gumball Horizon"
+        else -> "Sweet Rush OST"
+    }
+
     fun setVolumes(music: Float, sfx: Float) {
         musicVolume = music.coerceIn(0f, 1f)
         sfxVolume = sfx.coerceIn(0f, 1f)
+        synchronized(playerLock) {
+            try {
+                mediaPlayer?.setVolume(musicVolume, musicVolume)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun playMusic(track: MusicTrack) {
-        if (currentTrack == track && musicJob?.isActive == true) return
-        currentTrack = track
-        musicJob?.cancel()
-        if (track == MusicTrack.NONE) return
-
-        musicJob = scope.launch {
-            val bufferSize = AudioTrack.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
-            ).coerceAtLeast(4096)
-
-            val audioTrack = try {
-                AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(bufferSize)
-                    .setTransferMode(AudioTrack.MODE_STREAM)
-                    .build()
-            } catch (_: Exception) {
-                return@launch
+        synchronized(playerLock) {
+            if (track == MusicTrack.NONE) {
+                currentTrack = MusicTrack.NONE
+                stopAndReleasePlayerLocked()
+                return
             }
 
-            try {
-                audioTrack.play()
+            val preferredResId = when (track) {
+                MusicTrack.RACE -> R.raw.turbo_candy_drift
+                MusicTrack.MENU, MusicTrack.VICTORY -> R.raw.gumball_horizon
+                MusicTrack.NONE -> 0
+            }
 
-                // 32-step high-energy polyphonic Sugar-Pop Synthwave & Arcade Racing arrangements
-                val leadNotes = when (track) {
-                    MusicTrack.MENU -> floatArrayOf(
-                        523.25f, 659.25f, 783.99f, 987.77f, 1046.50f, 987.77f, 783.99f, 659.25f,
-                        587.33f, 698.46f, 880.00f, 1046.50f, 1174.66f, 1046.50f, 880.00f, 698.46f,
-                        659.25f, 783.99f, 987.77f, 1174.66f, 1318.51f, 1174.66f, 987.77f, 783.99f,
-                        587.33f, 783.99f, 880.00f, 987.77f, 1046.50f, 880.00f, 783.99f, 659.25f
-                    )
-                    MusicTrack.RACE -> floatArrayOf(
-                        523.25f, 0f, 659.25f, 783.99f, 1046.50f, 0f, 987.77f, 880.00f,
-                        783.99f, 659.25f, 783.99f, 880.00f, 1046.50f, 1174.66f, 1318.51f, 0f,
-                        1174.66f, 1046.50f, 880.00f, 698.46f, 880.00f, 1046.50f, 1174.66f, 0f,
-                        987.77f, 880.00f, 783.99f, 880.00f, 987.77f, 1174.66f, 1318.51f, 1567.98f
-                    )
-                    MusicTrack.VICTORY -> floatArrayOf(
-                        523.25f, 659.25f, 783.99f, 1046.50f, 1046.50f, 0f, 880.00f, 1046.50f,
-                        1318.51f, 1174.66f, 1046.50f, 987.77f, 1046.50f, 1318.51f, 1567.98f, 0f
-                    )
-                    MusicTrack.NONE -> floatArrayOf(0f)
-                }
-
-                // Driving octave bass root progression (Hz)
-                val bassRoots = when (track) {
-                    MusicTrack.MENU -> floatArrayOf(
-                        130.81f, 261.63f, 130.81f, 196.00f, 146.83f, 293.66f, 146.83f, 220.00f,
-                        164.81f, 329.63f, 164.81f, 246.94f, 196.00f, 196.00f, 146.83f, 196.00f
-                    )
-                    MusicTrack.RACE -> floatArrayOf(
-                        130.81f, 261.63f, 130.81f, 261.63f, 164.81f, 329.63f, 196.00f, 261.63f,
-                        146.83f, 293.66f, 146.83f, 293.66f, 196.00f, 392.00f, 196.00f, 246.94f
-                    )
-                    MusicTrack.VICTORY -> floatArrayOf(
-                        130.81f, 261.63f, 196.00f, 261.63f, 174.61f, 349.23f, 196.00f, 261.63f
-                    )
-                    MusicTrack.NONE -> floatArrayOf(0f)
-                }
-
-                // Shimmering triad chord arp accompaniment (Hz)
-                val arpNotes = floatArrayOf(
-                    523.25f, 659.25f, 783.99f, 987.77f,
-                    587.33f, 698.46f, 880.00f, 1046.50f,
-                    659.25f, 783.99f, 987.77f, 1174.66f,
-                    587.33f, 783.99f, 987.77f, 1174.66f
-                )
-
-                val stepSamples = when (track) {
-                    MusicTrack.RACE -> (sampleRate * 60) / (152 * 4) // 152 BPM crisp 16th-note pulse
-                    MusicTrack.VICTORY -> (sampleRate * 60) / (138 * 4)
-                    else -> (sampleRate * 60) / (118 * 4)
-                }
-
-                val chunk = ShortArray(stepSamples)
-                var stepIdx = 0
-                var phaseLead = 0.0
-                var phaseLeadSub = 0.0
-                var phaseBass = 0.0
-                var phaseArp = 0.0
-                var phaseKick = 0.0
-                var lfsr = 0x5A3F19u
-
-                while (isActive) {
-                    val masterVol = musicVolume * 0.34
-                    val leadFreq = leadNotes[stepIdx % leadNotes.size]
-                    val bassFreq = bassRoots[(stepIdx / 2) % bassRoots.size] * (if (stepIdx % 2 == 1) 2f else 1f)
-                    val arpFreq = arpNotes[(stepIdx * 3) % arpNotes.size]
-
-                    // 4-on-the-floor arcade drum pattern
-                    val beatStep = stepIdx % 16
-                    val hasKick = (track != MusicTrack.MENU && (beatStep % 4 == 0)) ||
-                        (track == MusicTrack.MENU && (beatStep == 0 || beatStep == 6 || beatStep == 10))
-                    val hasSnare = (track != MusicTrack.MENU && (beatStep == 4 || beatStep == 12))
-                    val hasHat = (beatStep % 2 == 1) || (track == MusicTrack.RACE)
-
-                    if (hasKick) phaseKick = 0.0
-
-                    for (i in 0 until stepSamples) {
-                        val tNorm = i.toFloat() / stepSamples.toFloat()
-
-                        // 1) Plucky FM-tinted Candy Lead Synth
-                        var leadSample = 0.0
-                        if (leadFreq > 1f) {
-                            val envLead = exp(-tNorm * if (track == MusicTrack.RACE) 2.5 else 2.0)
-                            phaseLead += 2.0 * PI * leadFreq / sampleRate
-                            phaseLeadSub += 2.0 * PI * (leadFreq * 0.5) / sampleRate
-                            val brightMod = sin(phaseLead * 2.0) * 0.55 * envLead
-                            val leadWave = sin(phaseLead + brightMod) * 0.65 +
-                                sin(phaseLead * 3.0) * 0.14 +
-                                sin(phaseLeadSub) * 0.22
-                            leadSample = leadWave * envLead * 0.42
-                        }
-
-                        // 2) Punchy Octave Saw/Tri Bassline
-                        phaseBass += 2.0 * PI * bassFreq / sampleRate
-                        val bassEnv = exp(-tNorm * 2.2)
-                        val sawApprox = sin(phaseBass) * 0.72 + sin(phaseBass * 2.0) * 0.34 + sin(phaseBass * 3.0) * 0.16
-                        val bassSample = sawApprox * bassEnv * 0.42
-
-                        // 3) Sparkling Candy Bell Arpeggio
-                        phaseArp += 2.0 * PI * arpFreq / sampleRate
-                        val arpEnv = exp(-tNorm * 5.2)
-                        val arpSample = (sin(phaseArp) + sin(phaseArp * 2.0) * 0.25) * arpEnv * 0.17
-
-                        // 4) Drum Groove (Kick + Crisp Snare + Tight Hi-Hat)
-                        var drumSample = 0.0
-                        if (hasKick) {
-                            val kickHz = 138.0 * exp(-tNorm * 6.5) + 46.0
-                            phaseKick += 2.0 * PI * kickHz / sampleRate
-                            val kickEnv = exp(-tNorm * 5.2)
-                            drumSample += sin(phaseKick) * kickEnv * 0.55
-                        }
-                        if (hasSnare || hasHat) {
-                            lfsr = (lfsr shl 1) xor (if ((lfsr and 0x80000000u) != 0u) 0x04C11DB7u else 0u)
-                            val whiteNoise = ((lfsr and 0xFFFFu).toDouble() / 32768.0) - 1.0
-                            if (hasSnare) {
-                                val snareEnv = exp(-tNorm * 7.5)
-                                drumSample += (whiteNoise * 0.42 + sin(2.0 * PI * 195.0 * tNorm) * 0.25) * snareEnv * 0.40
-                            } else if (hasHat) {
-                                val hatEnv = exp(-tNorm * 14.0)
-                                drumSample += whiteNoise * hatEnv * 0.14
-                            }
-                        }
-
-                        val mixed = (leadSample + bassSample + arpSample + drumSample) * masterVol * 1.45
-                        val saturated = tanh(mixed)
-                        chunk[i] = (saturated * 32767.0).toInt().coerceIn(-32767, 32767).toShort()
-                    }
-                    audioTrack.write(chunk, 0, chunk.size)
-                    stepIdx++
-                }
-            } catch (_: Exception) {
-                // Safe audio fallback in headless/test environments
-            } finally {
+            // If the preferred MP3 is already playing, keep it playing smoothly without restarting
+            if (currentTrack == track && activeRawResId == preferredResId && mediaPlayer != null) {
                 try {
-                    audioTrack.stop()
-                    audioTrack.release()
+                    mediaPlayer?.setVolume(musicVolume, musicVolume)
+                    if (!isPausedByLifecycle && mediaPlayer?.isPlaying == false) {
+                        mediaPlayer?.start()
+                    }
+                    return
                 } catch (_: Exception) {
                 }
+            }
+
+            // If switching between MENU and VICTORY while Gumball Horizon is already playing, keep continuity
+            if ((track == MusicTrack.MENU || track == MusicTrack.VICTORY) &&
+                activeRawResId == R.raw.gumball_horizon &&
+                mediaPlayer != null
+            ) {
+                currentTrack = track
+                try {
+                    mediaPlayer?.setVolume(musicVolume, musicVolume)
+                    if (!isPausedByLifecycle && mediaPlayer?.isPlaying == false) {
+                        mediaPlayer?.start()
+                    }
+                    return
+                } catch (_: Exception) {
+                }
+            }
+
+            currentTrack = track
+            startRawTrackLocked(preferredResId)
+        }
+    }
+
+    /**
+     * Switches between the two studio MP3 background tracks ("Gumball Horizon" <-> "Turbo Candy Drift").
+     */
+    fun switchBackgroundSong(): String {
+        synchronized(playerLock) {
+            val nextRes = if (activeRawResId == R.raw.turbo_candy_drift) {
+                R.raw.gumball_horizon
+            } else {
+                R.raw.turbo_candy_drift
+            }
+            if (currentTrack == MusicTrack.NONE) {
+                currentTrack = MusicTrack.MENU
+            }
+            startRawTrackLocked(nextRes)
+            return currentSongTitle()
+        }
+    }
+
+    private fun startRawTrackLocked(resId: Int) {
+        stopAndReleasePlayerLocked()
+        val appCtx = context?.applicationContext ?: return
+        if (resId == 0) return
+
+        try {
+            val mp = MediaPlayer.create(appCtx, resId) ?: return
+            activeRawResId = resId
+            mp.isLooping = false
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            mp.setVolume(musicVolume, musicVolume)
+            mp.setOnCompletionListener {
+                // Automatically alternate to the other uploaded soundtrack MP3 when a song finishes
+                synchronized(playerLock) {
+                    if (currentTrack != MusicTrack.NONE) {
+                        val nextIdx = (playlistResIds.indexOf(resId) + 1).mod(playlistResIds.size)
+                        startRawTrackLocked(playlistResIds[nextIdx])
+                    }
+                }
+            }
+            mediaPlayer = mp
+            if (!isPausedByLifecycle) {
+                mp.start()
+            }
+        } catch (_: Exception) {
+            activeRawResId = resId
+        }
+    }
+
+    fun pauseMusic() {
+        synchronized(playerLock) {
+            isPausedByLifecycle = true
+            try {
+                if (mediaPlayer?.isPlaying == true) {
+                    mediaPlayer?.pause()
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun resumeMusic() {
+        synchronized(playerLock) {
+            isPausedByLifecycle = false
+            try {
+                if (currentTrack != MusicTrack.NONE && mediaPlayer != null && mediaPlayer?.isPlaying == false) {
+                    mediaPlayer?.setVolume(musicVolume, musicVolume)
+                    mediaPlayer?.start()
+                } else if (currentTrack != MusicTrack.NONE && mediaPlayer == null) {
+                    val res = if (activeRawResId != 0) activeRawResId else R.raw.gumball_horizon
+                    startRawTrackLocked(res)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun stopAndReleasePlayerLocked() {
+        val mp = mediaPlayer
+        mediaPlayer = null
+        if (mp != null) {
+            try {
+                mp.setOnCompletionListener(null)
+                if (mp.isPlaying) {
+                    mp.stop()
+                }
+            } catch (_: Exception) {
+            }
+            try {
+                mp.release()
+            } catch (_: Exception) {
             }
         }
     }
@@ -259,7 +251,7 @@ class CandyAudioEngine {
                 val env = (1f - p) * (1f - p * 0.4f)
                 phase += 2.0 * PI * hz / sampleRate
                 val wave = sin(phase) + sin(phase * 2.0) * harmonic
-                pcm[i] = (wave * env * vol * 0.30 * 32767.0).toInt()
+                pcm[i] = (wave * env * vol * 0.26 * 32767.0).toInt()
                     .coerceIn(-32767, 32767).toShort()
             }
 
@@ -292,8 +284,11 @@ class CandyAudioEngine {
     }
 
     fun release() {
-        musicJob?.cancel()
-        currentTrack = MusicTrack.NONE
+        synchronized(playerLock) {
+            currentTrack = MusicTrack.NONE
+            activeRawResId = 0
+            stopAndReleasePlayerLocked()
+        }
     }
 
     private data class Quad(val ms: Int, val startHz: Float, val endHz: Float, val harm: Float)

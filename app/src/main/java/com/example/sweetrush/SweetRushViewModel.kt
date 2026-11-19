@@ -49,6 +49,7 @@ import com.example.sweetrush.render3d.CandyWorldRenderer
 import com.example.sweetrush.render3d.RaceHudSnapshot
 import com.example.sweetrush.render3d.RenderSceneMode
 import com.example.sweetrush.storage.SaveRepository
+import com.example.sweetrush.track.OpenWorldKingdom
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -84,7 +85,7 @@ class SweetRushViewModel(
 
     private val context = appContext.applicationContext
     private val saveRepo = SaveRepository(context)
-    val audioEngine = CandyAudioEngine()
+    val audioEngine = CandyAudioEngine(context)
     val voiceChatEngine = VoiceChatEngine(context)
 
     private val _profile = MutableStateFlow(saveRepo.loadProfile())
@@ -239,6 +240,9 @@ class SweetRushViewModel(
     private val notifiedInviteKeys = HashSet<String>()
     private val shownRemoteTauntIds = HashSet<String>()
     private val syncedAcceptedReqIds = HashSet<String>()
+    private val knownRoomPlayerNamesByUid = HashMap<String, String>()
+    private var activeRoomHasReceivedInitialRoster = false
+    private var lastKnownActiveRoomCode: String? = null
     private var lastSyncedMembersSignature: List<String> = emptyList()
     private var telemetryLoopJob: Job? = null
     private var cloudSyncDebounceJob: Job? = null
@@ -306,9 +310,13 @@ class SweetRushViewModel(
             onlineRoom.collect { room ->
                 val activeCode = _activeRoomCode.value
                 if (room == null) {
-                    if (activeCode != null && _currentScreen.value == GameScreen.ONLINE_LOBBY) {
-                        // Room deleted by host or missing
+                    if (activeCode != null) {
                         onlineMatchStartedForStatus = false
+                        val hostLeftMsg = "غادر المضيف الغرفة (#$activeCode)"
+                        flashStatus(hostLeftMsg)
+                        if (_currentScreen.value == GameScreen.RACE) {
+                            showRaceToast("غادر الصديق الغرفة", hostLeftMsg, 0xFFFF3355)
+                        }
                     }
                     return@collect
                 }
@@ -346,9 +354,53 @@ class SweetRushViewModel(
         viewModelScope.launch {
             roomPlayers.collect { players ->
                 renderer.lobbyShowcasePlayers = players
+                val curRoomCode = _activeRoomCode.value
+                if (curRoomCode == null) {
+                    knownRoomPlayerNamesByUid.clear()
+                    activeRoomHasReceivedInitialRoster = false
+                    lastKnownActiveRoomCode = null
+                    return@collect
+                }
+                if (curRoomCode != lastKnownActiveRoomCode) {
+                    knownRoomPlayerNamesByUid.clear()
+                    activeRoomHasReceivedInitialRoster = false
+                    lastKnownActiveRoomCode = curRoomCode
+                }
+
+                val currentRemotes = players.filter { it.userId != currentUserId && it.userId.isNotBlank() }
+                val currentRemoteMap = currentRemotes.associate { it.userId to it.displayName.ifBlank { "صديقك" } }
+
+                if (activeRoomHasReceivedInitialRoster) {
+                    val leftFriends = knownRoomPlayerNamesByUid.filterKeys { uid -> !currentRemoteMap.containsKey(uid) }.values.toList()
+                    val joinedFriends = currentRemoteMap.filterKeys { uid -> !knownRoomPlayerNamesByUid.containsKey(uid) }.values.toList()
+
+                    val isWorldOrHub = onlineRoom.value?.let { it.isGatheringHub() || it.parsedMode() == GameMode.FREE_ROAM } == true ||
+                        renderer.physicsEngine?.isFreeRoam == true
+                    val placeAr = if (isWorldOrHub) "العالم المفتوح" else "الروم"
+
+                    for (friendName in leftFriends) {
+                        audioEngine.playSfx(SoundEffect.UI_CLICK)
+                        val msg = "غادر صديقك $friendName $placeAr 👋"
+                        flashStatus(msg)
+                        showRaceToast("خروج صديق • FRIEND LEFT", msg, 0xFFFF5252, durationMs = 4500L)
+                    }
+                    for (friendName in joinedFriends) {
+                        audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                        val msg = "انضم صديقك $friendName إلى $placeAr 🏎️"
+                        flashStatus(msg)
+                        showRaceToast("انضمام صديق • FRIEND JOINED", msg, 0xFF3CE8B5, durationMs = 4200L)
+                    }
+                }
+
+                if (players.isNotEmpty()) {
+                    knownRoomPlayerNamesByUid.clear()
+                    knownRoomPlayerNamesByUid.putAll(currentRemoteMap)
+                    activeRoomHasReceivedInitialRoster = true
+                }
+
                 val engine = renderer.physicsEngine
                 if (engine != null && engine.isOnlineSession) {
-                    engine.updateRemoteStates(players.filter { it.userId != currentUserId })
+                    engine.updateRemoteStates(currentRemotes)
                 }
             }
         }
@@ -398,6 +450,15 @@ class SweetRushViewModel(
                         voiceChatEngine.playVoiceBase64(msg.audioB64)
                     } else if (msg.msgType == "QUICK" &&
                         msg.senderUid != currentUserId &&
+                        msg.text.startsWith("🚪 ") &&
+                        msg.clientSeq >= joinedRoomEpochMs - 2000L &&
+                        shownRemoteTauntIds.add(msg.id)
+                    ) {
+                        val cleanNotice = msg.text.removePrefix("🚪 ").trim()
+                        flashStatus(cleanNotice)
+                        showRaceToast("خروج صديق • FRIEND LEFT", cleanNotice, 0xFFFF5252)
+                    } else if (msg.msgType == "QUICK" &&
+                        msg.senderUid != currentUserId &&
                         msg.text.startsWith("😏 ") &&
                         msg.clientSeq >= joinedRoomEpochMs - 2000L &&
                         (!msg.targetTeamOnly || msg.teamIndex.toInt() == localTeam) &&
@@ -429,6 +490,11 @@ class SweetRushViewModel(
     }
 
     fun setPresenceOnline(online: Boolean) {
+        if (online) {
+            audioEngine.resumeMusic()
+        } else {
+            audioEngine.pauseMusic()
+        }
         viewModelScope.launch {
             onlineRepo.updatePresence(currentUserId, online)
             if (online) {
@@ -438,6 +504,12 @@ class SweetRushViewModel(
                 }
             }
         }
+    }
+
+    fun switchBackgroundSong() {
+        audioEngine.playSfx(SoundEffect.UI_CLICK)
+        val newTitle = audioEngine.switchBackgroundSong()
+        flashStatus("الموسيقى: $newTitle")
     }
 
     private fun syncRendererWithProfile(p: PlayerProfile) {
@@ -777,14 +849,36 @@ class SweetRushViewModel(
     fun leaveOnlineRoom(navigateBackToMenu: Boolean = false) {
         val code = _activeRoomCode.value
         val room = onlineRoom.value
+        val localTeam = roomPlayers.value.firstOrNull { it.userId == currentUserId }?.teamIndex?.toInt() ?: 0
+        val isWorldOrHub = room?.let { it.isGatheringHub() || it.parsedMode() == GameMode.FREE_ROAM } == true ||
+            renderer.physicsEngine?.isFreeRoam == true
+        val placeAr = if (isWorldOrHub) "العالم المفتوح" else "الروم"
+
         stopLiveMicIfActive()
         stopTelemetryLoop()
+        knownRoomPlayerNamesByUid.clear()
+        activeRoomHasReceivedInitialRoster = false
+        lastKnownActiveRoomCode = null
         _activeRoomCode.value = null
         onlineMatchStartedForStatus = false
         lastSyncedMembersSignature = emptyList()
         if (code != null) {
+            val members = room?.memberUids ?: listOf(currentUserId)
+            val isHost = room?.hostUid == currentUserId
             viewModelScope.launch {
-                onlineRepo.leaveRoom(code, currentUserId, room?.hostUid == currentUserId)
+                if (members.size > 1) {
+                    onlineRepo.sendMessage(
+                        roomCode = code,
+                        uid = currentUserId,
+                        senderName = userDisplayName,
+                        teamIndex = localTeam,
+                        targetTeamOnly = false,
+                        msgType = "QUICK",
+                        text = "🚪 غادر صديقك $userDisplayName $placeAr 👋",
+                        memberUids = members
+                    )
+                }
+                onlineRepo.leaveRoom(code, currentUserId, isHost)
             }
         }
         if (navigateBackToMenu) {
@@ -968,6 +1062,8 @@ class SweetRushViewModel(
             initiallyCollectedCoins = p.collectedWorldCoins,
             initiallyCollectedStars = p.collectedWorldStars,
             initiallyDiscoveredRegions = p.discoveredRegions,
+            initialCompanyLevel = p.companyLevel,
+            initialCompanyContractsCompleted = p.companyContractsCompleted,
             isOnlineSession = true,
             teamSize = room.teamSize.toInt().coerceIn(1, 4),
             localTeamIndex = localTeam,
@@ -1018,7 +1114,7 @@ class SweetRushViewModel(
                         visibleToUids = room.memberUids
                     )
                 }
-                delay(110L)
+                delay(75L)
             }
         }
     }
@@ -1116,7 +1212,9 @@ class SweetRushViewModel(
             startRegion = startRegion,
             initiallyCollectedCoins = p.collectedWorldCoins,
             initiallyCollectedStars = p.collectedWorldStars,
-            initiallyDiscoveredRegions = p.discoveredRegions
+            initiallyDiscoveredRegions = p.discoveredRegions,
+            initialCompanyLevel = p.companyLevel,
+            initialCompanyContractsCompleted = p.companyContractsCompleted
         )
         _activeMode.value = mode
         _selectedTrack.value = trackId
@@ -1267,8 +1365,79 @@ class SweetRushViewModel(
                 RaceEventType.SARCASTIC_TAUNT -> {
                     showSarcasticTaunt(ev.stringArg.ifBlank { "منافس" }, ev.message)
                 }
+                RaceEventType.COMPANY_CARGO_PICKUP -> {
+                    audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                    showRaceToast(ev.message, ev.stringArg, 0xFF3CE8B5, durationMs = 3600L)
+                }
+                RaceEventType.COMPANY_DELIVERY_COMPLETED -> {
+                    audioEngine.playSfx(SoundEffect.LAP_COMPLETE)
+                    val parts = ev.stringArg.split(":")
+                    val totalCredits = parts.getOrNull(0)?.toIntOrNull() ?: 210
+                    val totalXp = parts.getOrNull(1)?.toIntOrNull() ?: 130
+                    val newCompanyLevel = parts.getOrNull(2)?.toIntOrNull() ?: (_profile.value.companyLevel)
+                    val newCompleted = parts.getOrNull(3)?.toIntOrNull() ?: (_profile.value.companyContractsCompleted + 1)
+                    val cur = _profile.value
+                    val updated = grantXpAndCredits(
+                        cur.copy(
+                            companyLevel = newCompanyLevel.coerceIn(1, 7),
+                            companyContractsCompleted = newCompleted
+                        ),
+                        totalXp,
+                        totalCredits
+                    )
+                    saveAndSync(updated)
+                    showRaceToast(
+                        ev.message,
+                        "رتبتك: ${OpenWorldKingdom.companyRankTitleAr(updated.companyLevel)}",
+                        0xFFFFB800,
+                        durationMs = 4200L
+                    )
+                }
+                RaceEventType.COMPANY_DIVIDEND_PAID -> {
+                    audioEngine.playSfx(SoundEffect.POWERUP_PICKUP)
+                    val dividendCc = ev.stringArg.toIntOrNull() ?: 45
+                    val cur = _profile.value
+                    saveAndSync(cur.copy(credits = cur.credits + dividendCc))
+                    showRaceToast(ev.message, "أرباح شركة سويت راش للحلويات", 0xFFFFD54F, durationMs = 3000L)
+                }
+                RaceEventType.CITIZEN_GREETING -> {
+                    showSarcasticTaunt(ev.stringArg.ifBlank { "سكان مملكة الحلوى" }, ev.message)
+                }
             }
         }
+    }
+
+    fun upgradeCompanyInOpenWorld() {
+        val cur = _profile.value
+        if (cur.companyLevel >= 7) {
+            audioEngine.playSfx(SoundEffect.UI_CLICK)
+            showRaceToast("أعلى رتبة في الشركة! 👑", OpenWorldKingdom.companyRankTitleAr(7), 0xFFFFD700)
+            return
+        }
+        val cost = OpenWorldKingdom.companyUpgradeCost(cur.companyLevel)
+        if (cur.credits < cost) {
+            audioEngine.playSfx(SoundEffect.COLLISION)
+            showRaceToast("رصيد غير كافٍ", "تحتاج إلى $cost CC لترقية شركة سويت راش", 0xFFFF4D6D)
+            return
+        }
+        val nextLevel = (cur.companyLevel + 1).coerceIn(1, 7)
+        val updated = grantXpAndCredits(
+            cur.copy(
+                credits = cur.credits - cost,
+                companyLevel = nextLevel
+            ),
+            addXp = 85,
+            addCredits = 0
+        )
+        renderer.physicsEngine?.companyLevel = nextLevel
+        audioEngine.playSfx(SoundEffect.LAP_COMPLETE)
+        saveAndSync(updated)
+        showRaceToast(
+            "ترقية في شركة سويت راش! 🏢",
+            "${OpenWorldKingdom.companyRankTitleAr(nextLevel)} • راتب +${OpenWorldKingdom.companyPassiveDividendForLevel(nextLevel)} CC",
+            0xFF3CE8B5,
+            durationMs = 3800L
+        )
     }
 
     fun sendSarcasticTaunt(taunt: String) {
@@ -1311,11 +1480,11 @@ class SweetRushViewModel(
         return p.copy(xp = newXp, level = newLevel, credits = p.credits + addCredits)
     }
 
-    private fun showRaceToast(title: String, subtitle: String, colorHex: Long) {
+    private fun showRaceToast(title: String, subtitle: String, colorHex: Long, durationMs: Long = 2600L) {
         val note = ToastNotification(title, subtitle, colorHex)
         _raceNotification.value = note
         viewModelScope.launch {
-            delay(2000L)
+            delay(durationMs)
             if (_raceNotification.value?.id == note.id) {
                 _raceNotification.value = null
             }

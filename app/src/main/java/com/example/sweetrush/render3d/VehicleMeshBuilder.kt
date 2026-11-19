@@ -566,27 +566,320 @@ object VehicleMeshBuilder {
     }
 
     /**
-     * Separate animated driver character centered at hip pivot (placed at (0, 0.85, -0.14) by renderer).
-     * Features candy racing jacket with frosting collar, racing gloves, and Sugar Rush candy-crested helmet.
+     * High-detail movie-style 3D Sugar Rush racer character centered at hip pivot
+     * (placed at (0, 0.85, -0.14) by renderer).
+     * Features:
+     * - Layered candy racing suit with pleated skirt/pants, belt & golden candy buckle,
+     *   open jacket lapels, candy buttons, whipped-cream collar, shoulder pads,
+     *   articulated upper/lower arms, and cuffed racing gloves gripping the wheel.
+     * - Expressive 3D head & face with ears, rosy candy blush cheeks, button nose,
+     *   cheerful smile, arched eyebrows, and multi-layered anime eyes (white sclera,
+     *   colored iris, dark pupil, and bright white specular catchlights).
+     * - 8 unique sculpted 3D hairstyles & signature headgear/accessories per racer ID.
      */
     private fun buildDriverMesh(racer: RacerSpec): GpuMesh {
         val acc = MeshAccumulator()
-        // Racing jacket torso & candy stripes
-        acc.addBeveledBox(0f, 0.22f, 0f, 0.54f, 0.52f, 0.40f, 0.88f, 0.88f, racer.suitPrimaryHex, racer.suitSecondaryHex)
-        acc.addBox(0f, 0.25f, 0f, 0.20f, 0.50f, 0.43f, racer.suitSecondaryHex)
-        // Frosted collar puff ring
-        acc.addTorus(0f, 0.50f, 0.03f, 0.17f, 0.055f, 10, 6, 0xFFFFF8F2L, racer.suitSecondaryHex, matType = CandyMaterials.MAT_MARSHMALLOW)
-        // Shoulders, arms reaching forward toward wheel, & candy-cuffed gloves
-        acc.addStrut(Vec3(-0.28f, 0.30f, 0.08f), Vec3(-0.20f, 0.20f, 0.50f), 0.078f, 6, racer.suitPrimaryHex, CandyMaterials.MAT_CANDY)
-        acc.addStrut(Vec3(0.28f, 0.30f, 0.08f), Vec3(0.20f, 0.20f, 0.50f), 0.078f, 6, racer.suitPrimaryHex, CandyMaterials.MAT_CANDY)
-        acc.addSphere(-0.20f, 0.20f, 0.52f, 0.105f, 0.105f, 0.105f, 5, 6, racer.suitSecondaryHex)
-        acc.addSphere(0.20f, 0.20f, 0.52f, 0.105f, 0.105f, 0.105f, 5, 6, racer.suitSecondaryHex)
-        // Neck & Candy Helmet + Reflective Visor + Candy Fin Crest
-        acc.addCylinder(0f, 0.44f, 0.04f, 0.13f, 0.13f, 0.18f, 8, racer.skinHex)
-        acc.addSphere(0f, 0.73f, 0.06f, 0.35f, 0.34f, 0.37f, 8, 12, racer.helmetHex, racer.suitSecondaryHex, matType = CandyMaterials.MAT_CANDY)
-        acc.addSphere(0f, 0.72f, 0.30f, 0.27f, 0.14f, 0.20f, 6, 10, racer.visorHex, racer.visorHex, matType = CandyMaterials.MAT_CHROME)
-        // Top candy swirl crest / bow on helmet
-        acc.addBeveledBox(0f, 1.00f, 0.02f, 0.10f, 0.10f, 0.34f, 0.6f, 0.8f, racer.suitSecondaryHex, 0xFFFFFFFFL, CandyMaterials.MAT_CANDY)
+        val pHex = racer.suitPrimaryHex
+        val sHex = racer.suitSecondaryHex
+        val hHex = racer.helmetHex
+        val vHex = racer.visorHex
+        val skin = racer.skinHex
+        val cream = 0xFFFFF8F2L
+        val gold = 0xFFFFD54FL
+
+        // 1. Seated Hips, Pleated Candy Skirt / Racing Shorts & Thighs
+        acc.addCylinder(0f, -0.04f, 0.02f, 0.25f, 0.21f, 0.16f, 12, sHex, pHex, matType = CandyMaterials.MAT_CANDY)
+        // Pleated candy trim around hips
+        for (i in 0 until 8) {
+            val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
+            val px = cos(a) * 0.23f
+            val pz = 0.02f + sin(a) * 0.19f
+            val col = if (i % 2 == 0) pHex else cream
+            acc.addSphere(px, 0.03f, pz, 0.055f, 0.065f, 0.055f, 4, 6, col, matType = CandyMaterials.MAT_MARSHMALLOW)
+        }
+        // Seated thighs extending forward into cockpit
+        for (side in listOf(-1f, 1f)) {
+            acc.addStrut(
+                Vec3(side * 0.11f, 0.01f, 0.05f),
+                Vec3(side * 0.12f, -0.02f, 0.30f),
+                0.072f, 6, sHex, CandyMaterials.MAT_WAFER
+            )
+        }
+
+        // 2. Racing Waist Belt & Golden Candy-Wrapper Buckle
+        acc.addCylinder(0f, 0.10f, 0.01f, 0.215f, 0.210f, 0.065f, 12, 0xFF2B1535L, gold, matType = CandyMaterials.MAT_CARAMEL)
+        acc.addBeveledBox(0f, 0.13f, 0.215f, 0.12f, 0.075f, 0.045f, 0.9f, 0.9f, gold, cream, CandyMaterials.MAT_CHROME)
+        acc.addSphere(0f, 0.13f, 0.24f, 0.032f, 0.032f, 0.020f, 5, 6, pHex, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // 3. Layered Sugar Rush Racing Jacket, Inner Candy Shirt, Buttons & Lapels
+        // Inner shirt torso
+        acc.addCylinder(0f, 0.15f, 0.0f, 0.195f, 0.175f, 0.31f, 12, cream, sHex, matType = CandyMaterials.MAT_MARSHMALLOW)
+        // Outer tailored racing jacket shell (left & right jacket panels + back)
+        acc.addBeveledBox(0f, 0.29f, -0.02f, 0.44f, 0.29f, 0.31f, 0.88f, 0.90f, pHex, sHex, CandyMaterials.MAT_CANDY)
+        // Contrasting front racing stripes & open lapels
+        for (side in listOf(-1f, 1f)) {
+            acc.addBeveledBox(side * 0.11f, 0.30f, 0.135f, 0.085f, 0.26f, 0.05f, 0.85f, 0.92f, sHex, cream, CandyMaterials.MAT_CANDY)
+            // Wafer / frosting shoulder pads
+            acc.addSphere(side * 0.235f, 0.40f, 0.01f, 0.088f, 0.068f, 0.095f, 6, 8, sHex, gold, matType = CandyMaterials.MAT_CANDY)
+        }
+        // Center candy buttons down the chest placket
+        for (by in listOf(0.22f, 0.29f, 0.36f)) {
+            acc.addSphere(0f, by, 0.158f, 0.026f, 0.026f, 0.018f, 5, 6, gold, matType = CandyMaterials.MAT_CHROME)
+        }
+        // Rear racing backpack / candy nitro pack on jacket back
+        acc.addBeveledBox(0f, 0.30f, -0.185f, 0.24f, 0.19f, 0.075f, 0.86f, 0.86f, sHex, pHex, CandyMaterials.MAT_CANDY)
+        acc.addSphere(0f, 0.30f, -0.228f, 0.055f, 0.055f, 0.028f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // 4. Frosted Whipped-Cream / Candy Scarf Collar
+        acc.addTorus(0f, 0.445f, 0.015f, 0.145f, 0.044f, 12, 6, cream, sHex, matType = CandyMaterials.MAT_MARSHMALLOW)
+
+        // 5. Articulated Arms (Upper Arm -> Elbow Joint -> Forearm -> Glove Cuff -> Sculpted Racing Glove)
+        for (side in listOf(-1f, 1f)) {
+            val shoulder = Vec3(side * 0.23f, 0.38f, 0.02f)
+            val elbow = Vec3(side * 0.25f, 0.26f, 0.21f)
+            val wrist = Vec3(side * 0.17f, 0.22f, 0.41f)
+            // Upper sleeve
+            acc.addStrut(shoulder, elbow, 0.062f, 8, pHex, CandyMaterials.MAT_CANDY)
+            // Elbow pad
+            acc.addSphere(elbow.x, elbow.y, elbow.z, 0.065f, 0.065f, 0.065f, 5, 6, sHex, matType = CandyMaterials.MAT_CANDY)
+            // Forearm sleeve
+            acc.addStrut(elbow, wrist, 0.056f, 8, pHex, CandyMaterials.MAT_CANDY)
+            // Frosted glove cuff ring
+            acc.addTorus(wrist.x, wrist.y, wrist.z, 0.058f, 0.022f, 8, 5, cream, sHex, verticalArch = true, matType = CandyMaterials.MAT_MARSHMALLOW)
+            // Racing glove fist gripping the steering wheel rim + sculpted thumb
+            val handX = side * 0.16f
+            val handY = 0.22f
+            val handZ = 0.46f
+            acc.addSphere(handX, handY, handZ, 0.068f, 0.062f, 0.074f, 6, 8, sHex, cream, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(handX - side * 0.045f, handY + 0.025f, handZ - 0.01f, 0.032f, 0.028f, 0.040f, 5, 6, cream, matType = CandyMaterials.MAT_CANDY)
+        }
+
+        // 6. Neck & Sculpted Expressive 3D Head & Face
+        acc.addCylinder(0f, 0.45f, 0.02f, 0.085f, 0.080f, 0.11f, 10, skin)
+        val headY = 0.64f
+        val headZ = 0.04f
+        // Main sculpted head with soft anime proportions
+        acc.addSphere(0f, headY, headZ, 0.215f, 0.205f, 0.210f, 10, 14, skin)
+        // Lower cheek fullness for cute Sugar Rush silhouette
+        acc.addSphere(0f, headY - 0.045f, headZ + 0.035f, 0.195f, 0.125f, 0.175f, 8, 12, skin)
+
+        // Left & Right Ears with inner ear tint
+        for (side in listOf(-1f, 1f)) {
+            acc.addSphere(side * 0.210f, headY - 0.01f, headZ - 0.01f, 0.042f, 0.058f, 0.036f, 5, 6, skin)
+            acc.addSphere(side * 0.216f, headY - 0.01f, headZ + 0.005f, 0.024f, 0.034f, 0.020f, 4, 5, 0xFFFF8DA1L)
+        }
+
+        // Rosy Candy Blush Cheeks
+        for (side in listOf(-1f, 1f)) {
+            acc.addSphere(side * 0.122f, headY - 0.042f, headZ + 0.168f, 0.044f, 0.026f, 0.022f, 5, 6, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
+        }
+
+        // Cute 3D Button Nose
+        acc.addSphere(0f, headY - 0.012f, headZ + 0.212f, 0.028f, 0.025f, 0.030f, 5, 6, skin)
+
+        // Cheerful Smiling Mouth (berry lip arch + bright white teeth smile)
+        acc.addBeveledBox(0f, headY - 0.072f, headZ + 0.188f, 0.088f, 0.030f, 0.028f, 0.8f, 0.8f, 0xFFD81B60L, 0xFFFF80ABL, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, headY - 0.066f, headZ + 0.196f, 0.064f, 0.014f, 0.018f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // Large Expressive Multi-Layer Sugar Rush Eyes (Sclera + Colored Iris + Dark Pupil + Twin Catchlights + Eyebrows)
+        for (side in listOf(-1f, 1f)) {
+            val ex = side * 0.082f
+            val ey = headY + 0.018f
+            val ez = headZ + 0.182f
+            // White sclera
+            acc.addSphere(ex, ey, ez, 0.052f, 0.058f, 0.032f, 6, 8, 0xFFFFFFFFL)
+            // Vibrant candy iris
+            acc.addSphere(ex, ey, ez + 0.016f, 0.038f, 0.044f, 0.022f, 6, 8, vHex, pHex, matType = CandyMaterials.MAT_CANDY)
+            // Deep dark pupil
+            acc.addSphere(ex, ey, ez + 0.028f, 0.023f, 0.027f, 0.014f, 5, 6, 0xFF160824L)
+            // Primary & secondary bright white specular eye catchlights
+            acc.addSphere(ex - side * 0.012f, ey + 0.015f, ez + 0.036f, 0.011f, 0.011f, 0.009f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            acc.addSphere(ex + side * 0.010f, ey - 0.012f, ez + 0.035f, 0.006f, 0.006f, 0.006f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            // Upper eyelash / eyelid liner
+            acc.addBeveledBox(ex, ey + 0.048f, ez + 0.012f, 0.086f, 0.016f, 0.026f, 0.9f, 0.9f, 0xFF230D30L)
+            // Expressive arched eyebrow
+            acc.addBeveledBox(ex, ey + 0.078f, ez + 0.008f, 0.082f, 0.018f, 0.024f, 0.85f, 0.85f, hHex, sHex)
+        }
+
+        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Headgear
+        when (racer.id) {
+            "berry_blitz" -> {
+                // Strawberry-pink hair cap + swept bangs + bouncy twin pigtails with mint leaf ribbons + Golden Strawberry Crown & brow goggles
+                val hairHex = 0xFFD81B60L
+                val hairHi = 0xFFFF5C8DL
+                // Back & top hair volume
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.03f, 0.228f, 0.195f, 0.215f, 8, 12, hairHex, hairHi, matType = CandyMaterials.MAT_CANDY)
+                // Side hair locks framing face & front swept bangs
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.175f, headY + 0.02f, headZ + 0.09f, 0.062f, 0.125f, 0.075f, 6, 8, hairHex, hairHi)
+                    acc.addSphere(side * 0.07f, headY + 0.135f, headZ + 0.155f, 0.085f, 0.055f, 0.065f, 5, 7, hairHi, hairHex)
+                    // Mint-leaf ponytail ribbon ties + bouncy strawberry pigtails
+                    val px = side * 0.24f
+                    val py = headY + 0.08f
+                    val pz = headZ - 0.05f
+                    acc.addSphere(px, py, pz, 0.052f, 0.052f, 0.052f, 5, 6, 0xFF2ED8A3L, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(px + side * 0.09f, py - 0.04f, pz - 0.04f, 0.095f, 0.145f, 0.095f, 7, 9, hairHex, hairHi, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(px + side * 0.12f, py - 0.16f, pz - 0.06f, 0.068f, 0.085f, 0.068f, 6, 8, hairHi, matType = CandyMaterials.MAT_CANDY)
+                }
+                // Forehead Racing Goggles pushed up on brow
+                acc.addTorus(0f, headY + 0.125f, headZ + 0.02f, 0.205f, 0.022f, 12, 5, cream, gold)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addCylinder(side * 0.085f, headY + 0.125f, headZ + 0.175f, 0.055f, 0.055f, 0.035f, 10, gold, matType = CandyMaterials.MAT_CHROME)
+                    acc.addSphere(side * 0.085f, headY + 0.135f, headZ + 0.195f, 0.044f, 0.044f, 0.018f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Royal Strawberry Crown on top of head
+                acc.addCylinder(0f, headY + 0.195f, headZ - 0.01f, 0.115f, 0.135f, 0.085f, 10, gold, cream, matType = CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.265f, headZ - 0.01f, 0.065f, 0.075f, 0.065f, 6, 8, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            "minty_swirl" -> {
+                // Mint-and-white swirled pompadour hair + Open-Face Peppermint Aero Helmet + Chrome Aviation Goggles on forehead
+                acc.addSphere(0f, headY + 0.055f, headZ - 0.02f, 0.232f, 0.205f, 0.222f, 9, 12, hHex, cream, matType = CandyMaterials.MAT_CANDY)
+                // Mint pompadour swirl quiff peeking out front
+                acc.addSphere(0f, headY + 0.155f, headZ + 0.165f, 0.095f, 0.068f, 0.085f, 6, 8, 0xFF3CE8B5L, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Peppermint swirl ear pods on helmet sides
+                for (side in listOf(-1f, 1f)) {
+                    acc.addCylinder(side * 0.225f, headY, headZ, 0.075f, 0.075f, 0.045f, 10, 0xFFFF2448L, cream, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(side * 0.245f, headY + 0.02f, headZ, 0.032f, 0.055f, 0.055f, 5, 6, 0xFF3CE8B5L, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Twin chrome aviation goggles on helmet brow + top peppermint fin
+                for (side in listOf(-1f, 1f)) {
+                    acc.addTorus(side * 0.085f, headY + 0.13f, headZ + 0.185f, 0.052f, 0.016f, 10, 5, 0xFFE5EAF0L, gold, verticalArch = true, matType = CandyMaterials.MAT_CHROME)
+                    acc.addSphere(side * 0.085f, headY + 0.13f, headZ + 0.192f, 0.042f, 0.042f, 0.016f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                acc.addBeveledBox(0f, headY + 0.25f, headZ - 0.02f, 0.065f, 0.085f, 0.26f, 0.6f, 0.8f, 0xFFFF2448L, cream, CandyMaterials.MAT_CANDY)
+            }
+
+            "coco_dash" -> {
+                // Spiky dark-chocolate layered hair locks + Golden Caramel DJ Racing Headphones + Amber Visor Crest
+                val chocoHair = 0xFF3B1E12L
+                val caramelHi = 0xFFD99B52L
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.03f, 0.225f, 0.19f, 0.215f, 8, 12, chocoHair, caramelHi, matType = CandyMaterials.MAT_CARAMEL)
+                // Sculpted spiky chocolate hair tufts across top & front
+                val spikeOffsets = listOf(
+                    Triple(0f, 0.23f, 0.08f),
+                    Triple(-0.11f, 0.21f, 0.06f),
+                    Triple(0.11f, 0.21f, 0.06f),
+                    Triple(-0.08f, 0.22f, -0.08f),
+                    Triple(0.08f, 0.22f, -0.08f),
+                    Triple(0f, 0.15f, 0.17f)
+                )
+                for ((sx, sy, sz) in spikeOffsets) {
+                    acc.addCylinder(sx, headY + sy - 0.06f, headZ + sz, 0.068f, 0.012f, 0.12f, 6, chocoHair, caramelHi, matType = CandyMaterials.MAT_CARAMEL)
+                }
+                // Golden Caramel Over-Ear DJ Headphones
+                acc.addTorus(0f, headY + 0.06f, headZ, 0.235f, 0.028f, 14, 6, gold, 0xFF4E2A1EL, verticalArch = true, matType = CandyMaterials.MAT_CHROME)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.235f, headY, headZ, 0.048f, 0.082f, 0.076f, 6, 8, gold, 0xFF3B1E12L, matType = CandyMaterials.MAT_CHROME)
+                    acc.addSphere(side * 0.258f, headY, headZ, 0.022f, 0.048f, 0.044f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Sleek flip-up amber forehead visor bar
+                acc.addBeveledBox(0f, headY + 0.115f, headZ + 0.185f, 0.26f, 0.052f, 0.045f, 0.85f, 0.85f, vHex, gold, CandyMaterials.MAT_EMISSIVE)
+            }
+
+            "jelly_spark" -> {
+                // Translucent Gummy-Bear Ears Racing Hood + Neon Berry Bob Hair + Glowing Cyan Star Glasses on brow
+                val gummyHood = pHex
+                val gummyHi = sHex
+                // Gummy bear racing hood wrapping the head (leaving face open)
+                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.235f, 0.215f, 0.220f, 9, 12, gummyHood, gummyHi, matType = CandyMaterials.MAT_GUMMY)
+                // Side neon hair bangs peeking from hood
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.155f, headY + 0.05f, headZ + 0.135f, 0.058f, 0.105f, 0.055f, 5, 7, 0xFF00E5FFL, gummyHood, matType = CandyMaterials.MAT_GUMMY)
+                    // Cute round 3D Gummy Bear Ears on top corners of the hood
+                    acc.addSphere(side * 0.165f, headY + 0.215f, headZ + 0.02f, 0.075f, 0.078f, 0.048f, 6, 8, gummyHood, gummyHi, matType = CandyMaterials.MAT_GUMMY)
+                    acc.addSphere(side * 0.165f, headY + 0.215f, headZ + 0.048f, 0.042f, 0.044f, 0.022f, 5, 6, 0xFFFFF59DL, matType = CandyMaterials.MAT_EMISSIVE)
+                    // Glowing cyan star goggles resting on forehead
+                    acc.addSphere(side * 0.088f, headY + 0.125f, headZ + 0.185f, 0.058f, 0.046f, 0.022f, 5, 6, 0xFF76FF03L, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+            }
+
+            "caramel_nova" -> {
+                // Golden-toffee hair + long sculpted streaming ponytail + Winged Valkyrie Butterscotch Crown Tiara
+                val goldHair = 0xFFE6A100L
+                val toffeeHi = 0xFFFFE082L
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.226f, 0.198f, 0.215f, 8, 12, goldHair, toffeeHi, matType = CandyMaterials.MAT_CARAMEL)
+                // Long flowing golden ponytail arching behind the driver
+                acc.addSphere(0f, headY + 0.06f, headZ - 0.22f, 0.065f, 0.065f, 0.065f, 5, 6, pHex, matType = CandyMaterials.MAT_CHROME)
+                acc.addStrut(
+                    Vec3(0f, headY + 0.05f, headZ - 0.23f),
+                    Vec3(0f, headY - 0.14f, headZ - 0.42f),
+                    0.078f, 8, goldHair, CandyMaterials.MAT_CARAMEL
+                )
+                acc.addSphere(0f, headY - 0.16f, headZ - 0.44f, 0.065f, 0.085f, 0.075f, 6, 8, toffeeHi, goldHair, matType = CandyMaterials.MAT_CARAMEL)
+                // Golden Valkyrie Tiara Crown + Swept Side Wings
+                acc.addBeveledBox(0f, headY + 0.165f, headZ + 0.155f, 0.22f, 0.075f, 0.045f, 0.7f, 0.85f, gold, cream, CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.175f, headZ + 0.182f, 0.036f, 0.048f, 0.022f, 5, 6, 0xFFFF3D00L, matType = CandyMaterials.MAT_EMISSIVE)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addStrut(
+                        Vec3(side * 0.20f, headY + 0.08f, headZ + 0.04f),
+                        Vec3(side * 0.31f, headY + 0.24f, headZ - 0.08f),
+                        0.036f, 6, gold, CandyMaterials.MAT_CHROME
+                    )
+                }
+            }
+
+            "vanilla_twirl" -> {
+                // Frosted vanilla twin curls + Puffed Whipped-Cream Pastry Chef Beret topped with sprinkles & Maraschino Cherry
+                val vanillaHair = 0xFFFFF3D6L
+                val pinkCurl = 0xFFFF85C2L
+                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.222f, 0.185f, 0.210f, 8, 12, vanillaHair, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Twin vanilla side-curls framing the cheeks
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.195f, headY - 0.05f, headZ + 0.08f, 0.065f, 0.115f, 0.068f, 6, 8, vanillaHair, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
+                }
+                // Puffed Pastry Chef Beret Hat
+                acc.addCylinder(0f, headY + 0.145f, headZ - 0.01f, 0.205f, 0.215f, 0.048f, 12, pinkCurl, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.235f, headZ - 0.01f, 0.255f, 0.115f, 0.245f, 8, 12, cream, pinkCurl, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Rainbow sprinkles + Glossy Maraschino Cherry on top of beret
+                for (sp in 0 until 8) {
+                    val a = (sp.toFloat() / 8f) * (2f * PI.toFloat())
+                    val sx = cos(a) * 0.14f
+                    val sz = headZ - 0.01f + sin(a) * 0.14f
+                    acc.addSphere(sx, headY + 0.31f, sz, 0.026f, 0.018f, 0.018f, 4, 5, SPRINKLE_PALETTE[sp % SPRINKLE_PALETTE.size], matType = CandyMaterials.MAT_CANDY)
+                }
+                acc.addSphere(0f, headY + 0.355f, headZ - 0.01f, 0.058f, 0.058f, 0.058f, 6, 8, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            "glazed_gus" -> {
+                // Chocolate-glazed hair + Frosted Donut Captain Cap with a sculpted mini glazed donut on top + Donut Earmuffs
+                val doughHex = 0xFFE6A95CL
+                val glazeHex = 0xFFFF4D94L
+                acc.addSphere(0f, headY + 0.04f, headZ - 0.02f, 0.228f, 0.19f, 0.215f, 8, 12, 0xFF4A2518L, doughHex, matType = CandyMaterials.MAT_CARAMEL)
+                // Captain Cap visor brim & crown
+                acc.addBeveledBox(0f, headY + 0.135f, headZ + 0.175f, 0.25f, 0.032f, 0.11f, 0.85f, 0.9f, 0xFF3A1D12L, gold, CandyMaterials.MAT_CARAMEL)
+                acc.addCylinder(0f, headY + 0.14f, headZ - 0.01f, 0.21f, 0.23f, 0.11f, 12, doughHex, glazeHex, matType = CandyMaterials.MAT_WAFER)
+                // Sculpted frosted donut ring crowning the cap
+                acc.addTorus(0f, headY + 0.265f, headZ - 0.01f, 0.145f, 0.055f, 14, 7, glazeHex, doughHex, matType = CandyMaterials.MAT_CARAMEL)
+                // Side Donut Earmuffs
+                for (side in listOf(-1f, 1f)) {
+                    acc.addTorus(side * 0.225f, headY, headZ, 0.055f, 0.024f, 10, 5, glazeHex, doughHex, verticalArch = true, matType = CandyMaterials.MAT_CARAMEL)
+                }
+            }
+
+            else -> {
+                // "fizz_pop": Fluffy Dual Cotton-Candy Space Buns (Pink & Sky-Blue) + Fizzy Pop-Rock Antenna Headband
+                val pinkFluff = 0xFFFF4081L
+                val blueFluff = 0xFF18FFFFL
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.225f, 0.195f, 0.215f, 8, 12, pinkFluff, blueFluff, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Left Pink & Right Sky-Blue Cotton-Candy Space Buns
+                acc.addSphere(-0.185f, headY + 0.205f, headZ - 0.01f, 0.110f, 0.110f, 0.110f, 7, 10, pinkFluff, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0.185f, headY + 0.205f, headZ - 0.01f, 0.110f, 0.110f, 0.110f, 7, 10, blueFluff, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                // Twin Fizzy Antenna Springs with glowing candy orbs
+                for (side in listOf(-1f, 1f)) {
+                    val orbCol = if (side < 0) blueFluff else pinkFluff
+                    acc.addStrut(
+                        Vec3(side * 0.08f, headY + 0.18f, headZ + 0.04f),
+                        Vec3(side * 0.14f, headY + 0.34f, headZ + 0.08f),
+                        0.018f, 6, gold, CandyMaterials.MAT_CHROME
+                    )
+                    acc.addSphere(side * 0.14f, headY + 0.355f, headZ + 0.08f, 0.042f, 0.042f, 0.042f, 5, 6, orbCol, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Forehead Pop-Rock Neon Visor Shades
+                acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.185f, 0.25f, 0.052f, 0.036f, 0.9f, 0.9f, blueFluff, pinkFluff, CandyMaterials.MAT_EMISSIVE)
+            }
+        }
+
         return acc.build()
     }
 

@@ -322,6 +322,7 @@ fun SettingsScreen(
     statusMessage: String?,
     onUpdateSettings: ((GameSettings) -> GameSettings) -> Unit,
     onRestoreDefaults: () -> Unit,
+    onSwitchMusicTrack: () -> Unit = {},
     onSignOutClick: () -> Unit = {},
     onBack: () -> Unit
 ) {
@@ -392,7 +393,19 @@ fun SettingsScreen(
                         }
                     }
 
-                    Text("MUSIC VOLUME (${(s.musicVolume * 100).toInt()}%)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("MUSIC VOLUME (${(s.musicVolume * 100).toInt()}%)", style = MaterialTheme.typography.labelLarge, color = FrostingWhite)
+                        SettingChip(
+                            text = "تبديل الأغنية • Switch Track",
+                            selected = true,
+                            onClick = onSwitchMusicTrack,
+                            modifier = Modifier.testTag("switch_music_track_button")
+                        )
+                    }
                     Slider(
                         value = s.musicVolume,
                         onValueChange = { v -> onUpdateSettings { it.copy(musicVolume = v) } },

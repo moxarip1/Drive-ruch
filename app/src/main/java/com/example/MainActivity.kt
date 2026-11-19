@@ -440,6 +440,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         friendCode = friendCode,
                                         statusMessage = statusBanner,
                                         onUpdateSettings = viewModel::updateSettings,
+                                        onSwitchMusicTrack = viewModel::switchBackgroundSong,
                                         onRestoreDefaults = viewModel::restoreDefaultSettings,
                                         onSignOutClick = {
                                             signOutFromGoogle(
@@ -492,7 +493,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         },
                                         onToggleDebug = viewModel::toggleDebugTelemetry,
                                         onOpenWorldMap = { viewModel.navigateTo(GameScreen.WORLD_MAP) },
-                                        onEnterPortalRace = viewModel::enterNearbyPortalRace
+                                        onEnterPortalRace = viewModel::enterNearbyPortalRace,
+                                        onUpgradeCompany = viewModel::upgradeCompanyInOpenWorld
                                     )
                                 }
 

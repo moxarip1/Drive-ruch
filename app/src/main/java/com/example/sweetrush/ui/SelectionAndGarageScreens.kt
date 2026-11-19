@@ -392,6 +392,18 @@ private fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle)
     com.example.sweetrush.model.KartBodyStyle.MARSHMALLOW_SPEEDSTER -> "أسطوانات مارشميلو محمصة • جسر بسكويت وشوكولاتة • غزل البنات"
 }
 
+private fun racerCharacterLookAr(racerId: String): String = when (racerId) {
+    "berry_blitz" -> "ذيل حصان مع فيونكة نعناع وحلوى • سترة سباق وتنورة مطوية • عيون أنمي زمردية"
+    "minty_swirl" -> "قبعة كابتن نعناع مع نظارات طيار • وشاح سباق متطاير • سترة رسمية مخططة"
+    "coco_dash" -> "تاج كراميل ذهبي ملكي • ياقة كريمة وعباءة كاكاو فاخرة • حزام سباق ذهبي"
+    "jelly_spark" -> "شعر جيلي شائك متوهج • سماعات DJ ونظارات نيون • سترة سايبر حامضة"
+    "caramel_nova" -> "خوذة كراميل ذهبية بقرون أجنحة • درع كتف لامع • قفازات سباق محترفة"
+    "vanilla_twirl" -> "قبعة شيف فانيليا مع كرزة وتفاصيل كريمة • ضفائر جانبية • مريلة مخبز ملكية"
+    "glazed_gus" -> "كاب دونات مقلوب مع نظارات شمسية • طوق دونات مزجج بالرشات • سترة دريفت"
+    "fizz_pop" -> "قرون استشعار فوارة متوهجة • تسريحة صودا مزدوجة • نظارات فقاعات كربونية"
+    else -> "شخصية ثلاثية الأبعاد بتفاصيل سينمائية كاملة"
+}
+
 @Composable
 fun GarageAndCharacterScreen(
     initialTab: Int, // 0 = Characters, 1 = Karts, 2 = Customize, 3 = Upgrades
@@ -411,7 +423,7 @@ fun GarageAndCharacterScreen(
 ) {
     BackHandler(onBack = onBack)
     var activeTab by remember(initialTab) { mutableIntStateOf(initialTab) }
-    var activeCamPreset by remember { mutableStateOf("AUTO") }
+    var activeCamPreset by remember(initialTab) { mutableStateOf(if (initialTab == 0) "DRIVER" else "AUTO") }
 
     val selectedKart = CatalogData.kartById(profile.selectedKartId)
     val selectedRacer = CatalogData.racerById(profile.selectedRacerId)
@@ -523,6 +535,7 @@ fun GarageAndCharacterScreen(
                         // Interactive 3D Bakery Camera Angle Quick-Focus Bar
                         val cameraPresets = listOf(
                             "AUTO" to "360° تلقائي",
+                            "DRIVER" to "السائق 3D",
                             "FRONT" to "الأمام",
                             "SIDE" to "الجانب",
                             "WHEELS" to "الإطارات",
@@ -629,8 +642,8 @@ fun GarageAndCharacterScreen(
                                         activeTab = idx
                                         when (idx) {
                                             0 -> {
-                                                activeCamPreset = "FRONT"
-                                                onFocusCamera("FRONT")
+                                                activeCamPreset = "DRIVER"
+                                                onFocusCamera("DRIVER")
                                             }
                                             1 -> {
                                                 activeCamPreset = "AUTO"
@@ -687,7 +700,11 @@ fun GarageAndCharacterScreen(
                                                 if (selected) CaramelGold else Color.White.copy(alpha = 0.2f),
                                                 RoundedCornerShape(16.dp)
                                             )
-                                            .clickable { onSelectRacer(racer.id) }
+                                            .clickable {
+                                                onSelectRacer(racer.id)
+                                                activeCamPreset = "DRIVER"
+                                                onFocusCamera("DRIVER")
+                                            }
                                             .padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -709,7 +726,13 @@ fun GarageAndCharacterScreen(
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text("${racer.name} — ${racer.title}", style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
-                                            Text(racer.personality, style = MaterialTheme.typography.bodyMedium, color = FrostingWhite.copy(alpha = 0.82f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                text = racerCharacterLookAr(racer.id),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = CaramelGold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                             Text("الحلوى الخاصة: ${racer.signaturePowerUp.displayName}", style = MaterialTheme.typography.labelSmall, color = MintCream)
                                         }
                                         if (!unlocked) {

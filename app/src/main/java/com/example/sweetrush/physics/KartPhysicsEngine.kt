@@ -20,6 +20,8 @@ import com.example.sweetrush.track.OpenWorldKingdom
 import com.example.sweetrush.track.SurfaceType
 import com.example.sweetrush.track.TrackGenerator
 import com.example.sweetrush.track.Vec3
+import com.example.sweetrush.track.WorldCompanyContract
+import com.example.sweetrush.track.WorldCompanyDepot
 import com.example.sweetrush.track.WorldRacePortal
 import com.example.sweetrush.track.WorldSurfaceSampler
 import kotlin.math.PI
@@ -125,8 +127,18 @@ data class KartRuntimeState(
     var remoteTargetYawRad: Float = yawRad,
     var remoteTargetSpeed: Float = 0f,
     var remoteTargetSteerRad: Float = 0f,
+    var remoteVelX: Float = 0f,
+    var remoteVelZ: Float = 0f,
+    var remoteYawRate: Float = 0f,
+    var remoteSyncIntervalSec: Float = 0.08f,
+    var remoteLastPacketWallNs: Long = 0L,
     var remoteHasUpdate: Boolean = false,
     var remoteSyncAgeSec: Float = 0f
+)
+
+data class OnlineRosterDiff(
+    val joinedNames: List<String> = emptyList(),
+    val leftNames: List<String> = emptyList()
 )
 
 data class OnlineRacerParticipant(
@@ -155,7 +167,11 @@ enum class RaceEventType {
     STAR_COLLECTED,
     REGION_DISCOVERED,
     WORLD_CHALLENGE_DONE,
-    SARCASTIC_TAUNT
+    SARCASTIC_TAUNT,
+    COMPANY_CARGO_PICKUP,
+    COMPANY_DELIVERY_COMPLETED,
+    COMPANY_DIVIDEND_PAID,
+    CITIZEN_GREETING
 }
 
 data class RaceEvent(
@@ -182,7 +198,9 @@ class KartPhysicsEngine(
     val localTeamIndex: Int = 0,
     val localDisplayName: String = "",
     val onlineParticipants: List<OnlineRacerParticipant> = emptyList(),
-    val fillWithAi: Boolean = true
+    val fillWithAi: Boolean = true,
+    initialCompanyLevel: Int = 1,
+    initialCompanyContractsCompleted: Int = 0
 ) {
     val isFreeRoam: Boolean = (mode == GameMode.FREE_ROAM)
     val track: GeneratedTrack = TrackGenerator.getTrack(trackId)
@@ -194,7 +212,7 @@ class KartPhysicsEngine(
         else -> trackSpec.laps
     }
 
-    val karts: List<KartRuntimeState>
+    val karts: java.util.concurrent.CopyOnWriteArrayList<KartRuntimeState>
     val playerKart: KartRuntimeState
     val itemBoxes: MutableList<ActiveItemBox>
     val droppedHazards: MutableList<DroppedHazard> = mutableListOf()
@@ -206,6 +224,28 @@ class KartPhysicsEngine(
     val completedWorldMiniChallenges: MutableSet<String> = mutableSetOf()
     var currentRegion: WorldRegion = startRegion
     var nearbyRacePortal: WorldRacePortal? = null
+
+    // Open-World Sweet Rush Corp. (شركة سويت راش للحلويات) & Living Citizens state
+    @Volatile var companyLevel: Int = initialCompanyLevel.coerceIn(1, 10)
+    @Volatile var companyContractsCompleted: Int = initialCompanyContractsCompleted.coerceAtLeast(0)
+    @Volatile var activeCompanyContractIndex: Int =
+        if (OpenWorldKingdom.companyContracts.isNotEmpty()) {
+            initialCompanyContractsCompleted.coerceAtLeast(0) % OpenWorldKingdom.companyContracts.size
+        } else 0
+    @Volatile var companyCargoLoaded: Boolean = false
+    private var companyDividendTimerSec: Float = 0f
+    private var citizenGreetingCooldownSec: Float = 0f
+    private var lastGreetedCitizenId: String = ""
+    @Volatile var nearbyCitizenStatusAr: String? = null
+
+    fun activeCompanyContract(): WorldCompanyContract =
+        OpenWorldKingdom.companyContracts[activeCompanyContractIndex % OpenWorldKingdom.companyContracts.size]
+
+    fun activeCompanyTargetDepot(): WorldCompanyDepot {
+        val contract = activeCompanyContract()
+        val targetId = if (companyCargoLoaded) contract.deliveryDepotId else contract.pickupDepotId
+        return OpenWorldKingdom.companyDepotById(targetId)
+    }
 
     var countdownSeconds: Float = if (mode == GameMode.PRACTICE || isFreeRoam) 0f else 3.4f
     var raceStarted: Boolean = (mode == GameMode.PRACTICE || isFreeRoam)
@@ -456,7 +496,7 @@ class KartPhysicsEngine(
             }.toMutableList()
         }
 
-        karts = roster
+        karts = java.util.concurrent.CopyOnWriteArrayList(roster)
         playerKart = karts.first { it.isPlayer }
         lastPlayerPos = playerKart.position
         discoveredRegions.add(currentRegion)
@@ -543,7 +583,7 @@ class KartPhysicsEngine(
         resolveKartCollisions(events)
 
         if (isFreeRoam) {
-            stepOpenWorldInteractions(events)
+            stepOpenWorldInteractions(dt, events)
         } else {
             updateStandings(events)
         }
@@ -552,18 +592,136 @@ class KartPhysicsEngine(
         return events
     }
 
-    fun updateRemoteStates(remotePlayers: List<RoomPlayerDoc>) {
-        if (!isOnlineSession) return
+    fun updateRemoteStates(remotePlayers: List<RoomPlayerDoc>): OnlineRosterDiff {
+        if (!isOnlineSession) return OnlineRosterDiff()
+        val nowNs = System.nanoTime()
         val byUid = remotePlayers.associateBy { it.userId }
+        val leftNames = mutableListOf<String>()
+        val joinedNames = mutableListOf<String>()
+
+        // 1. Remove any remote karts whose player left the room or open world
+        val existingRemotes = karts.filter { it.isRemotePlayer }
+        for (existing in existingRemotes) {
+            if (!byUid.containsKey(existing.remoteUid)) {
+                leftNames.add(existing.displayName)
+                karts.remove(existing)
+            }
+        }
+
+        val existingByUid = karts.filter { it.isRemotePlayer }.associateBy { it.remoteUid }.toMutableMap()
+
+        // 2. Dynamically spawn any new friend who joined mid-session (e.g. Gathering Hub / Open World / Room)
+        val validTeamSize = if (teamSize in listOf(1, 2, 4)) teamSize else 1
+        val numTeams = (8 / validTeamSize).coerceIn(1, 4)
+        for (doc in remotePlayers) {
+            if (doc.userId.isBlank() || existingByUid.containsKey(doc.userId)) continue
+            val hasValidCoords = abs(doc.x) > 0.01 || abs(doc.z) > 0.01
+            val spawnX = if (hasValidCoords) doc.x.toFloat() else playerKart.x + cos(playerKart.yawRad) * 4.2f - sin(playerKart.yawRad) * 4.5f
+            val spawnZ = if (hasValidCoords) doc.z.toFloat() else playerKart.z - sin(playerKart.yawRad) * 4.2f - cos(playerKart.yawRad) * 4.5f
+            val spawnY = if (hasValidCoords) doc.y.toFloat() else surfaceSampler.sampleSurface(spawnX, spawnZ, playerKart.y).height
+            val spawnYaw = if (hasValidCoords) doc.yawRad.toFloat() else playerKart.yawRad
+
+            val custom = KartCustomization(
+                paintId = doc.paintId.ifBlank { "default" },
+                wheelDesign = enumValues<WheelDesign>().firstOrNull { it.name == doc.wheelId } ?: WheelDesign.PEPPERMINT_SWIRL,
+                exhaustStyle = enumValues<ExhaustStyle>().firstOrNull { it.name == doc.exhaustId } ?: ExhaustStyle.SUGAR_SPARK,
+                decoration = enumValues<KartDecoration>().firstOrNull { it.name == doc.decoId } ?: KartDecoration.NONE
+            )
+            val newKart = KartRuntimeState(
+                racer = CatalogData.racerById(doc.racerId),
+                kart = CatalogData.kartById(doc.kartId),
+                customization = custom,
+                isPlayer = false,
+                x = spawnX,
+                y = spawnY,
+                z = spawnZ,
+                yawRad = spawnYaw,
+                totalLapsToFinish = totalLaps,
+                position = (karts.size + 1).coerceAtMost(8),
+                isRemotePlayer = true,
+                remoteUid = doc.userId,
+                displayName = doc.displayName.ifBlank { "Friend" },
+                teamIndex = doc.teamIndex.toInt().coerceIn(0, numTeams - 1),
+                remoteTargetX = spawnX,
+                remoteTargetY = spawnY,
+                remoteTargetZ = spawnZ,
+                remoteTargetYawRad = spawnYaw,
+                remoteTargetSpeed = doc.speed.toFloat(),
+                remoteTargetSteerRad = doc.steerVisualRad.toFloat(),
+                remoteVelX = sin(spawnYaw) * doc.speed.toFloat(),
+                remoteVelZ = cos(spawnYaw) * doc.speed.toFloat(),
+                remoteLastPacketWallNs = nowNs,
+                remoteHasUpdate = hasValidCoords
+            )
+            karts.add(newKart)
+            existingByUid[doc.userId] = newKart
+            joinedNames.add(newKart.displayName)
+        }
+
+        // 3. Update target pose & compute smooth velocity / angular velocity vectors for existing remote karts
         for (k in karts) {
             if (!k.isRemotePlayer) continue
             val doc = byUid[k.remoteUid] ?: continue
+            val inX = doc.x.toFloat()
+            val inY = doc.y.toFloat()
+            val inZ = doc.z.toFloat()
+            val inYaw = doc.yawRad.toFloat()
+            val inSpeed = doc.speed.toFloat()
+
+            // Ignore uninitialized default (0,0,0) lobby document before remote player sends first telemetry packet
+            val isDefaultZero = abs(inX) < 0.001f && abs(inY) < 0.001f && abs(inZ) < 0.001f && abs(inSpeed) < 0.001f
+            if (isDefaultZero && !k.remoteHasUpdate) {
+                k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
+                continue
+            }
+
+            val packetDt = if (k.remoteLastPacketWallNs > 0L) {
+                ((nowNs - k.remoteLastPacketWallNs) / 1_000_000_000.0f).coerceIn(0.03f, 0.35f)
+            } else {
+                0.08f
+            }
+
+            // Skip duplicate snapshot emission if coordinates & yaw did not change
+            val movedSq = (inX - k.remoteTargetX) * (inX - k.remoteTargetX) + (inZ - k.remoteTargetZ) * (inZ - k.remoteTargetZ)
+            val yawDiff = normalizeAngle(inYaw - k.remoteTargetYawRad)
+            if (k.remoteHasUpdate && movedSq < 0.0001f && abs(yawDiff) < 0.0005f && abs(inSpeed - k.remoteTargetSpeed) < 0.01f) {
+                k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
+                k.isDrifting = doc.drifting
+                k.isNitroActive = doc.nitroActive
+                continue
+            }
+
+            k.remoteLastPacketWallNs = nowNs
+            k.remoteSyncIntervalSec = (k.remoteSyncIntervalSec * 0.65f + packetDt * 0.35f).coerceIn(0.045f, 0.25f)
+
+            val headingVx = sin(inYaw) * inSpeed
+            val headingVz = cos(inYaw) * inSpeed
+            if (k.remoteHasUpdate && movedSq < 225f) {
+                val obsVx = (inX - k.remoteTargetX) / packetDt
+                val obsVz = (inZ - k.remoteTargetZ) / packetDt
+                // Blend observed chord velocity with heading velocity for dead-reckoning continuity
+                k.remoteVelX = headingVx * 0.68f + obsVx * 0.32f
+                k.remoteVelZ = headingVz * 0.68f + obsVz * 0.32f
+                k.remoteYawRate = (yawDiff / packetDt).coerceIn(-3.6f, 3.6f)
+            } else {
+                k.remoteVelX = headingVx
+                k.remoteVelZ = headingVz
+                k.remoteYawRate = 0f
+            }
+
+            if (!k.remoteHasUpdate) {
+                k.x = inX
+                k.y = inY
+                k.z = inZ
+                k.yawRad = inYaw
+            }
+
             k.teamIndex = doc.teamIndex.toInt().coerceIn(0, 3)
-            k.remoteTargetX = doc.x.toFloat()
-            k.remoteTargetY = doc.y.toFloat()
-            k.remoteTargetZ = doc.z.toFloat()
-            k.remoteTargetYawRad = doc.yawRad.toFloat()
-            k.remoteTargetSpeed = doc.speed.toFloat()
+            k.remoteTargetX = inX
+            k.remoteTargetY = inY
+            k.remoteTargetZ = inZ
+            k.remoteTargetYawRad = inYaw
+            k.remoteTargetSpeed = inSpeed
             k.remoteTargetSteerRad = doc.steerVisualRad.toFloat()
             k.remoteSyncAgeSec = 0f
             k.remoteHasUpdate = true
@@ -576,39 +734,83 @@ class KartPhysicsEngine(
             k.isDrifting = doc.drifting
             k.isNitroActive = doc.nitroActive
         }
+
+        return OnlineRosterDiff(joinedNames = joinedNames, leftNames = leftNames)
     }
 
     private fun stepRemoteKart(k: KartRuntimeState, dt: Float) {
         if (!k.remoteHasUpdate) return
-        k.remoteSyncAgeSec = (k.remoteSyncAgeSec + dt).coerceAtMost(0.45f)
-        val extrapTime = k.remoteSyncAgeSec.coerceAtMost(0.28f)
-        val predX = k.remoteTargetX + sin(k.remoteTargetYawRad) * k.remoteTargetSpeed * extrapTime
-        val predZ = k.remoteTargetZ + cos(k.remoteTargetYawRad) * k.remoteTargetSpeed * extrapTime
-        val blend = (14f * dt).coerceIn(0.05f, 0.85f)
+        k.remoteSyncAgeSec = (k.remoteSyncAgeSec + dt).coerceAtMost(0.55f)
 
-        val prevDistSq = (predX - k.x) * (predX - k.x) + (predZ - k.z) * (predZ - k.z)
-        if (prevDistSq > 400f) {
-            // Hard snap if packet was delayed over 20m
+        // Smooth velocity dead-reckoning with gentle decay after 1.6x packet interval so karts never stutter or rubber-band
+        val maxExtrap = (k.remoteSyncIntervalSec * 1.8f).coerceIn(0.10f, 0.32f)
+        val extrapTime = k.remoteSyncAgeSec.coerceAtMost(maxExtrap)
+        val predYaw = k.remoteTargetYawRad + k.remoteYawRate * (extrapTime * 0.65f)
+        val predX = k.remoteTargetX + k.remoteVelX * extrapTime
+        val predZ = k.remoteTargetZ + k.remoteVelZ * extrapTime
+
+        val errX = predX - k.x
+        val errZ = predZ - k.z
+        val distSq = errX * errX + errZ * errZ
+
+        if (distSq > 900f) {
+            // Hard snap only if teleported > 30m (e.g. region fast-travel)
             k.x = predX
             k.y = k.remoteTargetY
             k.z = predZ
-            k.yawRad = k.remoteTargetYawRad
+            k.yawRad = predYaw
+            k.vx = k.remoteVelX
+            k.vz = k.remoteVelZ
         } else {
-            k.x += (predX - k.x) * blend
-            k.z += (predZ - k.z) * blend
+            // Critically-damped spring + velocity integration: moves continuously every 60fps frame with zero stepping
+            val catchupRate = if (distSq > 16f) 14.5f else 9.5f
+            val corrAlpha = (catchupRate * dt).coerceIn(0.04f, 0.55f)
+            k.x += k.remoteVelX * dt + errX * corrAlpha
+            k.z += k.remoteVelZ * dt + errZ * corrAlpha
+
+            val yawAlpha = (12.5f * dt).coerceIn(0.05f, 0.65f)
+            k.yawRad = lerpAngle(k.yawRad + k.remoteYawRate * 0.5f * dt, predYaw, yawAlpha)
+
             val groundY = surfaceSampler.sampleSurface(k.x, k.z, k.y).height
             val targetY = maxOf(k.remoteTargetY, groundY)
-            k.y += (targetY - k.y) * blend
-            k.yawRad = lerpAngle(k.yawRad, k.remoteTargetYawRad, blend)
+            k.y += (targetY - k.y) * (14f * dt).coerceIn(0.08f, 0.75f)
+            k.isGrounded = (k.y - groundY) <= 0.24f
         }
 
-        k.speed = k.remoteTargetSpeed
+        // Smooth speed, wheel rotation, 4-wheel suspension & chassis roll/pitch so remote character & kart look 100% alive
+        k.speed += (k.remoteTargetSpeed - k.speed) * (14f * dt).coerceIn(0.1f, 0.85f)
         k.vx = sin(k.yawRad) * k.speed
         k.vz = cos(k.yawRad) * k.speed
-        k.steerVisualRad += (k.remoteTargetSteerRad - k.steerVisualRad) * (12f * dt).coerceAtMost(1f)
+        k.steerVisualRad += (k.remoteTargetSteerRad - k.steerVisualRad) * (14f * dt).coerceAtMost(1f)
         k.wheelSpinRad += k.speed * dt * 1.45f
-        val targetRoll = (-k.steerVisualRad * 0.16f).coerceIn(-0.18f, 0.18f)
-        k.bodyRollRad += (targetRoll - k.bodyRollRad) * (10f * dt).coerceAtMost(1f)
+
+        val targetRoll = (if (k.isDrifting) -k.steerVisualRad * 0.30f else -k.steerVisualRad * 0.16f).coerceIn(-0.20f, 0.20f)
+        k.bodyRollRad += (targetRoll - k.bodyRollRad) * (11f * dt).coerceAtMost(1f)
+        val targetPitch = if (k.isNitroActive) -0.045f else 0f
+        k.bodyPitchRad += (targetPitch - k.bodyPitchRad) * (9f * dt).coerceAtMost(1f)
+
+        val fwdX = sin(k.yawRad)
+        val fwdZ = cos(k.yawRad)
+        val rightX = cos(k.yawRad)
+        val rightZ = -sin(k.yawRad)
+        val wheelLocalOffsets = arrayOf(
+            -0.92f to 0.96f,
+            0.92f to 0.96f,
+            -0.96f to -0.96f,
+            0.96f to -0.96f
+        )
+        for (i in 0 until 4) {
+            val (lx, lz) = wheelLocalOffsets[i]
+            val wx = k.x + rightX * lx + fwdX * lz
+            val wz = k.z + rightZ * lz + fwdZ * lz
+            val wGround = surfaceSampler.sampleSurface(wx, wz, k.y).height
+            val clearance = k.y - wGround
+            val comp = ((0.58f - clearance) / 0.58f).coerceIn(0f, 1f)
+            k.wheelCompression[i] = comp
+            k.wheelContacts[i] = clearance <= 0.24f
+            val targetOffset = if (k.wheelContacts[i]) (comp - 0.5f) * 0.18f else -0.08f
+            k.wheelYOffsets[i] += (targetOffset - k.wheelYOffsets[i]) * (16f * dt).coerceAtMost(1f)
+        }
     }
 
     private fun stepSingleKart(
@@ -1011,7 +1213,7 @@ class KartPhysicsEngine(
         }
     }
 
-    private fun stepOpenWorldInteractions(events: MutableList<RaceEvent>) {
+    private fun stepOpenWorldInteractions(dt: Float, events: MutableList<RaceEvent>) {
         val p = playerKart
         val reg = OpenWorldKingdom.regionAt(p.x, p.z)
         if (reg != currentRegion) {
@@ -1064,6 +1266,107 @@ class KartPhysicsEngine(
                     events.add(RaceEvent(RaceEventType.WORLD_CHALLENGE_DONE, ch.title, stringArg = ch.id))
                 }
             }
+        }
+
+        // =========================================================================
+        // SWEET RUSH CORP. (شركة سويت راش للحلويات) LOGISTICS CONTRACTS & DIVIDENDS
+        // =========================================================================
+        val contract = activeCompanyContract()
+        val targetDepot = activeCompanyTargetDepot()
+        val dxDepot = p.x - targetDepot.padPos.x
+        val dzDepot = p.z - targetDepot.padPos.z
+        val distDepotSq = dxDepot * dxDepot + dzDepot * dzDepot
+
+        if (!companyCargoLoaded) {
+            // Driving into the Pickup Depot loads the shipment
+            if (distDepotSq < 15.0f * 15.0f) {
+                companyCargoLoaded = true
+                p.nitroFuel = (p.nitroFuel + 0.35f).coerceAtMost(1.0f)
+                val destDepot = OpenWorldKingdom.companyDepotById(contract.deliveryDepotId)
+                events.add(
+                    RaceEvent(
+                        type = RaceEventType.COMPANY_CARGO_PICKUP,
+                        message = "📦 تم استلام شحنة: ${contract.cargoNameAr}",
+                        stringArg = "وجهتك: ${destDepot.nameAr}"
+                    )
+                )
+            }
+        } else {
+            // Driving into the Delivery Depot completes the contract & pays out Company Salary!
+            if (distDepotSq < 16.0f * 16.0f) {
+                companyCargoLoaded = false
+                companyContractsCompleted++
+                val bonusCredits = (companyLevel - 1) * 45
+                val totalCredits = contract.baseRewardCredits + bonusCredits
+                val totalXp = contract.rewardXp + (companyLevel - 1) * 15
+                if (companyContractsCompleted % 2 == 0 && companyLevel < 7) {
+                    companyLevel++
+                }
+                activeCompanyContractIndex = (activeCompanyContractIndex + 1) % OpenWorldKingdom.companyContracts.size
+                p.boostTimer = maxOf(p.boostTimer, 1.8f)
+                p.nitroFuel = 1.0f
+                events.add(
+                    RaceEvent(
+                        type = RaceEventType.COMPANY_DELIVERY_COMPLETED,
+                        message = "🏢 تم التسليم لشركة سويت راش! +$totalCredits CC",
+                        stringArg = "$totalCredits:$totalXp:$companyLevel:$companyContractsCompleted"
+                    )
+                )
+            }
+        }
+
+        // Periodic Passive Company Dividend Payouts while roaming & operating in the Open World
+        companyDividendTimerSec += dt
+        if (companyDividendTimerSec >= 26f) {
+            companyDividendTimerSec = 0f
+            val dividendCc = OpenWorldKingdom.companyPassiveDividendForLevel(companyLevel)
+            events.add(
+                RaceEvent(
+                    type = RaceEventType.COMPANY_DIVIDEND_PAID,
+                    message = "💰 أرباح شركة سويت راش: +$dividendCc CC",
+                    stringArg = dividendCc.toString()
+                )
+            )
+        }
+
+        // =========================================================================
+        // LIVING OPEN-WORLD CITIZENS PROXIMITY & GREETINGS
+        // =========================================================================
+        if (citizenGreetingCooldownSec > 0f) {
+            citizenGreetingCooldownSec = (citizenGreetingCooldownSec - dt).coerceAtLeast(0f)
+        }
+        val timeSec = raceElapsedMs / 1000f
+        var closestCitizen: com.example.sweetrush.track.WorldCitizenNpc? = null
+        var closestDistSq = 22f * 22f
+        for (npc in OpenWorldKingdom.citizens) {
+            // Fast coarse check around homePos before sampling exact walk loop
+            val cdx = p.x - npc.homePos.x
+            val cdz = p.z - npc.homePos.z
+            if (cdx * cdx + cdz * cdz > 32f * 32f) continue
+            val pose = OpenWorldKingdom.sampleCitizenPose(npc, timeSec, p.x, p.z)
+            if (pose.distSqToPlayer < closestDistSq) {
+                closestDistSq = pose.distSqToPlayer
+                closestCitizen = npc
+            }
+        }
+        if (closestCitizen != null) {
+            nearbyCitizenStatusAr = "👋 ${closestCitizen.nameAr} (${closestCitizen.roleAr}): ${closestCitizen.greetingAr}"
+            if (closestDistSq < 14.5f * 14.5f &&
+                citizenGreetingCooldownSec <= 0f &&
+                closestCitizen.id != lastGreetedCitizenId
+            ) {
+                lastGreetedCitizenId = closestCitizen.id
+                citizenGreetingCooldownSec = 9.5f
+                events.add(
+                    RaceEvent(
+                        type = RaceEventType.CITIZEN_GREETING,
+                        message = closestCitizen.greetingAr,
+                        stringArg = "${closestCitizen.nameAr} • ${closestCitizen.roleAr}"
+                    )
+                )
+            }
+        } else {
+            nearbyCitizenStatusAr = null
         }
     }
 

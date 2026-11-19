@@ -53,7 +53,17 @@ enum class DecoType {
     ICE_CREAM_PARLOR,
     MACARON_TOWER,
     PEPPERMINT_LIGHTHOUSE,
-    WAFFLE_SKYSCRAPER
+    WAFFLE_SKYSCRAPER,
+    SWEET_CORP_HQ,
+    SWEET_CORP_DEPOT
+}
+
+enum class CitizenVariant {
+    BAKER_CHEF,
+    CANDY_CITIZEN,
+    CORP_EXECUTIVE,
+    FACTORY_ENGINEER,
+    PEPPERMINT_GUARD
 }
 
 enum class SurfaceType(val displayName: String, val gripMultiplier: Float) {
@@ -180,6 +190,8 @@ fun solidCollisionRadius(type: DecoType, scale: Float): Float = when (type) {
     DecoType.CHOCOLATE_CASTLE -> 5.65f * scale
     DecoType.GUMDROP_HILL -> 5.9f * scale
     DecoType.CANDY_FACTORY -> 6.1f * scale
+    DecoType.SWEET_CORP_DEPOT -> 5.4f * scale
+    DecoType.SWEET_CORP_HQ -> 7.6f * scale
 }
 
 fun solidHeightFor(type: DecoType, scale: Float): Float = when (type) {
@@ -187,6 +199,8 @@ fun solidHeightFor(type: DecoType, scale: Float): Float = when (type) {
     DecoType.CANDY_BENCH, DecoType.MARSHMALLOW_BUSH, DecoType.JELLYBEAN_BUSH -> 2.6f * scale
     DecoType.ROAD_SIGN, DecoType.CANDY_LAMP -> 5.5f * scale
     DecoType.WAFFLE_SKYSCRAPER, DecoType.PEPPERMINT_LIGHTHOUSE, DecoType.CHOCOLATE_CASTLE, DecoType.CANDY_FACTORY -> 16f * scale
+    DecoType.SWEET_CORP_DEPOT -> 12.5f * scale
+    DecoType.SWEET_CORP_HQ -> 24f * scale
     else -> 9.5f * scale
 }
 
@@ -195,7 +209,7 @@ fun isBuildingDeco(type: DecoType): Boolean = when (type) {
     DecoType.CHOCOLATE_CASTLE, DecoType.DONUT_BUILDING, DecoType.CANDY_FACTORY,
     DecoType.ICE_CREAM_PARLOR, DecoType.MACARON_TOWER, DecoType.PEPPERMINT_LIGHTHOUSE,
     DecoType.WAFFLE_SKYSCRAPER, DecoType.SPECTATOR_STAND, DecoType.STRAWBERRY_FOUNTAIN,
-    DecoType.CHOCOLATE_WATERFALL -> true
+    DecoType.CHOCOLATE_WATERFALL, DecoType.SWEET_CORP_HQ, DecoType.SWEET_CORP_DEPOT -> true
     else -> false
 }
 

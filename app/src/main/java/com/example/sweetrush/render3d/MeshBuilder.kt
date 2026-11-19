@@ -2,6 +2,7 @@ package com.example.sweetrush.render3d
 
 import android.opengl.GLES30
 import com.example.sweetrush.model.CatalogData
+import com.example.sweetrush.track.CitizenVariant
 import com.example.sweetrush.track.DecoType
 import com.example.sweetrush.track.GeneratedTrack
 import com.example.sweetrush.track.Vec3
@@ -687,7 +688,8 @@ object MeshFactory {
             DecoType.ICE_CREAM_PARLOR, DecoType.MACARON_TOWER, DecoType.CUPCAKE_TOWER -> 5.0f
             DecoType.STRAWBERRY_FOUNTAIN, DecoType.CHOCOLATE_WATERFALL, DecoType.WAFFLE_SKYSCRAPER,
             DecoType.SPECTATOR_STAND, DecoType.ANIMATED_BILLBOARD -> 5.4f
-            DecoType.CHOCOLATE_CASTLE, DecoType.GUMDROP_HILL, DecoType.CANDY_FACTORY -> 6.8f
+            DecoType.CHOCOLATE_CASTLE, DecoType.GUMDROP_HILL, DecoType.CANDY_FACTORY, DecoType.SWEET_CORP_DEPOT -> 6.8f
+            DecoType.SWEET_CORP_HQ -> 8.2f
         }
         if (contactShadowR > 0f) {
             acc.addShadowOval(contactShadowR, contactShadowR, segs = 14, alpha = 0.34f)
@@ -943,6 +945,69 @@ object MeshFactory {
                 }
                 acc.addBox(0f, 1.4f, 3.90f, 2.8f, 2.6f, 0.22f, c1, matType = CandyMaterials.MAT_EMISSIVE)
             }
+            DecoType.SWEET_CORP_HQ -> {
+                // Grand Sweet Rush Confectionery Corp. Headquarters (المقر الرئيسي لشركة سويت راش للحلويات)
+                val gold = 0xFFFFD54FL
+                val cream = 0xFFFFF8F2L
+                // 1. Marble-Frosting Corporate Plaza Podium & Golden Steps
+                acc.addBox(0f, 0.55f, 0f, 13.8f, 1.1f, 10.6f, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(0f, 1.15f, 0f, 13.0f, 0.28f, 9.8f, gold, matType = CandyMaterials.MAT_CHROME)
+                // 2. Central Executive Glass & Wafer Atrium Tower
+                acc.addBox(0f, 8.2f, 0f, 7.6f, 14.2f, 6.8f, 0xFF3A1B4EL, matType = CandyMaterials.MAT_CANDY)
+                acc.addBox(0f, 15.6f, 0f, 8.4f, 0.9f, 7.6f, gold, matType = CandyMaterials.MAT_CHROME)
+                // 3. Twin Flanking Golden-Wafer Executive Wings + Rooftop Macaron Domes
+                for (side in listOf(-1f, 1f)) {
+                    val wx = side * 4.8f
+                    acc.addBox(wx, 6.4f, 0f, 3.4f, 10.6f, 5.8f, 0xFFE6A95CL, matType = CandyMaterials.MAT_WAFER)
+                    acc.addBox(wx, 11.9f, 0f, 3.8f, 0.65f, 6.2f, c1, matType = CandyMaterials.MAT_CARAMEL)
+                    acc.addCylinder(wx, 12.2f, 0f, 1.65f, 1.45f, 1.8f, 12, c2, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    acc.addSphere(wx, 14.2f, 0f, 1.45f, 0.95f, 1.45f, 6, 10, gold, matType = CandyMaterials.MAT_CHROME)
+                    // Illuminated vertical glass curtain strips on wings
+                    acc.addBox(wx, 6.4f, 2.95f, 1.5f, 8.6f, 0.14f, 0xFF80FFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(wx, 6.4f, -2.95f, 1.5f, 8.6f, 0.14f, 0xFF80FFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // 4. Illuminated Corporate Window Bands & Grand Executive Lobby Canopy
+                for (fy in listOf(4.2f, 7.2f, 10.2f, 13.2f)) {
+                    acc.addBox(0f, fy, 3.45f, 6.2f, 1.25f, 0.16f, 0xFFFFF59DL, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(0f, fy, -3.45f, 6.2f, 1.25f, 0.16f, 0xFFFFF59DL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                // Front Golden Wafer Columns & Illuminated Lobby Entrance
+                for (cx in listOf(-2.6f, -1.1f, 1.1f, 2.6f)) {
+                    acc.addCylinder(cx, 1.1f, 4.35f, 0.32f, 0.28f, 3.6f, 10, gold, cream, matType = CandyMaterials.MAT_CHROME)
+                }
+                acc.addBox(0f, 4.85f, 4.25f, 6.8f, 0.55f, 1.9f, c1, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 2.6f, 3.46f, 3.4f, 3.0f, 0.22f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+                // Giant Neon Corporate Billboard Sign on Upper Facade
+                acc.addBeveledBox(0f, 16.6f, 3.55f, 7.2f, 1.55f, 0.45f, 0.92f, 0.92f, 0xFF230B36L, gold, CandyMaterials.MAT_CANDY)
+                acc.addBox(0f, 16.6f, 3.82f, 6.5f, 0.98f, 0.10f, c1, matType = CandyMaterials.MAT_EMISSIVE)
+                // 5. Monumental Rooftop Golden Crown Spire & Giant Glowing Corporate Donut Emblem
+                acc.addCylinder(0f, 16.0f, 0f, 2.4f, 1.6f, 2.6f, 14, gold, cream, matType = CandyMaterials.MAT_CHROME)
+                acc.addTorus(0f, 20.6f, 0f, 2.15f, 0.62f, 18, 8, c1, gold, verticalArch = true, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addSphere(0f, 20.6f, 0f, 0.85f, 0.85f, 0.85f, 7, 10, 0xFF80FFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            DecoType.SWEET_CORP_DEPOT -> {
+                // Regional Sweet Rush Corp. Logistics Branch & Cargo Depot (فرع ومستودع شركة سويت راش)
+                val gold = 0xFFFFD54FL
+                val cream = 0xFFFFF8F2L
+                // Foundation platform & main logistics warehouse hall
+                acc.addBox(0f, 0.35f, 0f, 10.6f, 0.7f, 7.8f, 0xFF4A2518L, matType = CandyMaterials.MAT_CARAMEL)
+                acc.addBox(0f, 3.2f, -0.3f, 9.6f, 5.2f, 6.4f, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBox(0f, 6.0f, -0.3f, 10.2f, 0.75f, 7.0f, c1, matType = CandyMaterials.MAT_CARAMEL)
+                // Twin Loading Dock Bays with glowing shipment Roll-Up Doors & striped canopy
+                for (side in listOf(-1f, 1f)) {
+                    acc.addBox(side * 2.2f, 2.0f, 2.95f, 2.8f, 2.8f, 0.22f, c2, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addBox(side * 2.2f, 3.75f, 3.45f, 3.2f, 0.38f, 1.3f, c1, matType = CandyMaterials.MAT_CANDY)
+                }
+                // Twin Translucent Gummy / Frosting Syrup Silos on the roof/side
+                for (side in listOf(-1f, 1f)) {
+                    acc.addCylinder(side * 3.4f, 6.3f, -0.6f, 1.15f, 1.15f, 3.4f, 12, c2, cream, matType = CandyMaterials.MAT_GUMMY)
+                    acc.addSphere(side * 3.4f, 9.7f, -0.6f, 1.18f, 0.85f, 1.18f, 6, 10, gold, matType = CandyMaterials.MAT_CHROME)
+                }
+                // Central Rooftop Corporate Sign & Rotating-Style Golden Crown Emblem
+                acc.addBeveledBox(0f, 7.2f, 2.5f, 5.8f, 1.35f, 0.42f, 0.9f, 0.9f, 0xFF28103EL, gold, CandyMaterials.MAT_CANDY)
+                acc.addBox(0f, 7.2f, 2.75f, 5.1f, 0.85f, 0.10f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addTorus(0f, 9.2f, 0f, 1.25f, 0.36f, 14, 7, c1, gold, verticalArch = true, matType = CandyMaterials.MAT_EMISSIVE)
+            }
         }
         return acc.build()
     }
@@ -1072,6 +1137,225 @@ object MeshFactory {
         acc.addTorus(0f, 2.4f, -7.8f, 4.6f, 0.42f, 18, 8, 0xFFFF3D8BL, 0xFFFFD54FL, verticalArch = true, matType = CandyMaterials.MAT_EMISSIVE)
         acc.addBeveledBox(0f, 5.2f, -7.5f, 5.4f, 1.25f, 0.45f, 0.95f, 0.95f, 0xFF2B1040L, 0xFFFF3D8BL, CandyMaterials.MAT_CANDY)
         acc.addBox(0f, 5.2f, -7.24f, 4.8f, 0.82f, 0.08f, 0xFFFFE066L, matType = CandyMaterials.MAT_EMISSIVE)
+
+        return acc.build()
+    }
+
+    /**
+     * Glowing 3D Pickup / Delivery Logistics Pad Ring placed in front of each Sweet Rush Corp. Depot.
+     */
+    fun buildCompanyDepotBeaconRingMesh(accentHex: Long): GpuMesh {
+        val acc = MeshAccumulator()
+        val gold = 0xFFFFD54FL
+        // Glowing outer & inner ground rings
+        acc.addTorus(0f, 0.18f, 0f, 4.8f, 0.22f, 24, 6, accentHex, gold, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addTorus(0f, 0.22f, 0f, 3.2f, 0.14f, 20, 6, 0xFFFFFFFFL, accentHex, matType = CandyMaterials.MAT_EMISSIVE)
+        // 4 Corner Candy Pylons around the loading zone
+        for (i in 0 until 4) {
+            val a = (i.toFloat() / 4f) * (2f * PI.toFloat()) + 0.785f
+            val px = cos(a) * 4.8f
+            val pz = sin(a) * 4.8f
+            acc.addCylinder(px, 0f, pz, 0.24f, 0.18f, 1.8f, 8, gold, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CHROME)
+            acc.addSphere(px, 2.0f, pz, 0.34f, 0.34f, 0.34f, 6, 8, accentHex, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+        // Floating 3D Candy Cargo Crate & Crown Icon above the pad center
+        acc.addBeveledBox(0f, 2.4f, 0f, 1.35f, 1.15f, 1.35f, 0.88f, 0.88f, accentHex, gold, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, 2.4f, 0f, 1.42f, 0.24f, 1.42f, gold, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addBox(0f, 2.4f, 0f, 0.24f, 1.22f, 1.42f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        return acc.build()
+    }
+
+    /**
+     * 3D Sweet Rush Corp. Cargo Pack mounted on the player's kart when hauling an active shipment.
+     */
+    fun buildKartCargoShipmentMesh(): GpuMesh {
+        val acc = MeshAccumulator()
+        val gold = 0xFFFFD54FL
+        val pink = 0xFFFF3D8BL
+        val cyan = 0xFF3CE8B5L
+        acc.addBeveledBox(0f, 0f, 0f, 0.82f, 0.56f, 0.62f, 0.88f, 0.88f, pink, gold, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, 0.02f, 0f, 0.86f, 0.12f, 0.66f, gold, matType = CandyMaterials.MAT_CHROME)
+        acc.addBox(0f, 0f, 0f, 0.14f, 0.60f, 0.66f, cyan, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addCylinder(-0.26f, 0.28f, 0f, 0.14f, 0.14f, 0.26f, 8, cyan, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addCylinder(0.26f, 0.28f, 0f, 0.14f, 0.14f, 0.26f, 8, gold, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        return acc.build()
+    }
+
+    /**
+     * High-detail 3D Living Open-World Candy Citizen / Worker NPC Mesh (~1.85m tall).
+     * Features:
+     * - Ground contact shadow disc, candy boots, legs, and variant-specific outfit
+     *   (Baker Chef apron, Corporate Executive suit & golden tie, Candy Citizen jacket,
+     *   Factory Engineer overall & belt, or Peppermint Marshal Guard uniform).
+     * - Expressive 3D head & face with rosy blush cheeks, button nose, smiling mouth,
+     *   large anime eyes with colored irises, dark pupils & white catchlights, and ears.
+     * - Variant-specific 3D headgear & held work/candy prop.
+     */
+    fun buildCandyCitizenMesh(
+        variant: CitizenVariant,
+        c1: Long,
+        c2: Long,
+        hatHex: Long
+    ): GpuMesh {
+        val acc = MeshAccumulator()
+        val cream = 0xFFFFF8F2L
+        val gold = 0xFFFFD54FL
+        val skin = when (variant) {
+            CitizenVariant.BAKER_CHEF -> 0xFFFFDFC4L
+            CitizenVariant.CORP_EXECUTIVE -> 0xFFF5C6A5L
+            CitizenVariant.FACTORY_ENGINEER -> 0xFFE8B48AL
+            CitizenVariant.PEPPERMINT_GUARD -> 0xFFFFE4CCL
+            CitizenVariant.CANDY_CITIZEN -> 0xFFFFD7B8L
+        }
+
+        // 1. Subtle ground contact shadow disc
+        acc.addCylinder(0f, 0.02f, 0f, 0.52f, 0.52f, 0.02f, 12, 0xFF1A0926L, a = 0.55f)
+
+        // 2. Candy Boots & Legs
+        for (side in listOf(-1f, 1f)) {
+            val lx = side * 0.14f
+            // Glossy candy boot
+            acc.addSphere(lx, 0.11f, 0.04f, 0.11f, 0.10f, 0.16f, 6, 8, 0xFF2B1338L, c2, matType = CandyMaterials.MAT_CANDY)
+            // Leg / trousers
+            acc.addCylinder(lx, 0.14f, 0f, 0.085f, 0.095f, 0.46f, 8, c2, c1, matType = CandyMaterials.MAT_WAFER)
+        }
+
+        // 3. Torso Outfit, Belt, Collar & Buttons by Role
+        acc.addCylinder(0f, 0.56f, 0f, 0.25f, 0.22f, 0.56f, 12, c1, c2, matType = CandyMaterials.MAT_CANDY)
+        // Waist belt & golden buckle
+        acc.addCylinder(0f, 0.60f, 0f, 0.255f, 0.255f, 0.08f, 12, 0xFF2A1436L, gold, matType = CandyMaterials.MAT_CARAMEL)
+        acc.addBeveledBox(0f, 0.64f, 0.25f, 0.13f, 0.09f, 0.04f, 0.9f, 0.9f, gold, cream, CandyMaterials.MAT_CHROME)
+
+        when (variant) {
+            CitizenVariant.BAKER_CHEF -> {
+                // White frosting chef apron + candy buttons + neckerchief
+                acc.addBeveledBox(0f, 0.78f, 0.14f, 0.36f, 0.48f, 0.22f, 0.9f, 0.9f, cream, c1, CandyMaterials.MAT_MARSHMALLOW)
+                acc.addTorus(0f, 1.10f, 0.02f, 0.17f, 0.045f, 10, 6, 0xFFFF2448L, cream, matType = CandyMaterials.MAT_CANDY)
+            }
+            CitizenVariant.CORP_EXECUTIVE -> {
+                // Double-breasted Sweet Rush Corp. executive blazer + golden tie + VIP badge
+                acc.addBeveledBox(0f, 0.84f, 0.15f, 0.34f, 0.44f, 0.18f, 0.88f, 0.88f, cream, gold, CandyMaterials.MAT_MARSHMALLOW)
+                acc.addBeveledBox(0f, 0.86f, 0.245f, 0.08f, 0.34f, 0.03f, 0.7f, 0.95f, gold, c1, CandyMaterials.MAT_CHROME)
+                acc.addBox(0.11f, 0.96f, 0.245f, 0.08f, 0.05f, 0.03f, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.FACTORY_ENGINEER -> {
+                // High-visibility neon candy safety vest stripes + chest pocket
+                acc.addBox(0f, 0.84f, 0.23f, 0.36f, 0.08f, 0.04f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(-0.11f, 0.86f, 0.23f, 0.07f, 0.42f, 0.04f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+                acc.addBox(0.11f, 0.86f, 0.23f, 0.07f, 0.42f, 0.04f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.PEPPERMINT_GUARD -> {
+                // Royal Peppermint Marshal shoulder epaulets & candy-cane chest sash
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.27f, 1.06f, 0f, 0.10f, 0.07f, 0.11f, 6, 8, gold, 0xFFFF2448L, matType = CandyMaterials.MAT_CHROME)
+                }
+                acc.addStrut(Vec3(-0.15f, 1.06f, 0.22f), Vec3(0.16f, 0.66f, 0.23f), 0.045f, 6, 0xFFFF2448L, CandyMaterials.MAT_CANDY)
+            }
+            CitizenVariant.CANDY_CITIZEN -> {
+                // Whipped-cream collar puff & cheerful candy buttons
+                acc.addTorus(0f, 1.10f, 0.01f, 0.165f, 0.048f, 10, 6, cream, c2, matType = CandyMaterials.MAT_MARSHMALLOW)
+                for (by in listOf(0.76f, 0.88f, 1.00f)) {
+                    acc.addSphere(0f, by, 0.24f, 0.030f, 0.030f, 0.020f, 5, 6, gold, matType = CandyMaterials.MAT_CHROME)
+                }
+            }
+        }
+
+        // 4. Sculpted Arms & Hands + Held Role Prop (Left arm at side holding prop, Right arm raised in a friendly wave!)
+        // Left arm & hand
+        acc.addStrut(Vec3(-0.25f, 1.04f, 0f), Vec3(-0.30f, 0.72f, 0.16f), 0.068f, 8, c1, CandyMaterials.MAT_CANDY)
+        acc.addSphere(-0.30f, 0.70f, 0.18f, 0.072f, 0.072f, 0.072f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+        // Role-specific held item in left hand
+        when (variant) {
+            CitizenVariant.BAKER_CHEF -> {
+                // Holding a frosted cupcake on a golden tray
+                acc.addCylinder(-0.32f, 0.74f, 0.26f, 0.14f, 0.11f, 0.14f, 8, gold, c1, matType = CandyMaterials.MAT_WAFER)
+                acc.addSphere(-0.32f, 0.92f, 0.26f, 0.13f, 0.11f, 0.13f, 6, 8, 0xFFFF80ABL, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+            }
+            CitizenVariant.CORP_EXECUTIVE -> {
+                // Holding a glowing Sweet Rush Corp. holographic tablet / briefcase
+                acc.addBeveledBox(-0.34f, 0.62f, 0.20f, 0.10f, 0.24f, 0.30f, 0.9f, 0.9f, gold, 0xFF28103EL, CandyMaterials.MAT_CHROME)
+                acc.addBox(-0.28f, 0.62f, 0.20f, 0.03f, 0.16f, 0.22f, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.FACTORY_ENGINEER -> {
+                // Holding a glowing candy cargo crate
+                acc.addBeveledBox(-0.32f, 0.74f, 0.26f, 0.22f, 0.20f, 0.22f, 0.88f, 0.88f, c2, gold, CandyMaterials.MAT_CANDY)
+            }
+            CitizenVariant.PEPPERMINT_GUARD -> {
+                // Holding a tall striped Peppermint Marshal Baton / Staff
+                acc.addCylinder(-0.32f, 0.02f, 0.22f, 0.042f, 0.042f, 1.55f, 8, 0xFFFF2448L, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(-0.32f, 1.62f, 0.22f, 0.095f, 0.095f, 0.095f, 6, 8, 0xFF3CE8B5L, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.CANDY_CITIZEN -> {
+                // Holding a colorful giant swirl lollipop
+                acc.addCylinder(-0.32f, 0.68f, 0.22f, 0.025f, 0.025f, 0.45f, 6, 0xFFFFFFFFL)
+                acc.addSphere(-0.32f, 1.20f, 0.22f, 0.14f, 0.14f, 0.06f, 6, 8, hatHex, cream, matType = CandyMaterials.MAT_CANDY)
+            }
+        }
+        // Right arm raised in a cheerful greeting wave
+        acc.addStrut(Vec3(0.25f, 1.04f, 0f), Vec3(0.38f, 1.28f, 0.14f), 0.068f, 8, c1, CandyMaterials.MAT_CANDY)
+        acc.addSphere(0.40f, 1.32f, 0.15f, 0.075f, 0.075f, 0.075f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+
+        // 5. Neck & Expressive 3D Head & Face
+        acc.addCylinder(0f, 1.10f, 0f, 0.085f, 0.085f, 0.10f, 8, skin)
+        val headY = 1.35f
+        acc.addSphere(0f, headY, 0f, 0.22f, 0.21f, 0.21f, 9, 12, skin)
+        // Ears & rosy candy blush cheeks
+        for (side in listOf(-1f, 1f)) {
+            acc.addSphere(side * 0.215f, headY - 0.01f, 0f, 0.042f, 0.055f, 0.036f, 5, 6, skin)
+            acc.addSphere(side * 0.125f, headY - 0.04f, 0.175f, 0.045f, 0.026f, 0.022f, 5, 6, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
+            // Expressive eyes (white sclera + iris + dark pupil + white catchlight + eyebrow)
+            val ex = side * 0.082f
+            val ey = headY + 0.02f
+            acc.addSphere(ex, ey, 0.185f, 0.050f, 0.056f, 0.030f, 6, 8, 0xFFFFFFFFL)
+            acc.addSphere(ex, ey, 0.202f, 0.035f, 0.040f, 0.020f, 5, 6, hatHex, c1, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(ex, ey, 0.214f, 0.021f, 0.024f, 0.012f, 4, 5, 0xFF140720L)
+            acc.addSphere(ex - side * 0.010f, ey + 0.014f, 0.222f, 0.010f, 0.010f, 0.008f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            acc.addBeveledBox(ex, ey + 0.072f, 0.195f, 0.078f, 0.016f, 0.022f, 0.85f, 0.85f, 0xFF3A1A28L)
+        }
+        // Button nose & cheerful smile
+        acc.addSphere(0f, headY - 0.01f, 0.215f, 0.028f, 0.025f, 0.028f, 5, 6, skin)
+        acc.addBeveledBox(0f, headY - 0.072f, 0.195f, 0.085f, 0.028f, 0.024f, 0.8f, 0.8f, 0xFFD81B60L)
+        acc.addBox(0f, headY - 0.068f, 0.204f, 0.062f, 0.014f, 0.016f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // 6. Role-Specific 3D Headgear / Hair
+        when (variant) {
+            CitizenVariant.BAKER_CHEF -> {
+                // Tall Pleated Pastry Chef Hat (Toque) with cherry topper
+                acc.addCylinder(0f, headY + 0.14f, 0f, 0.20f, 0.21f, 0.10f, 12, hatHex, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.23f, 0f, 0.21f, 0.24f, 0.26f, 12, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, headY + 0.50f, 0f, 0.26f, 0.14f, 0.26f, 7, 10, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, headY + 0.64f, 0f, 0.055f, 0.055f, 0.055f, 5, 6, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+            }
+            CitizenVariant.CORP_EXECUTIVE -> {
+                // Royal Golden Wafer Top Hat with glowing corporate band & crown gem
+                acc.addCylinder(0f, headY + 0.15f, 0f, 0.30f, 0.30f, 0.04f, 14, 0xFF28103EL, gold, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.18f, 0f, 0.19f, 0.21f, 0.34f, 12, 0xFF28103EL, hatHex, matType = CandyMaterials.MAT_CANDY)
+                acc.addCylinder(0f, headY + 0.22f, 0f, 0.20f, 0.20f, 0.07f, 12, gold, matType = CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.26f, 0.20f, 0.045f, 0.045f, 0.025f, 5, 6, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.FACTORY_ENGINEER -> {
+                // Golden Sugar Safety Hardhat with glowing inspection goggles
+                acc.addSphere(0f, headY + 0.12f, 0f, 0.24f, 0.18f, 0.25f, 8, 12, gold, hatHex, matType = CandyMaterials.MAT_CHROME)
+                acc.addBeveledBox(0f, headY + 0.13f, 0.22f, 0.24f, 0.03f, 0.10f, 0.85f, 0.85f, gold, matType = CandyMaterials.MAT_CHROME)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.085f, headY + 0.16f, 0.21f, 0.052f, 0.042f, 0.025f, 5, 6, 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+            }
+            CitizenVariant.PEPPERMINT_GUARD -> {
+                // Tall Peppermint Guard Shako Cap with golden plume crest
+                acc.addCylinder(0f, headY + 0.14f, 0f, 0.21f, 0.23f, 0.30f, 12, 0xFFFF2448L, cream, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.14f, 0.20f, 0.24f, 0.035f, 0.09f, 0.85f, 0.85f, gold, matType = CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.48f, 0.04f, 0.075f, 0.11f, 0.075f, 6, 8, gold, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+            CitizenVariant.CANDY_CITIZEN -> {
+                // Frosted Cupcake Beret with sprinkles & side hair puffs
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.20f, headY + 0.02f, -0.02f, 0.085f, 0.11f, 0.085f, 6, 8, hatHex, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                }
+                acc.addSphere(0f, headY + 0.19f, 0f, 0.24f, 0.13f, 0.24f, 8, 12, hatHex, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, headY + 0.32f, 0f, 0.055f, 0.055f, 0.055f, 5, 6, gold, matType = CandyMaterials.MAT_EMISSIVE)
+            }
+        }
 
         return acc.build()
     }

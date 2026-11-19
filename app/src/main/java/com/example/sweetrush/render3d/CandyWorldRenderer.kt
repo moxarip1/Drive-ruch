@@ -96,6 +96,20 @@ data class RaceHudSnapshot(
     val worldStarsCollected: Int = 0,
     val playerWorldX: Float = 0f,
     val playerWorldZ: Float = 0f,
+    val playerYawRad: Float = 0f,
+    val companyLevel: Int = 1,
+    val companyRankTitleAr: String = "متدرب في شركة سويت راش",
+    val companyContractsCompleted: Int = 0,
+    val companyPassiveDividendCc: Int = 45,
+    val companyUpgradeCostCc: Int = 220,
+    val activeContractTitleAr: String = "",
+    val activeContractStepAr: String = "",
+    val activeContractTargetNameAr: String = "",
+    val activeContractTargetX: Float = 0f,
+    val activeContractTargetZ: Float = 0f,
+    val activeContractDistanceM: Int = 0,
+    val companyCargoLoaded: Boolean = false,
+    val nearbyCitizenStatusAr: String? = null,
     val isBoostOrNitroActive: Boolean = false,
     val isGrounded: Boolean = true,
     val cameraPreset: CameraPreset = CameraPreset.DYNAMIC_CHASE,
@@ -228,6 +242,13 @@ class CandyWorldRenderer(
                 showroomTargetZoom = 5.35f
                 hasShowroomCameraTarget = true
             }
+            "DRIVER" -> {
+                showroomAutoRotate = false
+                showroomTargetYaw = 0.28f
+                showroomTargetPitch = 0.23f
+                showroomTargetZoom = 3.20f
+                hasShowroomCameraTarget = true
+            }
         }
     }
 
@@ -276,6 +297,8 @@ class CandyWorldRenderer(
     private var openWorldChunkMeta: List<TerrainChunkData> = emptyList()
     private val openWorldChunkMeshes = ArrayList<GpuMesh>()
     private val portalMeshCache = HashMap<Long, GpuMesh>()
+    private val citizenMeshCache = HashMap<String, GpuMesh>()
+    private val companyDepotRingCache = HashMap<Long, GpuMesh>()
 
     // Shared gameplay meshes
     private var boostPadMesh: GpuMesh? = null
@@ -291,6 +314,7 @@ class CandyWorldRenderer(
     private var worldStarMesh: GpuMesh? = null
     private var challengeBeaconMesh: GpuMesh? = null
     private var cloudClusterMesh: GpuMesh? = null
+    private var kartCargoShipmentMesh: GpuMesh? = null
 
     // Multi-part Kart Model cache
     private val kartBundleCache = HashMap<String, KartModelBundle>()
@@ -361,6 +385,8 @@ class CandyWorldRenderer(
         decoMeshCache.clear()
         kartBundleCache.clear()
         portalMeshCache.clear()
+        citizenMeshCache.clear()
+        companyDepotRingCache.clear()
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -857,7 +883,8 @@ class CandyWorldRenderer(
                 starActive = k.starTimer > 0f,
                 isBoosting = k.boostTimer > 0f || k.isNitroActive,
                 isFinished = k.finished,
-                isSpunOut = k.spinoutTimer > 0f
+                isSpunOut = k.spinoutTimer > 0f,
+                hasCargoCrate = engine.isFreeRoam && k.isPlayer && engine.companyCargoLoaded
             )
 
             if (!isPaused) {
@@ -870,6 +897,17 @@ class CandyWorldRenderer(
         }
 
         val track = engine.track
+        val activeContract = engine.activeCompanyContract()
+        val activeTargetDepot = engine.activeCompanyTargetDepot()
+        val targetDistM = kotlin.math.hypot(
+            (activeTargetDepot.padPos.x - p.x).toDouble(),
+            (activeTargetDepot.padPos.z - p.z).toDouble()
+        ).toInt()
+        val stepLabelAr = if (!engine.companyCargoLoaded) {
+            "استلام: ${activeContract.cargoNameAr}"
+        } else {
+            "توصيل: ${activeContract.cargoNameAr}"
+        }
         val snap = RaceHudSnapshot(
             position = p.position,
             totalRacers = engine.karts.size.coerceAtLeast(1),
@@ -903,6 +941,20 @@ class CandyWorldRenderer(
             worldStarsCollected = engine.collectedWorldStars.size,
             playerWorldX = p.x,
             playerWorldZ = p.z,
+            playerYawRad = p.yawRad,
+            companyLevel = engine.companyLevel,
+            companyRankTitleAr = OpenWorldKingdom.companyRankTitleAr(engine.companyLevel),
+            companyContractsCompleted = engine.companyContractsCompleted,
+            companyPassiveDividendCc = OpenWorldKingdom.companyPassiveDividendForLevel(engine.companyLevel),
+            companyUpgradeCostCc = OpenWorldKingdom.companyUpgradeCost(engine.companyLevel),
+            activeContractTitleAr = activeContract.titleAr,
+            activeContractStepAr = stepLabelAr,
+            activeContractTargetNameAr = activeTargetDepot.nameAr,
+            activeContractTargetX = activeTargetDepot.padPos.x,
+            activeContractTargetZ = activeTargetDepot.padPos.z,
+            activeContractDistanceM = targetDistM,
+            companyCargoLoaded = engine.companyCargoLoaded,
+            nearbyCitizenStatusAr = engine.nearbyCitizenStatusAr,
             isBoostOrNitroActive = (p.boostTimer > 0f || p.isNitroActive || p.starTimer > 0f),
             isGrounded = p.isGrounded,
             cameraPreset = cameraPreset,
@@ -1008,6 +1060,45 @@ class CandyWorldRenderer(
             drawMesh(challengeBeaconMesh, modelMat, gloss = 0.95f)
         }
 
+        // 5 Sweet Rush Corp. Logistics Pad Rings (HQ & 4 Regional Depots)
+        val activeTargetDepotId = engine.activeCompanyTargetDepot().id
+        for (depot in OpenWorldKingdom.companyDepots) {
+            if (distSq2D(depot.padPos.x, depot.padPos.z, camX, camZ) > cullDist * cullDist) continue
+            val ringMesh = companyDepotRingCache.getOrPut(depot.accentHex) {
+                MeshFactory.buildCompanyDepotBeaconRingMesh(depot.accentHex)
+            }
+            val isTarget = depot.id == activeTargetDepotId
+            val pulseScale = if (isTarget) 1.08f + sin(totalTimeSec * 4.2f) * 0.08f else 0.92f
+            Matrix.setIdentityM(modelMat, 0)
+            Matrix.translateM(modelMat, 0, depot.padPos.x, depot.padPos.y + 0.04f, depot.padPos.z)
+            Matrix.rotateM(modelMat, 0, totalTimeSec * (if (isTarget) 54f else 22f), 0f, 1f, 0f)
+            Matrix.scaleM(modelMat, 0, pulseScale, if (isTarget) 1.25f else 0.85f, pulseScale)
+            drawMesh(ringMesh, modelMat, gloss = 0.96f)
+        }
+
+        // 71 Living Open-World Candy Citizens, Chefs, Engineers, Executives & Guards
+        val citizenCullSq = when (graphicsQuality) {
+            GraphicsQuality.LOW -> 150f * 150f
+            GraphicsQuality.MEDIUM -> 215f * 215f
+            GraphicsQuality.HIGH -> 285f * 285f
+        }
+        val pk = engine.playerKart
+        for (npc in OpenWorldKingdom.citizens) {
+            if (distSq2D(npc.homePos.x, npc.homePos.z, camX, camZ) > citizenCullSq) continue
+            val pose = OpenWorldKingdom.sampleCitizenPose(npc, totalTimeSec, pk.x, pk.z)
+            val cKey = "${npc.variant.name}_${npc.primaryHex}_${npc.secondaryHex}_${npc.hatHex}"
+            val cMesh = citizenMeshCache.getOrPut(cKey) {
+                MeshFactory.buildCandyCitizenMesh(npc.variant, npc.primaryHex, npc.secondaryHex, npc.hatHex)
+            }
+            val citizenScale = if (pose.isWaving) 1.16f else 1.10f
+            Matrix.setIdentityM(modelMat, 0)
+            Matrix.translateM(modelMat, 0, pose.x, pose.y + pose.bobY, pose.z)
+            Matrix.rotateM(modelMat, 0, Math.toDegrees(pose.yawRad.toDouble()).toFloat(), 0f, 1f, 0f)
+            Matrix.rotateM(modelMat, 0, Math.toDegrees(pose.tiltRollRad.toDouble()).toFloat(), 0f, 0f, 1f)
+            Matrix.scaleM(modelMat, 0, citizenScale, citizenScale, citizenScale)
+            drawMesh(cMesh, modelMat, gloss = 0.78f)
+        }
+
         drawDecorationsList(OpenWorldKingdom.decorations, camX, camZ)
     }
 
@@ -1110,7 +1201,8 @@ class CandyWorldRenderer(
         shieldActive: Boolean, starActive: Boolean,
         isBoosting: Boolean = false,
         isFinished: Boolean = false,
-        isSpunOut: Boolean = false
+        isSpunOut: Boolean = false,
+        hasCargoCrate: Boolean = false
     ) {
         val bodyKey = "${kart.id}_${racer.id}_${custom.paintId}_${custom.wheelDesign.name}_${custom.exhaustStyle.name}_${custom.decoration.name}"
         val bundle = kartBundleCache.getOrPut(bodyKey) {
@@ -1175,6 +1267,14 @@ class CandyWorldRenderer(
         Matrix.rotateM(drvMat, 0, driverLeanZ, 0f, 0f, 1f)
         Matrix.rotateM(drvMat, 0, driverPitchX, 1f, 0f, 0f)
         drawMesh(bundle.driverMesh, drvMat, gloss = 0.72f)
+
+        // Sweet Rush Corp. Cargo Shipment Crate mounted on rear rack during active delivery!
+        if (hasCargoCrate) {
+            val cargoMat = FloatArray(16)
+            val cargoBob = sin(totalTimeSec * 6f) * 0.03f
+            Matrix.translateM(cargoMat, 0, modelMat, 0, 0f, 1.24f + cargoBob, -1.08f)
+            drawMesh(kartCargoShipmentMesh, cargoMat, gloss = 0.90f)
+        }
 
         // 4 Independent Wheels (FL, FR, RL, RR) with independent suspension compression offsets!
         val wheelCoords = arrayOf(
@@ -1418,5 +1518,6 @@ class CandyWorldRenderer(
 
         pedestalMesh = MeshFactory.buildBakeryTurntablePedestalMesh()
         garageBakeryWorkshopMesh = MeshFactory.buildGarageBakeryWorkshopMesh()
+        kartCargoShipmentMesh = MeshFactory.buildKartCargoShipmentMesh()
     }
 }

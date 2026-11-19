@@ -327,6 +327,8 @@ data class PlayerProfile(
     val racesWon: Int = 0,
     val grandPrixGoldTrophies: Int = 0,
     val grandPrixBestPoints: Int = 0,
+    val companyLevel: Int = 1,
+    val companyContractsCompleted: Int = 0,
     val settings: GameSettings = GameSettings()
 )
 
