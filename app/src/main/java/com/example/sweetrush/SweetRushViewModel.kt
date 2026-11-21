@@ -305,9 +305,14 @@ class SweetRushViewModel(
             )
             res.onSuccess { cloud ->
                 _friendCode.value = cloud.friendCode.ifBlank { _friendCode.value }
-                if (cloud.profileJson.length > 10 && cloud.racesCompleted > local.racesCompleted) {
+                if (cloud.profileJson.length > 10 && cloud.racesCompleted >= local.racesCompleted) {
                     try {
-                        val parsed = saveRepo.parseProfile(JSONObject(cloud.profileJson))
+                        val parsed = saveRepo.parseProfile(JSONObject(cloud.profileJson)).let { p ->
+                            p.copy(
+                                unlockedKarts = (p.unlockedKarts + CatalogData.karts.map { it.id }).toSet(),
+                                unlockedRacers = (p.unlockedRacers + CatalogData.racers.map { it.id }).toSet()
+                            )
+                        }
                         _profile.value = parsed
                         saveRepo.saveProfile(parsed)
                         syncRendererWithProfile(parsed)

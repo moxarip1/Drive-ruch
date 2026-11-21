@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.sweetrush.cndywr"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "2.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -95,7 +95,7 @@ dependencies {
   // implementation(libs.androidx.camera.lifecycle)
   // implementation(libs.androidx.camera.view)
   implementation(libs.androidx.compose.material.icons.core)
-  implementation(libs.androidx.compose.material.icons.extended)
+  // implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
@@ -143,6 +143,8 @@ dependencies {
 }
 
 val syncDebugApkToFolder by tasks.registering(Copy::class) {
+  outputs.upToDateWhen { false }
+  duplicatesStrategy = DuplicatesStrategy.INCLUDE
   from(layout.buildDirectory.dir("outputs/apk/debug")) {
     include("*.apk")
     rename { "debug.apk" }
@@ -150,6 +152,20 @@ val syncDebugApkToFolder by tasks.registering(Copy::class) {
   into(rootProject.layout.projectDirectory.dir("debug"))
 }
 
-tasks.matching { it.name == "assembleDebug" }.configureEach {
-  finalizedBy(syncDebugApkToFolder)
+val syncDebugApkToBuildOutputs by tasks.registering(Copy::class) {
+  outputs.upToDateWhen { false }
+  duplicatesStrategy = DuplicatesStrategy.INCLUDE
+  from(layout.buildDirectory.dir("outputs/apk/debug")) {
+    include("*.apk")
+    rename { "app-debug.apk" }
+  }
+  into(rootProject.layout.projectDirectory.dir(".build-outputs"))
+}
+
+tasks.matching {
+  it.name == "assembleDebug" ||
+    it.name == "packageDebug" ||
+    it.name == "createDebugApkListingFileRedirect"
+}.configureEach {
+  finalizedBy(syncDebugApkToFolder, syncDebugApkToBuildOutputs)
 }
