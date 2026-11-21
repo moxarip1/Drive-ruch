@@ -321,24 +321,42 @@ class KartPhysicsEngine(
                     )
                 )
             }
-            // Roaming AI Candy Drivers cruising the Grand Ring Highway
+            // Roaming AI Movie Drivers cruising the Castle Plaza & Grand Ring Highway in their signature movie karts
             if (!isOnlineSession || fillWithAi) {
                 val ringPts = OpenWorldKingdom.ringRoad.points
-                for (slot in 0 until 4) {
-                    val pIdx = ((slot * ringPts.size) / 4) % ringPts.size
+                for (slot in aiRacers.indices) {
+                    val pIdx = ((slot * ringPts.size) / aiRacers.size.coerceAtLeast(1)) % ringPts.size
                     val pt = ringPts[pIdx]
                     val r = aiRacers[slot]
                     val ks = CatalogData.kartById(r.favoriteKartId)
+                    val sx: Float
+                    val sz: Float
+                    val sy: Float
+                    val sYaw: Float
+                    if (slot < 3) {
+                        // Place 3 iconic movie racers right ahead of the player's Free Roam spawn so they are immediately visible!
+                        val side = (slot - 1) * 4.2f
+                        val ahead = 15f + slot * 7.5f
+                        sx = spawnPos.x + cos(spawnYaw) * side + sin(spawnYaw) * ahead
+                        sz = spawnPos.z - sin(spawnYaw) * side + cos(spawnYaw) * ahead
+                        sy = OpenWorldKingdom.sampleSurface(sx, sz).height
+                        sYaw = spawnYaw
+                    } else {
+                        sx = pt.pos.x
+                        sy = pt.pos.y
+                        sz = pt.pos.z
+                        sYaw = atan2(pt.forward.x, pt.forward.z)
+                    }
                     roster.add(
                         KartRuntimeState(
                             racer = r,
                             kart = ks,
                             customization = KartCustomization(),
                             isPlayer = false,
-                            x = pt.pos.x,
-                            y = pt.pos.y,
-                            z = pt.pos.z,
-                            yawRad = atan2(pt.forward.x, pt.forward.z),
+                            x = sx,
+                            y = sy,
+                            z = sz,
+                            yawRad = sYaw,
                             nodeHintIndex = pIdx,
                             totalLapsToFinish = 99,
                             position = roster.size + 1,

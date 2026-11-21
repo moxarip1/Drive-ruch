@@ -274,11 +274,22 @@ fun RaceHudScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         if (isFreeRoam) {
-                            Icon(
-                                imageVector = Icons.Filled.Explore,
-                                contentDescription = "Free Roam Region",
-                                tint = Color(hud.currentRegion.accentHex),
-                                modifier = Modifier.size(28.dp)
+                            val regionImgRes = when (hud.currentRegion) {
+                                com.example.sweetrush.model.WorldRegion.CANDY_CITY -> com.example.R.drawable.img_sugar_rush_world_map
+                                com.example.sweetrush.model.WorldRegion.CHOCOLATE_MOUNTAINS -> com.example.R.drawable.img_map_diet_cola_mountain
+                                com.example.sweetrush.model.WorldRegion.GUMDROP_FOREST -> com.example.R.drawable.img_map_candy_cane_forest
+                                com.example.sweetrush.model.WorldRegion.CUPCAKE_VALLEY -> com.example.R.drawable.img_map_cakeway
+                                com.example.sweetrush.model.WorldRegion.PEPPERMINT_COAST -> com.example.R.drawable.img_map_gumball_gorge
+                            }
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = regionImgRes),
+                                contentDescription = hud.currentRegion.displayName,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(width = 48.dp, height = 36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.5.dp, Color(hud.currentRegion.accentHex), RoundedCornerShape(10.dp))
+                                    .clickable { onOpenWorldMap() }
                             )
                             Column {
                                 Text(
@@ -292,7 +303,7 @@ fun RaceHudScreen(
                                     color = CaramelGold
                                 )
                                 Text(
-                                    text = "OPEN WORLD  •  ${KartPhysicsEngine.formatTime(hud.elapsedMs)}",
+                                    text = "SUGAR RUSH WORLD  •  ${KartPhysicsEngine.formatTime(hud.elapsedMs)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MintCream
                                 )
@@ -344,7 +355,7 @@ fun RaceHudScreen(
                         Column(
                             modifier = Modifier
                                 .testTag("hud_company_card")
-                                .width(276.dp)
+                                .width(284.dp)
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(BerryDeep.copy(alpha = 0.78f))
                                 .border(
@@ -440,14 +451,35 @@ fun RaceHudScreen(
                                 }
                             }
 
-                            hud.nearbyCitizenStatusAr?.let { citizenLine ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier.testTag("hud_citizen_activity_strip")
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_citizen_sour_bill),
+                                    contentDescription = "Sour Bill",
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, MintCream, CircleShape)
+                                )
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_citizen_wynnchel_duncan),
+                                    contentDescription = "Wynnchel & Duncan",
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, CandyPink, CircleShape)
+                                )
                                 Text(
-                                    text = citizenLine,
+                                    text = hud.nearbyCitizenStatusAr ?: "ساور بيل وشرطة الدونات وحراس الأوريو يرحبون بك!",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = FrostingWhite.copy(alpha = 0.92f),
+                                    color = FrostingWhite.copy(alpha = 0.94f),
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.testTag("hud_citizen_activity_strip")
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }

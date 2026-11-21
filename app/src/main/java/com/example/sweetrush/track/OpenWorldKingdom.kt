@@ -1075,10 +1075,20 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             "مخبز السيارات: شحنات شركة سويت راش وصلت من جبل دايت كولا! 💰🏢"
         )
         for (i in 0 until 20) {
-            val angle = (i.toFloat() / 20f) * (2f * PI.toFloat()) + 0.18f
-            val radius = if (i % 2 == 0) 27.5f else 54f
-            val cx = cos(angle) * radius
-            val cz = sin(angle) * radius
+            val cx: Float
+            val cz: Float
+            if (i < 6) {
+                // Place Sour Bill, Officer Wynnchel, Officer Duncan & Oreo Guards right in front of the player's Free Roam spawn!
+                val side = if (i % 2 == 0) -1f else 1f
+                val row = i / 2
+                cx = side * (6.2f + row * 1.8f)
+                cz = 11.5f + row * 6.5f
+            } else {
+                val angle = (i.toFloat() / 20f) * (2f * PI.toFloat()) + 0.18f
+                val radius = if (i % 2 == 0) 27.5f else 54f
+                cx = cos(angle) * radius
+                cz = sin(angle) * radius
+            }
             val info = cityNames[i % cityNames.size]
             val c1 = colors[i % colors.size]
             val c2 = colors[(i + 2) % colors.size]
@@ -1090,7 +1100,7 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                     variant = info.third,
                     region = WorldRegion.CANDY_CITY,
                     homePos = Vec3(cx, sampleHeightOnly(cx, cz), cz),
-                    walkRadius = 3.2f + (i % 3) * 0.9f,
+                    walkRadius = if (i < 6) 1.5f else 3.2f + (i % 3) * 0.9f,
                     walkSpeed = 0.85f + (i % 4) * 0.18f,
                     phaseOffset = i * 0.62f,
                     primaryHex = c1,

@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -89,6 +91,7 @@ fun MainMenuScreen(
     currentSongTitle: String = "Gumball Horizon",
     onToggleMusic: () -> Unit = {},
     onSwitchMusicTrack: () -> Unit = {},
+    onSelectRacerAndKart: (racerId: String, kartId: String) -> Unit = { _, _ -> },
     onNavigate: (GameScreen) -> Unit,
     onStartFreeRoam: () -> Unit = {},
     onEnterGatheringHub: () -> Unit = {}
@@ -112,8 +115,8 @@ fun MainMenuScreen(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to BerryDeep.copy(alpha = 0.52f),
-                        0.20f to Color.Transparent,
+                        0.0f to BerryDeep.copy(alpha = 0.56f),
+                        0.26f to Color.Transparent,
                         0.66f to Color.Transparent,
                         1.0f to BerryDeep.copy(alpha = 0.68f)
                     )
@@ -138,61 +141,143 @@ fun MainMenuScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Organized Top Header: Brand Logo + Account / Notifications / Stats Strip
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SweetRushLogo(compact = true)
-                    Row(
-                        modifier = Modifier
-                            .testTag("menu_official_kart_banner")
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(BerryDeep.copy(alpha = 0.80f))
-                            .border(1.5.dp, CaramelGold.copy(alpha = 0.78f), RoundedCornerShape(16.dp))
-                            .clickable { onNavigate(GameScreen.GARAGE) }
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.img_official_candy_kart),
-                            contentDescription = "Official Candy Kart",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(width = 48.dp, height = 32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, CaramelGold, RoundedCornerShape(8.dp))
-                        )
-                        Column {
-                            Text(
-                                text = "${racer.name} • ${kart.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CaramelGold,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Wins ${profile.racesWon}  •  Coins ${profile.collectedWorldCoins.size}/48  •  Stars ${profile.collectedWorldStars.size}/10",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = FrostingWhite
-                            )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                // Organized Top Header: Brand Logo + Selected Movie Racer/Kart + World Map & Citizens + Account Strip
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SweetRushLogo(compact = true)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .testTag("menu_official_kart_banner")
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(BerryDeep.copy(alpha = 0.84f))
+                                    .border(1.5.dp, CaramelGold.copy(alpha = 0.82f), RoundedCornerShape(16.dp))
+                                    .clickable { onNavigate(GameScreen.CHARACTER_SELECT) }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = racerPortraitRes(racer.id)),
+                                    contentDescription = racer.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .border(1.5.dp, CaramelGold, CircleShape)
+                                )
+                                Image(
+                                    painter = painterResource(id = kartPreviewRes(kart.id)),
+                                    contentDescription = kart.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(width = 48.dp, height = 32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, MintCream, RoundedCornerShape(8.dp))
+                                )
+                                Column {
+                                    Text(
+                                        text = "${racer.name} • #${kart.racingNumber} ${kart.name}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = CaramelGold,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "12 متسابق و12 سيارة من الفيلم ★ اضغط للتبديل",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MintCream
+                                    )
+                                }
+                            }
+
+                            // Official Published Movie World Map Quick Pill
+                            Row(
+                                modifier = Modifier
+                                    .testTag("menu_movie_map_pill")
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(BerryDeep.copy(alpha = 0.84f))
+                                    .border(1.5.dp, SkyCandy.copy(alpha = 0.8f), RoundedCornerShape(14.dp))
+                                    .clickable { onNavigate(GameScreen.WORLD_MAP) }
+                                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_map_sugar_rush_kingdom),
+                                    contentDescription = "Sugar Rush World Map",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(width = 38.dp, height = 28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .border(1.dp, CaramelGold, RoundedCornerShape(6.dp))
+                                )
+                                Text(
+                                    text = "خريطة الفيلم",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SkyCandy,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Official Movie Citizens (Sour Bill & Wynnchel/Duncan) Quick Pill
+                            Row(
+                                modifier = Modifier
+                                    .testTag("menu_movie_citizens_pill")
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(BerryDeep.copy(alpha = 0.84f))
+                                    .border(1.5.dp, MintCream.copy(alpha = 0.8f), RoundedCornerShape(14.dp))
+                                    .clickable { onStartFreeRoam() }
+                                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_citizen_sour_bill),
+                                    contentDescription = "Sour Bill",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, MintCream, CircleShape)
+                                )
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_citizen_wynnchel_duncan),
+                                    contentDescription = "Wynnchel & Duncan",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, CandyPink, CircleShape)
+                                )
+                                Text(
+                                    text = "مواطنو الفيلم",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MintCream,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
 
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                         if (pendingRequestsCount > 0) {
                             Row(
                                 modifier = Modifier
@@ -318,6 +403,63 @@ fun MainMenuScreen(
                         }
 
                         PlayerProfilePill(profile = profile)
+                    }
+                }
+            }
+
+                // Live 12 Movie Racers & Signature Movie Karts Quick-Switch Carousel on Main Menu
+                LazyRow(
+                    modifier = Modifier
+                        .testTag("menu_movie_racers_carousel")
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(CatalogData.racers) { rItem ->
+                        val isSel = rItem.id == profile.selectedRacerId
+                        val rKart = CatalogData.kartById(rItem.favoriteKartId)
+                        Row(
+                            modifier = Modifier
+                                .testTag("menu_racer_chip_${rItem.id}")
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (isSel) CandyPink.copy(alpha = 0.85f)
+                                    else BerryDeep.copy(alpha = 0.78f)
+                                )
+                                .border(
+                                    width = if (isSel) 2.dp else 1.dp,
+                                    color = if (isSel) CaramelGold else Color.White.copy(alpha = 0.28f),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable {
+                                    onSelectRacerAndKart(rItem.id, rItem.favoriteKartId)
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = racerPortraitRes(rItem.id)),
+                                contentDescription = rItem.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, if (isSel) CaramelGold else Color(rItem.suitPrimaryHex), CircleShape)
+                            )
+                            Column {
+                                Text(
+                                    text = rItem.name.substringBefore(" "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = FrostingWhite,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Text(
+                                    text = "#${rKart.racingNumber} ${rKart.name.substringBefore(" ")}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSel) MintCream else CaramelGold
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -280,6 +280,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         currentSongTitle = currentSongTitle,
                                         onToggleMusic = viewModel::toggleMusicOnOff,
                                         onSwitchMusicTrack = viewModel::switchBackgroundSong,
+                                        onSelectRacerAndKart = { rId, kId ->
+                                            viewModel.selectOrUnlockRacer(rId)
+                                            viewModel.selectOrUnlockKart(kId)
+                                        },
                                         onNavigate = { target -> viewModel.navigateTo(target) },
                                         onStartFreeRoam = { viewModel.startFreeRoam() },
                                         onEnterGatheringHub = { viewModel.enterGatheringHub(launchDirectWorld = false) }
@@ -351,6 +355,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         selectedDifficulty = selectedDifficulty,
                                         onSelectTrack = viewModel::selectTrack,
                                         onSelectDifficulty = viewModel::selectDifficulty,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
                                         onStart = { viewModel.startQuickRace() },
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
@@ -366,6 +372,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         selectedDifficulty = selectedDifficulty,
                                         onSelectTrack = viewModel::selectTrack,
                                         onSelectDifficulty = viewModel::selectDifficulty,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
                                         onStart = { viewModel.startGrandPrix() },
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
@@ -381,6 +389,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         selectedDifficulty = selectedDifficulty,
                                         onSelectTrack = viewModel::selectTrack,
                                         onSelectDifficulty = viewModel::selectDifficulty,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
                                         onStart = { viewModel.startTimeTrial() },
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
@@ -396,6 +406,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         selectedDifficulty = selectedDifficulty,
                                         onSelectTrack = viewModel::selectTrack,
                                         onSelectDifficulty = viewModel::selectDifficulty,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
                                         onStart = { viewModel.startPractice() },
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )
@@ -411,6 +423,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                                         selectedDifficulty = selectedDifficulty,
                                         onSelectTrack = viewModel::selectTrack,
                                         onSelectDifficulty = viewModel::selectDifficulty,
+                                        onSelectRacer = viewModel::selectOrUnlockRacer,
+                                        onSelectKart = viewModel::selectOrUnlockKart,
                                         onStart = { viewModel.startQuickRace() },
                                         onBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                                     )

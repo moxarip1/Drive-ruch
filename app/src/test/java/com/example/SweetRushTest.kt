@@ -192,7 +192,7 @@ class SweetRushTest {
         )
         assertTrue(engine.isFreeRoam)
         assertTrue(engine.raceStarted)
-        assertEquals(5, engine.karts.size) // 1 player + 4 roaming AI drivers
+        assertEquals(12, engine.karts.size) // 1 player + 11 roaming movie AI drivers
         assertEquals(WorldRegion.CANDY_CITY, engine.currentRegion)
 
         engine.teleportPlayerToRegion(WorldRegion.CHOCOLATE_MOUNTAINS)

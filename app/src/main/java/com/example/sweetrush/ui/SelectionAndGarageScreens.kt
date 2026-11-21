@@ -80,6 +80,13 @@ import com.example.ui.theme.MintDark
 import com.example.ui.theme.SkyCandy
 import com.example.ui.theme.StrawberryRed
 
+internal fun trackMovieMapRes(trackId: TrackId): Int = when (trackId) {
+    TrackId.PEPPERMINT_PLAZA -> R.drawable.img_sugar_rush_world_map
+    TrackId.CHOCOLATE_VOLCANO -> R.drawable.img_map_diet_cola_mountain
+    TrackId.GUMDROP_GARDEN -> R.drawable.img_map_candy_cane_forest
+    TrackId.CUPCAKE_COAST -> R.drawable.img_map_gumball_gorge
+}
+
 @Composable
 fun RaceSetupScreen(
     title: String,
@@ -90,6 +97,8 @@ fun RaceSetupScreen(
     selectedDifficulty: Difficulty,
     onSelectTrack: (TrackId) -> Unit,
     onSelectDifficulty: (Difficulty) -> Unit,
+    onSelectRacer: (String) -> Unit = {},
+    onSelectKart: (String) -> Unit = {},
     onStart: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -110,10 +119,10 @@ fun RaceSetupScreen(
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Left: 4 Tracks horizontal/vertical grid
+                // Left: 4 Movie Tracks with authentic downloaded movie map vistas
                 LazyColumn(
                     modifier = Modifier
-                        .weight(1.35f)
+                        .weight(1.30f)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 12.dp)
@@ -139,27 +148,34 @@ fun RaceSetupScreen(
                                     shape = RoundedCornerShape(20.dp)
                                 )
                                 .clickable { onSelectTrack(track.id) }
-                                .padding(12.dp),
+                                .padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Color swatch preview
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(Color(track.skyTopHex), Color(track.roadStripeHex))
-                                        )
-                                    )
-                                    .border(2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${track.laps}L",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = FrostingWhite
+                            // Downloaded Movie Track Vista Photo + Lap Badge
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                Image(
+                                    painter = painterResource(id = trackMovieMapRes(track.id)),
+                                    contentDescription = track.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(width = 88.dp, height = 62.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .border(2.dp, if (isSelected) CaramelGold else Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .padding(3.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(BerryDeep.copy(alpha = 0.88f))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "${track.laps}L",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = CaramelGold,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -168,7 +184,7 @@ fun RaceSetupScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(track.name, style = MaterialTheme.typography.titleLarge, color = FrostingWhite)
+                                    Text(track.name, style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
                                     Text(
                                         text = "★".repeat(track.difficultyStars),
                                         style = MaterialTheme.typography.labelLarge,
@@ -197,43 +213,115 @@ fun RaceSetupScreen(
                     }
                 }
 
-                // Right: Selected Track details + Difficulty + Start CTA
+                // Right: Selected Movie Track Vista + Quick Movie Racer & Kart Switcher + Difficulty + Start CTA
                 val curTrack = CatalogData.trackById(selectedTrack)
                 Column(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.05f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(24.dp))
                         .background(BerryPurple.copy(alpha = 0.92f))
                         .border(2.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
-                        .padding(16.dp),
+                        .padding(12.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(
+                                    id = if (mode == GameMode.GRAND_PRIX) R.drawable.img_map_sugar_rush_kingdom
+                                    else trackMovieMapRes(selectedTrack)
+                                ),
+                                contentDescription = curTrack.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(width = 86.dp, height = 54.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.5.dp, CaramelGold, RoundedCornerShape(12.dp))
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (mode == GameMode.GRAND_PRIX) "4-RACE SUGAR RUSH CUP" else curTrack.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = FrostingWhite,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    items(curTrack.featureHighlights) { tag ->
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .background(CandyPink.copy(alpha = 0.28f))
+                                                .border(1.dp, CandyPink, RoundedCornerShape(50))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(tag, style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Quick 12 Movie Racers & Karts Switcher Strip inside Race Setup
                         Text(
-                            text = if (mode == GameMode.GRAND_PRIX) "4-RACE CANDY CUP" else curTrack.name,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = FrostingWhite
+                            text = "اختر متسابق وسيارة الفيلم (12 شخصية):",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CaramelGold,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(6.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(curTrack.featureHighlights) { tag ->
-                                Box(
+                            items(CatalogData.racers) { rItem ->
+                                val isSelRacer = rItem.id == profile.selectedRacerId
+                                val sigKart = CatalogData.kartById(rItem.favoriteKartId)
+                                Row(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(CandyPink.copy(alpha = 0.28f))
-                                        .border(1.dp, CandyPink, RoundedCornerShape(50))
-                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelRacer) CandyPink.copy(alpha = 0.45f) else BerryDeep.copy(alpha = 0.78f))
+                                        .border(
+                                            1.5.dp,
+                                            if (isSelRacer) CaramelGold else Color.White.copy(alpha = 0.22f),
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            onSelectRacer(rItem.id)
+                                            onSelectKart(rItem.favoriteKartId)
+                                        }
+                                        .padding(horizontal = 7.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
-                                    Text(tag, style = MaterialTheme.typography.labelSmall, color = FrostingWhite)
+                                    Image(
+                                        painter = painterResource(id = racerPortraitRes(rItem.id)),
+                                        contentDescription = rItem.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, if (isSelRacer) CaramelGold else Color.White, CircleShape)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = rItem.name.substringBefore(" "),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = FrostingWhite,
+                                            fontWeight = if (isSelRacer) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        Text(
+                                            text = "#${sigKart.racingNumber}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = CaramelGold
+                                        )
+                                    }
                                 }
                             }
                         }
 
                         if (mode == GameMode.QUICK_RACE || mode == GameMode.GRAND_PRIX) {
-                            Spacer(Modifier.height(14.dp))
-                            Text("AI DIFFICULTY", style = MaterialTheme.typography.labelLarge, color = MintCream)
-                            Spacer(Modifier.height(6.dp))
+                            Text("AI DIFFICULTY", style = MaterialTheme.typography.labelSmall, color = MintCream)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -243,13 +331,13 @@ fun RaceSetupScreen(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(48.dp)
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .height(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
                                             .background(if (sel) CaramelGold else BerryDeep.copy(alpha = 0.7f))
                                             .border(
                                                 1.5.dp,
                                                 if (sel) Color.White else Color.White.copy(alpha = 0.25f),
-                                                RoundedCornerShape(14.dp)
+                                                RoundedCornerShape(12.dp)
                                             )
                                             .clickable { onSelectDifficulty(diff) },
                                         contentAlignment = Alignment.Center
@@ -264,27 +352,52 @@ fun RaceSetupScreen(
                                 }
                             }
                         } else {
-                            Spacer(Modifier.height(14.dp))
                             Text(
                                 text = when (mode) {
                                     GameMode.TIME_TRIAL -> "Solo lap attack! Beat your personal track records and earn bonus Candy Credits."
                                     GameMode.PRACTICE -> "Free-drive cruise with zero opponents. Master drifting, boost pads, and shortcuts."
                                     else -> curTrack.description
                                 },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = FrostingWhite.copy(alpha = 0.88f)
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = FrostingWhite.copy(alpha = 0.88f),
+                                maxLines = 2
                             )
                         }
                     }
 
                     val racer = CatalogData.racerById(profile.selectedRacerId)
                     val kart = CatalogData.kartById(profile.selectedKartId)
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "Lineup: ${racer.name} in ${kart.name}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = SkyCandy
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = racerPortraitRes(racer.id)),
+                                contentDescription = racer.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, CaramelGold, CircleShape)
+                            )
+                            Image(
+                                painter = painterResource(id = kartPreviewRes(kart.id)),
+                                contentDescription = kart.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(width = 44.dp, height = 30.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.5.dp, MintCream, RoundedCornerShape(8.dp))
+                            )
+                            Text(
+                                text = "${racer.name} • ${kart.name}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = SkyCandy,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         CandyButton(
                             text = if (isCollectionPreviewOnly) "RACE THIS TRACK" else if (mode == GameMode.GRAND_PRIX) "START GRAND PRIX" else "START RACE",
                             onClick = onStart,
@@ -293,7 +406,7 @@ fun RaceSetupScreen(
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 54.dp,
+                            height = 50.dp,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -385,7 +498,7 @@ fun ChallengesScreen(
     }
 }
 
-private fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle): String = when (style) {
+internal fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle): String = when (style) {
     com.example.sweetrush.model.KartBodyStyle.STRAWBERRY_ROCKET -> "السيارة الرسمية (Made by Vanellope) • شوكولاتة وويفر • كريمة وردية ورشات سكر • أنابيب حلوى وجناح بسكويت"
     com.example.sweetrush.model.KartBodyStyle.PEPPERMINT_RACER -> "تافيتا (Pink Lightning) • هيكل حلوى وردية مصقولة • خطوط برق قصب السكر • أجنحة فورمولا"
     com.example.sweetrush.model.KartBodyStyle.CUPCAKE_KART -> "كاندل هيد (Ice Cream & Birthday Cake) • كعكة عيد ميلاد • 5 شموع مشتعلة باللهب • كريمة نعناع"
@@ -400,7 +513,7 @@ private fun kartBakeryRecipeAr(style: com.example.sweetrush.model.KartBodyStyle)
     com.example.sweetrush.model.KartBodyStyle.CARAMEL_THUNDER -> "الملك كاندي (King Candy Royal Sovereign) • العربة الملكية المذهبة • تاج ورايات القصر"
 }
 
-private fun racerCharacterLookAr(racerId: String): String = when (racerId) {
+internal fun racerCharacterLookAr(racerId: String): String = when (racerId) {
     "berry_blitz" -> "فانيلوبي فون شويتز • هودي نعناع أخضر وتنورة بنية • ذيل حصان مزين بالحلوى وخطوط السكر"
     "minty_swirl" -> "تافيتا ميتونفدج • خوذة فراولة وردية مع فيونكة • بدلة سباق التوفي الوردي ونظارات"
     "frosting_faye" -> "كاندل هيد • قبعة كب كيك نعناع مع شمعة عيد ميلاد مشتعلة فوق الرأس • سترة آيس كريم"
@@ -416,7 +529,7 @@ private fun racerCharacterLookAr(racerId: String): String = when (racerId) {
     else -> "شخصية رسمية ثلاثية الأبعاد من فيلم Sugar Rush"
 }
 
-private fun racerPortraitRes(racerId: String): Int = when (racerId) {
+internal fun racerPortraitRes(racerId: String): Int = when (racerId) {
     "berry_blitz" -> R.drawable.img_racer_vanellope
     "minty_swirl" -> R.drawable.img_racer_taffyta
     "frosting_faye" -> R.drawable.img_racer_candlehead
@@ -432,7 +545,7 @@ private fun racerPortraitRes(racerId: String): Int = when (racerId) {
     else -> R.drawable.img_racer_vanellope
 }
 
-private fun kartPreviewRes(kartId: String): Int = when (kartId) {
+internal fun kartPreviewRes(kartId: String): Int = when (kartId) {
     "strawberry_rocket" -> R.drawable.img_official_candy_kart
     "peppermint_racer" -> R.drawable.img_kart_sugar_rush_car
     "cupcake_kart" -> R.drawable.img_kart_storybook_lineup
@@ -746,9 +859,45 @@ fun GarageAndCharacterScreen(
                     when (activeTab) {
                         0 -> {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(BerryCard)
+                                            .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.img_racers_storybook_lineup),
+                                            contentDescription = "Sugar Rush 12 Movie Racers Lineup",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(width = 110.dp, height = 52.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "جميع متسابقي فيلم Sugar Rush الـ 12 ★",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = CaramelGold
+                                            )
+                                            Text(
+                                                text = "اضغط على أي شخصية لاختيارها مع سيارتها الرسمية من الفيلم ومشاهدتها 3D",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MintCream,
+                                                maxLines = 2
+                                            )
+                                        }
+                                    }
+                                }
                                 items(CatalogData.racers) { racer ->
                                     val unlocked = profile.unlockedRacers.contains(racer.id)
                                     val selected = profile.selectedRacerId == racer.id
+                                    val sigKart = CatalogData.kartById(racer.favoriteKartId)
                                     Row(
                                         modifier = Modifier
                                             .testTag("racer_item_${racer.id}")
@@ -762,6 +911,7 @@ fun GarageAndCharacterScreen(
                                             )
                                             .clickable {
                                                 onSelectRacer(racer.id)
+                                                onSelectKart(racer.favoriteKartId)
                                                 activeCamPreset = "DRIVER"
                                                 onFocusCamera("DRIVER")
                                             }
@@ -773,7 +923,7 @@ fun GarageAndCharacterScreen(
                                             contentDescription = racer.name,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
-                                                .size(54.dp)
+                                                .size(56.dp)
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .border(2.dp, if (selected) CaramelGold else Color(racer.suitPrimaryHex), RoundedCornerShape(14.dp))
                                         )
@@ -787,7 +937,13 @@ fun GarageAndCharacterScreen(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
-                                            Text("الحلوى الخاصة: ${racer.signaturePowerUp.displayName}", style = MaterialTheme.typography.labelSmall, color = MintCream)
+                                            Text(
+                                                text = "سيارة الفيلم: #${sigKart.racingNumber} ${sigKart.name} • ${racer.signaturePowerUp.displayName}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MintCream,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
                                         if (!unlocked) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -805,6 +961,41 @@ fun GarageAndCharacterScreen(
 
                         1 -> {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(BerryCard)
+                                            .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.img_kart_storybook_lineup),
+                                            contentDescription = "Sugar Rush 12 Movie Karts Lineup",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(width = 110.dp, height = 52.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "أسطول سيارات فيلم Sugar Rush (12 سيارة) ★",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = CaramelGold
+                                            )
+                                            Text(
+                                                text = "جميع سيارات المتسابقين الـ 12 من الفيلم مصممة 3D بالكامل وقابلة للتعديل",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MintCream,
+                                                maxLines = 2
+                                            )
+                                        }
+                                    }
+                                }
                                 items(CatalogData.karts) { kart ->
                                     val unlocked = profile.unlockedKarts.contains(kart.id)
                                     val selected = profile.selectedKartId == kart.id

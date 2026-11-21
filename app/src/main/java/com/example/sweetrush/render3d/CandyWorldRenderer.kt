@@ -511,6 +511,42 @@ class CandyWorldRenderer(
             starActive = false
         )
 
+        // Draw 4 iconic rival movie racers in their signature movie karts cruising in formation on the Main Menu
+        val rivalRacers = CatalogData.racers.filter { it.id != showroomRacerId }.take(4)
+        val progressOffsets = floatArrayOf(0.011f, -0.009f, 0.023f, 0.036f)
+        val laneOffsets = floatArrayOf(3.4f, -3.3f, -3.5f, 3.3f)
+        for (i in rivalRacers.indices) {
+            val rival = rivalRacers[i]
+            val rivalKart = CatalogData.kartById(rival.favoriteKartId)
+            val rPose = interpolateTrackPose(track.nodes, (flyProgress + progressOffsets[i] + 1f) % 1f)
+            val rightX = cos(rPose.yawRad)
+            val rightZ = -sin(rPose.yawRad)
+            val lane = laneOffsets[i]
+            val rx = rPose.center.x + rightX * lane
+            val rz = rPose.center.z + rightZ * lane
+            drawDetailedKart(
+                kart = rivalKart,
+                racer = rival,
+                custom = KartCustomization(),
+                x = rx,
+                y = rPose.center.y,
+                z = rz,
+                groundY = rPose.center.y,
+                yawRad = rPose.yawRad,
+                rollRad = rPose.curvature * 0.14f,
+                pitchRad = 0f,
+                wheelSpin = totalTimeSec * 15f,
+                steerVis = (rPose.curvature * 2.0f).coerceIn(-0.4f, 0.4f),
+                wheelYOffsets = floatArrayOf(0f, 0f, 0f, 0f),
+                isBraking = false,
+                shieldActive = false,
+                starActive = false
+            )
+        }
+
+        // Draw cheering 3D Movie Citizens (Sour Bill, Wynnchel & Duncan Donut Police, Oreo Guards, Cupcake Fans) along the trackside
+        drawTracksideMovieCitizens(track, camX, camZ)
+
         if (rng.nextFloat() < 0.35f) {
             spawnParticle(
                 camX + (rng.nextFloat() - 0.5f) * 35f,
@@ -1137,6 +1173,44 @@ class CandyWorldRenderer(
             Matrix.rotateM(modelMat, 0, totalTimeSec * 90f + box.id * 25f, 0f, 1f, 0f)
             Matrix.rotateM(modelMat, 0, 18f, 1f, 0f, 0f)
             drawMesh(itemBoxMesh, modelMat, gloss = 0.95f)
+        }
+        drawTracksideMovieCitizens(track, camX, camZ)
+    }
+
+    private fun drawTracksideMovieCitizens(track: GeneratedTrack, refX: Float, refZ: Float) {
+        val variants = com.example.sweetrush.track.CitizenVariant.entries
+        val palette = longArrayOf(0xFF4CD137L, 0xFFFF4D94L, 0xFF3E2723L, 0xFF3CE8B5L, 0xFFFFB800L)
+        val maxDistSq = 185f * 185f
+        val stepNodes = 5
+        for (idx in 0 until track.nodes.size step stepNodes) {
+            val node = track.nodes[idx]
+            for (side in -1..1 step 2) {
+                val sideDist = node.halfWidth + 3.2f
+                val nx = node.center.x + node.right.x * (sideDist * side)
+                val nz = node.center.z + node.right.z * (sideDist * side)
+                val dx = nx - refX
+                val dz = nz - refZ
+                if (dx * dx + dz * dz > maxDistSq) continue
+
+                val serial = (idx / stepNodes) * 2 + (if (side > 0) 1 else 0)
+                val variant = variants[serial % variants.size]
+                val pHex = palette[serial % palette.size]
+                val sHex = palette[(serial + 2) % palette.size]
+                val hHex = palette[(serial + 1) % palette.size]
+                val cKey = "${variant.name}_${pHex}_${sHex}_${hHex}"
+                val cMesh = citizenMeshCache.getOrPut(cKey) {
+                    MeshFactory.buildCandyCitizenMesh(variant, pHex, sHex, hHex)
+                }
+                val faceTrackYawDeg = Math.toDegrees(atan2(-node.right.x * side, -node.right.z * side).toDouble()).toFloat()
+                val bounceY = abs(sin(totalTimeSec * 4.2f + serial * 0.7f)) * 0.24f
+                val swayDeg = sin(totalTimeSec * 5.0f + serial) * 8f
+                Matrix.setIdentityM(modelMat, 0)
+                Matrix.translateM(modelMat, 0, nx, node.center.y + bounceY, nz)
+                Matrix.rotateM(modelMat, 0, faceTrackYawDeg, 0f, 1f, 0f)
+                Matrix.rotateM(modelMat, 0, swayDeg, 0f, 0f, 1f)
+                Matrix.scaleM(modelMat, 0, 1.18f, 1.18f, 1.18f)
+                drawMesh(cMesh, modelMat, gloss = 0.78f)
+            }
         }
     }
 
