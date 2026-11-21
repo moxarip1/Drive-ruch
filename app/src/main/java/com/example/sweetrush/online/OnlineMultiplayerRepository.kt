@@ -301,7 +301,13 @@ class OnlineMultiplayerRepository(
             .document(uid)
             .collection("friends")
             .snapshots(MetadataChanges.EXCLUDE)
-            .map { snap -> snap.toObjects(FriendRosterEntry::class.java).sortedBy { it.displayName } }
+            .map { snap ->
+                snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(FriendRosterEntry::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
+                }.sortedBy { it.displayName }
+            }
     }
 
     private suspend fun upsertFriendRosterDoc(
@@ -360,8 +366,10 @@ class OnlineMultiplayerRepository(
             .whereArrayContains("participantUids", uid)
             .snapshots(MetadataChanges.EXCLUDE)
             .map { snap ->
-                snap.documents.mapNotNull {
-                    it.toObject(FriendRequestDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(FriendRequestDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
                 }.sortedByDescending { it.updatedAt?.toDate()?.time ?: 0L }
             }
     }
@@ -542,8 +550,10 @@ class OnlineMultiplayerRepository(
             .whereArrayContains("participantUids", uid)
             .snapshots(MetadataChanges.EXCLUDE)
             .map { snap ->
-                snap.documents.mapNotNull {
-                    it.toObject(GameInviteDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(GameInviteDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
                 }.sortedByDescending { it.updatedAt?.toDate()?.time ?: 0L }
             }
     }
@@ -880,7 +890,13 @@ class OnlineMultiplayerRepository(
         return db.collection("rooms")
             .document(roomCode)
             .snapshots(MetadataChanges.EXCLUDE)
-            .map { snap -> if (snap.exists()) snap.toObject(OnlineRoomDoc::class.java) else null }
+            .map { snap ->
+                if (snap.exists()) {
+                    runCatching {
+                        snap.toObject(OnlineRoomDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
+                } else null
+            }
     }
 
     fun observeRoomPlayers(roomCode: String, uid: String): Flow<List<RoomPlayerDoc>> {
@@ -889,7 +905,13 @@ class OnlineMultiplayerRepository(
             .collection("players")
             .whereArrayContains("visibleToUids", uid)
             .snapshots(MetadataChanges.EXCLUDE)
-            .map { snap -> snap.toObjects(RoomPlayerDoc::class.java).sortedBy { it.teamIndex } }
+            .map { snap ->
+                snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(RoomPlayerDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
+                }.sortedBy { it.teamIndex }
+            }
     }
 
     fun observeRoomMessages(roomCode: String, uid: String): Flow<List<RoomMessageDoc>> {
@@ -899,7 +921,11 @@ class OnlineMultiplayerRepository(
             .whereArrayContains("memberUids", uid)
             .snapshots(MetadataChanges.EXCLUDE)
             .map { snap ->
-                snap.toObjects(RoomMessageDoc::class.java)
+                snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        doc.toObject(RoomMessageDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    }.getOrNull()
+                }
                     .sortedBy { it.clientSeq }
                     .takeLast(60)
             }

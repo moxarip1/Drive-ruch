@@ -162,6 +162,31 @@ val syncDebugApkToBuildOutputs by tasks.registering(Copy::class) {
   into(rootProject.layout.projectDirectory.dir(".build-outputs"))
 }
 
+val compiledKotlinClassesDir: File =
+  layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes").get().asFile
+
+tasks.matching {
+  it.name == "dexBuilderDebug"
+}.configureEach {
+  val classesDir = compiledKotlinClassesDir
+  outputs.upToDateWhen { false }
+  doFirst {
+    if (classesDir.exists()) {
+      val now = System.currentTimeMillis()
+      classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach {
+        it.setLastModified(now)
+      }
+    }
+  }
+}
+
+tasks.matching {
+  it.name == "mergeProjectDexDebug" ||
+    it.name == "packageDebug"
+}.configureEach {
+  outputs.upToDateWhen { false }
+}
+
 tasks.matching {
   it.name == "assembleDebug" ||
     it.name == "packageDebug" ||
@@ -169,3 +194,5 @@ tasks.matching {
 }.configureEach {
   finalizedBy(syncDebugApkToFolder, syncDebugApkToBuildOutputs)
 }
+
+

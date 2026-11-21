@@ -179,9 +179,17 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     )
                 } else {
                     key(signedInUser.uid) {
-                        val dbId = remember(appContext) { appContext.getString(R.string.firestore_database_id) }
+                        val dbId = remember(appContext) {
+                            runCatching { appContext.getString(R.string.firestore_database_id) }.getOrDefault("")
+                        }
                         val onlineRepo = remember(dbId, signedInUser.uid) {
-                            val db = FirebaseFirestore.getInstance(dbId)
+                            val db = runCatching {
+                                if (dbId.isNotBlank() && dbId != "(default)") {
+                                    FirebaseFirestore.getInstance(dbId)
+                                } else {
+                                    FirebaseFirestore.getInstance()
+                                }
+                            }.getOrElse { FirebaseFirestore.getInstance() }
                             OnlineMultiplayerRepository(db = db, auth = Firebase.auth)
                         }
 

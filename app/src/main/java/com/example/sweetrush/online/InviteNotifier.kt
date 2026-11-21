@@ -63,7 +63,7 @@ object InviteNotifier {
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_stat_sweet_rush)
             .setContentTitle("Sweet Rush: Candy World")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

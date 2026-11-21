@@ -150,37 +150,28 @@ class SweetRushViewModel(
 
     val friends: StateFlow<List<FriendRosterEntry>> = onlineRepo.observeFriends(currentUserId)
         .catch { e ->
-            val fsEx = findFirestoreException(e)
-            if (fsEx != null) {
-                handleFirestoreError(fsEx, OperationType.LIST, "users/$currentUserId/friends")
-                emit(emptyList())
-            } else {
-                throw e
-            }
+            if (e is CancellationException) throw e
+            val fsEx = findFirestoreException(e) ?: e
+            handleFirestoreError(fsEx, OperationType.LIST, "users/$currentUserId/friends")
+            emit(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
     val friendRequests: StateFlow<List<FriendRequestDoc>> = onlineRepo.observeFriendRequests(currentUserId)
         .catch { e ->
-            val fsEx = findFirestoreException(e)
-            if (fsEx != null) {
-                handleFirestoreError(fsEx, OperationType.LIST, "friendRequests")
-                emit(emptyList())
-            } else {
-                throw e
-            }
+            if (e is CancellationException) throw e
+            val fsEx = findFirestoreException(e) ?: e
+            handleFirestoreError(fsEx, OperationType.LIST, "friendRequests")
+            emit(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
     val gameInvites: StateFlow<List<GameInviteDoc>> = onlineRepo.observeGameInvites(currentUserId)
         .catch { e ->
-            val fsEx = findFirestoreException(e)
-            if (fsEx != null) {
-                handleFirestoreError(fsEx, OperationType.LIST, "gameInvites")
-                emit(emptyList())
-            } else {
-                throw e
-            }
+            if (e is CancellationException) throw e
+            val fsEx = findFirestoreException(e) ?: e
+            handleFirestoreError(fsEx, OperationType.LIST, "gameInvites")
+            emit(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
@@ -188,13 +179,10 @@ class SweetRushViewModel(
         .flatMapLatest { code ->
             if (code == null) flowOf(null)
             else onlineRepo.observeRoom(code).catch { e ->
-                val fsEx = findFirestoreException(e)
-                if (fsEx != null) {
-                    handleFirestoreError(fsEx, OperationType.GET, "rooms/$code")
-                    emit(null)
-                } else {
-                    throw e
-                }
+                if (e is CancellationException) throw e
+                val fsEx = findFirestoreException(e) ?: e
+                handleFirestoreError(fsEx, OperationType.GET, "rooms/$code")
+                emit(null)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), null)
@@ -203,13 +191,10 @@ class SweetRushViewModel(
         .flatMapLatest { code ->
             if (code == null) flowOf(emptyList())
             else onlineRepo.observeRoomPlayers(code, currentUserId).catch { e ->
-                val fsEx = findFirestoreException(e)
-                if (fsEx != null) {
-                    handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/players")
-                    emit(emptyList())
-                } else {
-                    throw e
-                }
+                if (e is CancellationException) throw e
+                val fsEx = findFirestoreException(e) ?: e
+                handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/players")
+                emit(emptyList())
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
@@ -218,13 +203,10 @@ class SweetRushViewModel(
         .flatMapLatest { code ->
             if (code == null) flowOf(emptyList())
             else onlineRepo.observeRoomMessages(code, currentUserId).catch { e ->
-                val fsEx = findFirestoreException(e)
-                if (fsEx != null) {
-                    handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/messages")
-                    emit(emptyList())
-                } else {
-                    throw e
-                }
+                if (e is CancellationException) throw e
+                val fsEx = findFirestoreException(e) ?: e
+                handleFirestoreError(fsEx, OperationType.LIST, "rooms/$code/messages")
+                emit(emptyList())
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
@@ -294,32 +276,36 @@ class SweetRushViewModel(
 
     private fun bootstrapCloudProfile() {
         viewModelScope.launch {
-            val local = _profile.value
-            val localJson = saveRepo.serializeProfile(local).toString()
-            val res = onlineRepo.ensureUserProfileAndDirectory(
-                uid = currentUserId,
-                displayName = userDisplayName,
-                photoUrl = userPhotoUrl,
-                localProfile = local,
-                localProfileJson = localJson
-            )
-            res.onSuccess { cloud ->
-                _friendCode.value = cloud.friendCode.ifBlank { _friendCode.value }
-                if (cloud.profileJson.length > 10 && cloud.racesCompleted >= local.racesCompleted) {
-                    try {
-                        val parsed = saveRepo.parseProfile(JSONObject(cloud.profileJson)).let { p ->
-                            p.copy(
-                                unlockedKarts = (p.unlockedKarts + CatalogData.karts.map { it.id }).toSet(),
-                                unlockedRacers = (p.unlockedRacers + CatalogData.racers.map { it.id }).toSet()
-                            )
+            try {
+                val local = _profile.value
+                val localJson = saveRepo.serializeProfile(local).toString()
+                val res = onlineRepo.ensureUserProfileAndDirectory(
+                    uid = currentUserId,
+                    displayName = userDisplayName,
+                    photoUrl = userPhotoUrl,
+                    localProfile = local,
+                    localProfileJson = localJson
+                )
+                res.onSuccess { cloud ->
+                    _friendCode.value = cloud.friendCode.ifBlank { _friendCode.value }
+                    if (cloud.profileJson.length > 10 && cloud.racesCompleted >= local.racesCompleted) {
+                        try {
+                            val parsed = saveRepo.parseProfile(JSONObject(cloud.profileJson)).let { p ->
+                                p.copy(
+                                    unlockedKarts = (p.unlockedKarts + CatalogData.karts.map { it.id }).toSet(),
+                                    unlockedRacers = (p.unlockedRacers + CatalogData.racers.map { it.id }).toSet()
+                                )
+                            }
+                            _profile.value = parsed
+                            saveRepo.saveProfile(parsed)
+                            syncRendererWithProfile(parsed)
+                            audioEngine.setVolumes(parsed.settings.musicVolume, parsed.settings.sfxVolume)
+                        } catch (_: Exception) {
                         }
-                        _profile.value = parsed
-                        saveRepo.saveProfile(parsed)
-                        syncRendererWithProfile(parsed)
-                        audioEngine.setVolumes(parsed.settings.musicVolume, parsed.settings.sfxVolume)
-                    } catch (_: Exception) {
                     }
                 }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
             }
         }
     }
