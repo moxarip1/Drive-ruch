@@ -19,14 +19,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,9 +56,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.R
 import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.model.GameScreen
 import com.example.sweetrush.model.PlayerProfile
@@ -109,16 +106,16 @@ fun MainMenuScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Subtle perimeter scrim so the centered smooth 3D kart & kingdom stay crisp and clear
+        // Subtle perimeter scrim so the centered 3D kart & kingdom stay crystal clear
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         0.0f to BerryDeep.copy(alpha = 0.56f),
-                        0.26f to Color.Transparent,
-                        0.66f to Color.Transparent,
-                        1.0f to BerryDeep.copy(alpha = 0.68f)
+                        0.22f to Color.Transparent,
+                        0.64f to Color.Transparent,
+                        1.0f to BerryDeep.copy(alpha = 0.72f)
                     )
                 )
         )
@@ -141,382 +138,228 @@ fun MainMenuScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                // Organized Top Header: Brand Logo + Selected Movie Racer/Kart + World Map & Citizens + Account Strip
+            // SINGLE COMPACT TOP BAR: Logo + Active Racer/Kart Quick Garage Chip + Music & Profile Controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SweetRushLogo(compact = true)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .testTag("menu_official_kart_banner")
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(BerryDeep.copy(alpha = 0.84f))
-                                    .border(1.5.dp, CaramelGold.copy(alpha = 0.82f), RoundedCornerShape(16.dp))
-                                    .clickable { onNavigate(GameScreen.CHARACTER_SELECT) }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(id = racerPortraitRes(racer.id)),
-                                    contentDescription = racer.name,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .border(1.5.dp, CaramelGold, CircleShape)
-                                )
-                                Image(
-                                    painter = painterResource(id = kartPreviewRes(kart.id)),
-                                    contentDescription = kart.name,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(width = 48.dp, height = 32.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(1.dp, MintCream, RoundedCornerShape(8.dp))
-                                )
-                                Column {
-                                    Text(
-                                        text = "${racer.name} • #${kart.racingNumber} ${kart.name}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = CaramelGold,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "12 متسابق و12 سيارة من الفيلم ★ اضغط للتبديل",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MintCream
-                                    )
-                                }
-                            }
+                    SweetRushLogo(compact = true)
 
-                            // Official Published Movie World Map Quick Pill
-                            Row(
-                                modifier = Modifier
-                                    .testTag("menu_movie_map_pill")
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(BerryDeep.copy(alpha = 0.84f))
-                                    .border(1.5.dp, SkyCandy.copy(alpha = 0.8f), RoundedCornerShape(14.dp))
-                                    .clickable { onNavigate(GameScreen.WORLD_MAP) }
-                                    .padding(horizontal = 7.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_map_sugar_rush_kingdom),
-                                    contentDescription = "Sugar Rush World Map",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(width = 38.dp, height = 28.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .border(1.dp, CaramelGold, RoundedCornerShape(6.dp))
-                                )
-                                Text(
-                                    text = "خريطة الفيلم",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SkyCandy,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            // Official Movie Citizens (Sour Bill & Wynnchel/Duncan) Quick Pill
-                            Row(
-                                modifier = Modifier
-                                    .testTag("menu_movie_citizens_pill")
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(BerryDeep.copy(alpha = 0.84f))
-                                    .border(1.5.dp, MintCream.copy(alpha = 0.8f), RoundedCornerShape(14.dp))
-                                    .clickable { onStartFreeRoam() }
-                                    .padding(horizontal = 7.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_citizen_sour_bill),
-                                    contentDescription = "Sour Bill",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .border(1.dp, MintCream, CircleShape)
-                                )
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_citizen_wynnchel_duncan),
-                                    contentDescription = "Wynnchel & Duncan",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .border(1.dp, CandyPink, CircleShape)
-                                )
-                                Text(
-                                    text = "مواطنو الفيلم",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MintCream,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    // Compact Active Racer & Kart Garage Entry Chip
+                    Row(
+                        modifier = Modifier
+                            .testTag("menu_official_kart_banner")
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(BerryDeep.copy(alpha = 0.86f))
+                            .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
+                            .clickable { onNavigate(GameScreen.GARAGE) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        RacerAvatarThumb(
+                            racerId = racer.id,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, CaramelGold, CircleShape)
+                        )
+                        Image(
+                            painter = painterResource(id = kartPreviewRes(kart.id)),
+                            contentDescription = kart.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(width = 40.dp, height = 28.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .border(1.dp, MintCream, RoundedCornerShape(7.dp))
+                        )
+                        Column {
+                            Text(
+                                text = "${racer.name.substringBefore("•").trim()} • #${kart.racingNumber}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CaramelGold,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "غاراج السيارات والشخصيات (24)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MintCream,
+                                maxLines = 1
+                            )
                         }
                     }
+                }
 
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                        if (pendingRequestsCount > 0) {
-                            Row(
-                                modifier = Modifier
-                                    .testTag("menu_friend_requests_badge")
-                                    .clip(RoundedCornerShape(50))
-                                    .background(CandyPink)
-                                    .border(1.5.dp, Color.White, RoundedCornerShape(50))
-                                    .clickable { onNavigate(GameScreen.ONLINE_LOBBY) }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Icon(
-                                    Icons.Filled.NotificationsActive,
-                                    contentDescription = "Friend Requests",
-                                    tint = FrostingWhite,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "$pendingRequestsCount REQ",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = FrostingWhite,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        // 1-Tap Music ON/OFF Pill
+                // Right Top Controls: Friend Requests + Music Toggle + Song Switch + Account & Credits
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (pendingRequestsCount > 0) {
                         Row(
                             modifier = Modifier
-                                .testTag("menu_toggle_music_button")
+                                .testTag("menu_friend_requests_badge")
                                 .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (isMusicEnabled) MintDark.copy(alpha = 0.88f)
-                                    else StrawberryRed.copy(alpha = 0.88f)
-                                )
-                                .border(
-                                    1.5.dp,
-                                    if (isMusicEnabled) MintCream else CaramelGold,
-                                    RoundedCornerShape(50)
-                                )
-                                .clickable { onToggleMusic() }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                .background(CandyPink)
+                                .border(1.5.dp, Color.White, RoundedCornerShape(50))
+                                .clickable { onNavigate(GameScreen.ONLINE_LOBBY) }
+                                .padding(horizontal = 9.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            Icon(
+                                Icons.Filled.NotificationsActive,
+                                contentDescription = "Friend Requests",
+                                tint = FrostingWhite,
+                                modifier = Modifier.size(15.dp)
+                            )
                             Text(
-                                text = if (isMusicEnabled) "🔊 ON" else "🔇 OFF",
+                                text = "$pendingRequestsCount",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = FrostingWhite,
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
 
-                        // 1-Tap Uploaded MP3 Soundtrack Switcher Pill
-                        Row(
-                            modifier = Modifier
-                                .testTag("menu_switch_music_button")
-                                .clip(RoundedCornerShape(50))
-                                .background(BerryDeep.copy(alpha = 0.85f))
-                                .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(50))
-                                .clickable { onSwitchMusicTrack() }
-                                .padding(horizontal = 11.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Text(
-                                text = "🎵 $currentSongTitle",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CaramelGold,
-                                fontWeight = FontWeight.Bold
+                    // 1-Tap Music ON/OFF Pill
+                    Row(
+                        modifier = Modifier
+                            .testTag("menu_toggle_music_button")
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                if (isMusicEnabled) MintDark.copy(alpha = 0.88f)
+                                else StrawberryRed.copy(alpha = 0.88f)
                             )
-                        }
+                            .border(
+                                1.5.dp,
+                                if (isMusicEnabled) MintCream else CaramelGold,
+                                RoundedCornerShape(50)
+                            )
+                            .clickable { onToggleMusic() }
+                            .padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isMusicEnabled) "🔊 ON" else "🔇 OFF",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = FrostingWhite,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
-                        // Google Account Racer Chip
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(BerryPurple.copy(alpha = 0.88f))
-                                .border(1.5.dp, MintCream.copy(alpha = 0.75f), RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            if (!userPhotoUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = userPhotoUrl,
-                                    contentDescription = "Google Avatar",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .background(CandyPink),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = userDisplayName.firstOrNull()?.uppercase() ?: "R",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = FrostingWhite
-                                    )
-                                }
-                            }
-                            Column {
+                    // 1-Tap Uploaded MP3 Soundtrack Switcher Pill
+                    Row(
+                        modifier = Modifier
+                            .testTag("menu_switch_music_button")
+                            .clip(RoundedCornerShape(50))
+                            .background(BerryDeep.copy(alpha = 0.85f))
+                            .border(1.5.dp, CaramelGold.copy(alpha = 0.85f), RoundedCornerShape(50))
+                            .clickable { onSwitchMusicTrack() }
+                            .padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🎵 $currentSongTitle",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CaramelGold,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+
+                    // Google Account Racer Chip
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(BerryPurple.copy(alpha = 0.88f))
+                            .border(1.5.dp, MintCream.copy(alpha = 0.75f), RoundedCornerShape(50))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (!userPhotoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = userPhotoUrl,
+                                contentDescription = "Google Avatar",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(CandyPink),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
-                                    text = userDisplayName.take(18),
+                                    text = userDisplayName.firstOrNull()?.uppercase() ?: "R",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = FrostingWhite
                                 )
-                                if (friendCode.isNotBlank()) {
-                                    Text(
-                                        text = if (activeRoomCode != null) "ROOM #$activeRoomCode" else "ID: $friendCode",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = CaramelGold
-                                    )
-                                }
                             }
                         }
-
-                        PlayerProfilePill(profile = profile)
-                    }
-                }
-            }
-
-                // Live 12 Movie Racers & Signature Movie Karts Quick-Switch Carousel on Main Menu
-                LazyRow(
-                    modifier = Modifier
-                        .testTag("menu_movie_racers_carousel")
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(CatalogData.racers) { rItem ->
-                        val isSel = rItem.id == profile.selectedRacerId
-                        val rKart = CatalogData.kartById(rItem.favoriteKartId)
-                        Row(
-                            modifier = Modifier
-                                .testTag("menu_racer_chip_${rItem.id}")
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    if (isSel) CandyPink.copy(alpha = 0.85f)
-                                    else BerryDeep.copy(alpha = 0.78f)
-                                )
-                                .border(
-                                    width = if (isSel) 2.dp else 1.dp,
-                                    color = if (isSel) CaramelGold else Color.White.copy(alpha = 0.28f),
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                                .clickable {
-                                    onSelectRacerAndKart(rItem.id, rItem.favoriteKartId)
-                                }
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = racerPortraitRes(rItem.id)),
-                                contentDescription = rItem.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .border(1.dp, if (isSel) CaramelGold else Color(rItem.suitPrimaryHex), CircleShape)
+                        Column {
+                            Text(
+                                text = userDisplayName.take(14),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = FrostingWhite,
+                                maxLines = 1
                             )
-                            Column {
+                            if (friendCode.isNotBlank()) {
                                 Text(
-                                    text = rItem.name.substringBefore(" "),
+                                    text = if (activeRoomCode != null) "#$activeRoomCode" else "ID:$friendCode",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = FrostingWhite,
-                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                                )
-                                Text(
-                                    text = "#${rKart.racingNumber} ${rKart.name.substringBefore(" ")}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isSel) MintCream else CaramelGold
+                                    color = CaramelGold,
+                                    maxLines = 1
                                 )
                             }
                         }
                     }
+
+                    PlayerProfilePill(profile = profile)
                 }
             }
 
-            // Bottom Dual Frosted Glass Docks — structured & uncluttered
+            // BOTTOM DUAL FROSTED GLASS DOCKS — Always Visible, Easy & Responsive
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 // LEFT DOCK: Racing & Multiplayer Modes
                 Column(
                     modifier = Modifier
-                        .width(382.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(BerryDeep.copy(alpha = 0.72f))
-                        .border(1.5.dp, Color.White.copy(alpha = 0.34f), RoundedCornerShape(24.dp))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                        .weight(1.1f)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(BerryDeep.copy(alpha = 0.78f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.36f), RoundedCornerShape(22.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "RACING & SOCIAL MODES",
+                        text = "RACING & ONLINE MODES • أطوار اللعب والأونلاين",
                         style = MaterialTheme.typography.labelSmall,
                         color = MintCream,
                         fontWeight = FontWeight.Bold
                     )
-                    // Primary Social Row: Online Squads + Gathering Hub
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        CandyButton(
-                            text = if (activeRoomCode != null) "#$activeRoomCode" else CatalogData.localized(lang, "online"),
-                            onClick = { onNavigate(GameScreen.ONLINE_LOBBY) },
-                            testTag = "menu_online_button",
-                            icon = Icons.Filled.Groups,
-                            topColor = CaramelGold,
-                            bottomColor = Color(0xFFFF6D00),
-                            textColor = BerryDeep,
-                            height = 48.dp,
-                            modifier = Modifier.weight(1.05f)
-                        )
-                        CandyButton(
-                            text = CatalogData.localized(lang, "gathering_hub"),
-                            onClick = onEnterGatheringHub,
-                            testTag = "menu_gathering_hub_button",
-                            icon = Icons.Filled.Storefront,
-                            topColor = Color(0xFFFF85C1),
-                            bottomColor = CandyPinkDark,
-                            height = 48.dp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                     // Primary Play Row: Quick Race + Open World Free Roam
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "play"),
@@ -525,7 +368,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.PlayArrow,
                             topColor = Color(0xFFFF4D94),
                             bottomColor = CandyPinkDark,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -536,7 +379,34 @@ fun MainMenuScreen(
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // Primary Social Row: Online Squads + Gathering Hub
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        CandyButton(
+                            text = if (activeRoomCode != null) "#$activeRoomCode" else CatalogData.localized(lang, "online"),
+                            onClick = { onNavigate(GameScreen.ONLINE_LOBBY) },
+                            testTag = "menu_online_button",
+                            icon = Icons.Filled.Groups,
+                            topColor = CaramelGold,
+                            bottomColor = Color(0xFFFF6D00),
+                            textColor = BerryDeep,
+                            height = 42.dp,
+                            modifier = Modifier.weight(1.05f)
+                        )
+                        CandyButton(
+                            text = CatalogData.localized(lang, "gathering_hub"),
+                            onClick = onEnterGatheringHub,
+                            testTag = "menu_gathering_hub_button",
+                            icon = Icons.Filled.Storefront,
+                            topColor = Color(0xFFFF85C1),
+                            bottomColor = CandyPinkDark,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -553,7 +423,7 @@ fun MainMenuScreen(
                             topColor = CaramelGold,
                             bottomColor = Butterscotch,
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1.05f)
                         )
                         CandyButton(
@@ -564,7 +434,7 @@ fun MainMenuScreen(
                             topColor = SkyCandy,
                             bottomColor = Color(0xFF0288D1),
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -575,34 +445,32 @@ fun MainMenuScreen(
                             topColor = Color(0xFF4DD0E1),
                             bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(0.95f)
                         )
                     }
                 }
 
-                Spacer(Modifier.width(12.dp))
-
-                // RIGHT DOCK: Garage, Racers, Kingdom & System
+                // RIGHT DOCK: Garage, Characters (Movie & Anime), World Map & Settings
                 Column(
                     modifier = Modifier
-                        .width(344.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(BerryDeep.copy(alpha = 0.72f))
-                        .border(1.5.dp, Color.White.copy(alpha = 0.34f), RoundedCornerShape(24.dp))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                        .weight(0.95f)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(BerryDeep.copy(alpha = 0.78f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.36f), RoundedCornerShape(22.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = "GARAGE & KINGDOM",
+                        text = "GARAGE, ANIME & KINGDOM • الغاراج والشخصيات",
                         style = MaterialTheme.typography.labelSmall,
                         color = SkyCandy,
                         fontWeight = FontWeight.Bold
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "garage"),
@@ -611,7 +479,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.Build,
                             topColor = Color(0xFF7C4DFF),
                             bottomColor = Color(0xFF4527A0),
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -621,7 +489,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.Face,
                             topColor = Color(0xFFFF7EB6),
                             bottomColor = Color(0xFFD81B60),
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -637,7 +505,7 @@ fun MainMenuScreen(
                             topColor = MintCream,
                             bottomColor = MintDark,
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1.05f)
                         )
                         CandyButton(
@@ -647,13 +515,13 @@ fun MainMenuScreen(
                             icon = Icons.Filled.Flag,
                             topColor = GrapeJelly,
                             bottomColor = Color(0xFF5E35B1),
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CandyButton(
                             text = CatalogData.localized(lang, "tracks"),
@@ -663,7 +531,7 @@ fun MainMenuScreen(
                             topColor = Color(0xFF4DD0E1),
                             bottomColor = Color(0xFF00838F),
                             textColor = BerryDeep,
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                         CandyButton(
@@ -673,7 +541,7 @@ fun MainMenuScreen(
                             icon = Icons.Filled.Settings,
                             topColor = Color(0xFF7E57C2),
                             bottomColor = Color(0xFF311B92),
-                            height = 48.dp,
+                            height = 42.dp,
                             modifier = Modifier.weight(1f)
                         )
                     }

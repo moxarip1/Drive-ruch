@@ -838,80 +838,82 @@ object VehicleMeshBuilder {
             acc.addSphere(handX - side * 0.045f, handY + 0.025f, handZ - 0.01f, 0.032f, 0.028f, 0.040f, 5, 6, cream, matType = CandyMaterials.MAT_CANDY)
         }
 
-        // 6. Neck & Sculpted Expressive 3D Head & Face
-        acc.addCylinder(0f, 0.45f, 0.02f, 0.085f, 0.080f, 0.11f, 10, skin)
-        val headY = 0.64f
-        val headZ = 0.04f
-        // Main sculpted head with soft anime proportions
-        acc.addSphere(0f, headY, headZ, 0.215f, 0.205f, 0.210f, 10, 14, skin)
-        // Lower cheek fullness for cute Sugar Rush silhouette
-        acc.addSphere(0f, headY - 0.045f, headZ + 0.035f, 0.195f, 0.125f, 0.175f, 8, 12, skin)
+        // 6. Neck & Sculpted Expressive 3D Anime/Movie Head & Face
+        acc.addCylinder(0f, 0.45f, 0.02f, 0.082f, 0.078f, 0.115f, 12, skin)
+        val headY = 0.645f
+        val headZ = 0.042f
+        // Main sculpted head with refined high-resolution anime cranium & jawline
+        acc.addSphere(0f, headY + 0.01f, headZ, 0.216f, 0.210f, 0.212f, 14, 18, skin)
+        // Sculpted anime cheeks & tapered chin contour
+        acc.addSphere(0f, headY - 0.048f, headZ + 0.038f, 0.194f, 0.126f, 0.178f, 10, 14, skin)
+        acc.addSphere(0f, headY - 0.115f, headZ + 0.075f, 0.088f, 0.068f, 0.095f, 8, 10, skin)
 
-        // Left & Right Ears with inner ear tint
+        // Left & Right Ears with inner ear detail & anime earrings where applicable
         for (side in listOf(-1f, 1f)) {
-            acc.addSphere(side * 0.210f, headY - 0.01f, headZ - 0.01f, 0.042f, 0.058f, 0.036f, 5, 6, skin)
-            acc.addSphere(side * 0.216f, headY - 0.01f, headZ + 0.005f, 0.024f, 0.034f, 0.020f, 4, 5, 0xFFFF8DA1L)
+            acc.addSphere(side * 0.212f, headY - 0.01f, headZ - 0.01f, 0.044f, 0.060f, 0.038f, 6, 8, skin)
+            acc.addSphere(side * 0.218f, headY - 0.01f, headZ + 0.005f, 0.024f, 0.035f, 0.020f, 5, 6, 0xFFFF8DA1L)
         }
 
-        // Rosy Candy Blush Cheeks
+        // Soft Anime Blush Cheeks + Subtle Cheek Highlight Dot
         for (side in listOf(-1f, 1f)) {
-            acc.addSphere(side * 0.122f, headY - 0.042f, headZ + 0.168f, 0.044f, 0.026f, 0.022f, 5, 6, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(side * 0.124f, headY - 0.040f, headZ + 0.170f, 0.046f, 0.026f, 0.022f, 6, 8, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(side * 0.132f, headY - 0.034f, headZ + 0.184f, 0.014f, 0.009f, 0.010f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
         }
 
-        // Cute 3D Button Nose
-        acc.addSphere(0f, headY - 0.012f, headZ + 0.212f, 0.028f, 0.025f, 0.030f, 5, 6, skin)
+        // Refined 3D Anime Nose Bridge & Tip
+        acc.addSphere(0f, headY - 0.010f, headZ + 0.215f, 0.025f, 0.028f, 0.032f, 6, 8, skin)
 
-        // Cheerful Smiling Mouth (berry lip arch + bright white teeth smile)
-        acc.addBeveledBox(0f, headY - 0.072f, headZ + 0.188f, 0.088f, 0.030f, 0.028f, 0.8f, 0.8f, 0xFFD81B60L, 0xFFFF80ABL, CandyMaterials.MAT_CANDY)
-        acc.addBox(0f, headY - 0.066f, headZ + 0.196f, 0.064f, 0.014f, 0.018f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+        // Cheerful Anime Smiling Mouth (upper lip contour, warm smile cavity, bright white teeth)
+        acc.addBeveledBox(0f, headY - 0.072f, headZ + 0.190f, 0.086f, 0.030f, 0.028f, 0.8f, 0.8f, 0xFFD81B60L, 0xFFFF80ABL, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, headY - 0.065f, headZ + 0.198f, 0.064f, 0.015f, 0.018f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
 
-        // Large Expressive Multi-Layer Sugar Rush Eyes (Sclera + Colored Iris + Dark Pupil + Twin Catchlights + Eyebrows)
+        // Large Expressive Multi-Layer Anime Eyes (Sclera + Dual-Ring Iris + Deep Pupil + Triple Catchlights + Eyelashes + Brows)
         for (side in listOf(-1f, 1f)) {
-            val ex = side * 0.082f
-            val ey = headY + 0.018f
-            val ez = headZ + 0.182f
+            val ex = side * 0.084f
+            val ey = headY + 0.020f
+            val ez = headZ + 0.184f
             // White sclera
-            acc.addSphere(ex, ey, ez, 0.052f, 0.058f, 0.032f, 6, 8, 0xFFFFFFFFL)
-            // Vibrant candy iris
-            acc.addSphere(ex, ey, ez + 0.016f, 0.038f, 0.044f, 0.022f, 6, 8, vHex, pHex, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(ex, ey, ez, 0.055f, 0.061f, 0.034f, 8, 10, 0xFFFFFFFFL)
+            // Outer vibrant iris ring
+            acc.addSphere(ex, ey, ez + 0.016f, 0.041f, 0.047f, 0.023f, 8, 10, vHex, pHex, matType = CandyMaterials.MAT_CANDY)
+            // Inner glowing iris gradient core
+            acc.addSphere(ex, ey - 0.005f, ez + 0.023f, 0.032f, 0.036f, 0.018f, 6, 8, pHex, vHex, matType = CandyMaterials.MAT_EMISSIVE)
             // Deep dark pupil
-            acc.addSphere(ex, ey, ez + 0.028f, 0.023f, 0.027f, 0.014f, 5, 6, 0xFF160824L)
-            // Primary & secondary bright white specular eye catchlights
-            acc.addSphere(ex - side * 0.012f, ey + 0.015f, ez + 0.036f, 0.011f, 0.011f, 0.009f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
-            acc.addSphere(ex + side * 0.010f, ey - 0.012f, ez + 0.035f, 0.006f, 0.006f, 0.006f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
-            // Upper eyelash / eyelid liner
-            acc.addBeveledBox(ex, ey + 0.048f, ez + 0.012f, 0.086f, 0.016f, 0.026f, 0.9f, 0.9f, 0xFF230D30L)
+            acc.addSphere(ex, ey + 0.002f, ez + 0.030f, 0.022f, 0.026f, 0.015f, 6, 8, 0xFF12061EL)
+            // Triple bright white anime specular eye catchlights
+            acc.addSphere(ex - side * 0.014f, ey + 0.017f, ez + 0.038f, 0.012f, 0.012f, 0.009f, 5, 6, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            acc.addSphere(ex + side * 0.012f, ey - 0.014f, ez + 0.037f, 0.007f, 0.007f, 0.006f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            acc.addSphere(ex + side * 0.015f, ey + 0.012f, ez + 0.036f, 0.005f, 0.005f, 0.005f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            // Sculpted upper eyelash wing & lower lash line
+            acc.addBeveledBox(ex, ey + 0.051f, ez + 0.014f, 0.092f, 0.017f, 0.028f, 0.9f, 0.9f, 0xFF1A0926L)
+            acc.addSphere(ex + side * 0.044f, ey + 0.046f, ez + 0.012f, 0.018f, 0.010f, 0.016f, 4, 5, 0xFF1A0926L)
             // Expressive arched eyebrow
-            acc.addBeveledBox(ex, ey + 0.078f, ez + 0.008f, 0.082f, 0.018f, 0.024f, 0.85f, 0.85f, hHex, sHex)
+            acc.addBeveledBox(ex, ey + 0.082f, ez + 0.010f, 0.086f, 0.018f, 0.025f, 0.85f, 0.85f, hHex, sHex)
         }
 
-        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Movie Headgear
+        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Movie + Anime Headgear
         when (racer.id) {
             "berry_blitz" -> {
                 // VANELLOPE VON SCHWEETZ: Glossy Black Hair + High Ponytail tied with Red Licorice Twist + Candy Sprinkles in Hair + Mint Hoodie Hood
                 val blackHair = 0xFF14131AL
                 val hairSpec = 0xFF2B2838L
                 val licoriceRed = 0xFFFF1744L
-                // Mint Hoodie Hood folded behind her neck
                 acc.addTorus(0f, 0.44f, -0.06f, 0.19f, 0.068f, 12, 6, 0xFF2CE6B0L, 0xFF1FAF86L, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Glossy black hair cap & side bangs framing face
-                acc.addSphere(0f, headY + 0.055f, headZ - 0.03f, 0.228f, 0.198f, 0.218f, 8, 12, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.055f, headZ - 0.03f, 0.228f, 0.198f, 0.218f, 10, 14, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
                 for (side in listOf(-1f, 1f)) {
                     acc.addSphere(side * 0.175f, headY + 0.02f, headZ + 0.09f, 0.062f, 0.125f, 0.075f, 6, 8, blackHair, hairSpec)
-                    acc.addSphere(side * 0.075f, headY + 0.135f, headZ + 0.155f, 0.088f, 0.055f, 0.065f, 5, 7, blackHair, hairSpec)
+                    acc.addSphere(side * 0.075f, headY + 0.135f, headZ + 0.155f, 0.088f, 0.055f, 0.065f, 6, 8, blackHair, hairSpec)
                 }
-                // High Ponytail tied with Red Licorice Twist Bow
                 acc.addTorus(0f, headY + 0.18f, headZ - 0.14f, 0.068f, 0.026f, 10, 5, licoriceRed, 0xFFFF5252L, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(-0.07f, headY + 0.19f, headZ - 0.14f, 0.045f, 0.028f, 0.028f, 5, 6, licoriceRed, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(0.07f, headY + 0.19f, headZ - 0.14f, 0.045f, 0.028f, 0.028f, 5, 6, licoriceRed, matType = CandyMaterials.MAT_CANDY)
-                acc.addSphere(0f, headY + 0.23f, headZ - 0.24f, 0.135f, 0.165f, 0.145f, 8, 10, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
-                // Colorful Candy Sprinkles & Heart Candies embedded in Vanellope's black hair!
-                for (sp in 0 until 12) {
-                    val a = (sp.toFloat() / 12f) * (2f * PI.toFloat())
-                    val sx = cos(a) * 0.17f
-                    val sz = headZ - 0.02f + sin(a) * 0.16f
+                acc.addSphere(0f, headY + 0.23f, headZ - 0.24f, 0.138f, 0.170f, 0.148f, 10, 12, blackHair, hairSpec, matType = CandyMaterials.MAT_CANDY)
+                for (sp in 0 until 14) {
+                    val a = (sp.toFloat() / 14f) * (2f * PI.toFloat())
+                    val sx = cos(a) * 0.175f
+                    val sz = headZ - 0.02f + sin(a) * 0.165f
                     val col = SPRINKLE_PALETTE[sp % SPRINKLE_PALETTE.size]
-                    acc.addSphere(sx, headY + 0.18f + (sp % 3) * 0.025f, sz, 0.032f, 0.024f, 0.032f, 4, 5, col, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(sx, headY + 0.18f + (sp % 3) * 0.025f, sz, 0.032f, 0.024f, 0.032f, 5, 6, col, matType = CandyMaterials.MAT_CANDY)
                 }
             }
 
@@ -920,13 +922,10 @@ object VehicleMeshBuilder {
                 val blondeHair = 0xFFFFE082L
                 val strawberryPink = 0xFFFF2E7EL
                 val leafGreen = 0xFF2ECC71L
-                // Blonde side hair locks peeking under helmet
                 for (side in listOf(-1f, 1f)) {
                     acc.addSphere(side * 0.195f, headY - 0.04f, headZ + 0.06f, 0.065f, 0.115f, 0.078f, 6, 8, blondeHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
-                // Glossy Pink Strawberry Helmet Dome
-                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 9, 12, strawberryPink, 0xFFFF80ABL, matType = CandyMaterials.MAT_CANDY)
-                // White Strawberry Seed Dots on Helmet + Green Strawberry Calyx Leaves & Stem on Top
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 10, 14, strawberryPink, 0xFFFF80ABL, matType = CandyMaterials.MAT_CANDY)
                 for (i in 0 until 8) {
                     val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
                     acc.addSphere(cos(a) * 0.19f, headY + 0.16f, headZ + sin(a) * 0.18f, 0.026f, 0.026f, 0.026f, 4, 5, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
@@ -942,12 +941,10 @@ object VehicleMeshBuilder {
                 for (side in listOf(-1f, 1f)) {
                     acc.addSphere(side * 0.195f, headY - 0.03f, headZ + 0.06f, 0.068f, 0.125f, 0.082f, 6, 8, mintHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
-                // Cupcake Frosting Helmet Dome with White Piped Scallop Rim
-                acc.addSphere(0f, headY + 0.08f, headZ - 0.01f, 0.240f, 0.205f, 0.230f, 9, 12, cakePink, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                acc.addSphere(0f, headY + 0.08f, headZ - 0.01f, 0.240f, 0.205f, 0.230f, 10, 14, cakePink, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 acc.addTorus(0f, headY + 0.10f, headZ - 0.01f, 0.225f, 0.036f, 12, 6, cream, cakePink, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Signature Birthday Candle & Glowing Flame on Top of Helmet
                 addCandyCaneTube(acc, Vec3(0f, headY + 0.26f, headZ - 0.01f), Vec3(0f, headY + 0.44f, headZ - 0.01f), 0.042f, 5, cream, cakePink)
-                acc.addSphere(0f, headY + 0.50f, headZ - 0.01f, 0.046f, 0.085f, 0.046f, 5, 6, 0xFFFFD600L, 0xFFFF6D00L, CandyMaterials.MAT_EMISSIVE)
+                acc.addSphere(0f, headY + 0.50f, headZ - 0.01f, 0.046f, 0.085f, 0.046f, 6, 8, 0xFFFFD600L, 0xFFFF6D00L, CandyMaterials.MAT_EMISSIVE)
             }
 
             "coco_dash" -> {
@@ -955,10 +952,8 @@ object VehicleMeshBuilder {
                 val blondeHair = 0xFFFFD54FL
                 val pbCupRed = 0xFFD82E2EL
                 val chocoTrim = 0xFF4E2A1EL
-                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.226f, 0.192f, 0.216f, 8, 12, blondeHair, 0xFFFFF59DL, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Swept front blonde bangs
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.226f, 0.192f, 0.216f, 10, 14, blondeHair, 0xFFFFF59DL, matType = CandyMaterials.MAT_MARSHMALLOW)
                 acc.addSphere(0.06f, headY + 0.135f, headZ + 0.165f, 0.115f, 0.058f, 0.068f, 6, 8, blondeHair, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Inverted Fluted Peanut-Butter-Cup Hat on Top of Head
                 acc.addCylinder(0f, headY + 0.18f, headZ - 0.01f, 0.175f, 0.215f, 0.135f, 14, pbCupRed, chocoTrim, matType = CandyMaterials.MAT_WAFER)
                 acc.addTorus(0f, headY + 0.185f, headZ - 0.01f, 0.185f, 0.026f, 12, 5, gold, chocoTrim, matType = CandyMaterials.MAT_CHROME)
             }
@@ -967,11 +962,9 @@ object VehicleMeshBuilder {
                 // JUBILEENA BING-BING: Glossy Red Cherry Helmet with Green Stem + Twin Crimson Pigtails
                 val cherryRed = 0xFFE51C38L
                 val leafGreen = 0xFF2ECC71L
-                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 9, 12, cherryRed, 0xFFFF758FL, matType = CandyMaterials.MAT_CANDY)
-                // Curved Green Cherry Stem & Leaf on Top of Helmet
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.01f, 0.242f, 0.215f, 0.232f, 10, 14, cherryRed, 0xFFFF758FL, matType = CandyMaterials.MAT_CANDY)
                 acc.addStrut(Vec3(0f, headY + 0.27f, headZ - 0.01f), Vec3(0.06f, headY + 0.42f, headZ - 0.06f), 0.024f, 6, leafGreen, CandyMaterials.MAT_CANDY)
                 acc.addSphere(-0.06f, headY + 0.28f, headZ, 0.075f, 0.025f, 0.045f, 5, 6, leafGreen, matType = CandyMaterials.MAT_CANDY)
-                // Twin Red Cherry Pigtails with White Pie-Crust Ribbons
                 for (side in listOf(-1f, 1f)) {
                     acc.addSphere(side * 0.235f, headY - 0.03f, headZ - 0.03f, 0.052f, 0.052f, 0.052f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                     acc.addSphere(side * 0.295f, headY - 0.10f, headZ - 0.04f, 0.082f, 0.115f, 0.082f, 6, 8, cherryRed, 0xFFFF5252L, matType = CandyMaterials.MAT_CANDY)
@@ -979,11 +972,9 @@ object VehicleMeshBuilder {
             }
 
             "snowanna" -> {
-                // SNOWANNA RAINBEAU: Giant Rainbow Shaved-Ice Afro Hair (Pink, Orange, Yellow, Green, Cyan, Purple Puffs!)
+                // SNOWANNA RAINBEAU: Giant Rainbow Shaved-Ice Afro Hair
                 val rainbowCols = longArrayOf(0xFFFF3D9AL, 0xFFFF9E00L, 0xFFFFEA00L, 0xFF00E676L, 0xFF00E5FFL, 0xFFAA00FFL)
-                // Core Afro Sphere
                 acc.addSphere(0f, headY + 0.14f, headZ - 0.03f, 0.34f, 0.31f, 0.32f, 10, 14, 0xFFFF3D9AL, 0xFFFF9E00L, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // 12 Rainbow Shaved-Ice Afro Puffs Around the Crown
                 for (i in 0 until 12) {
                     val a = (i.toFloat() / 12f) * (2f * PI.toFloat())
                     val rx = cos(a) * 0.24f
@@ -996,7 +987,7 @@ object VehicleMeshBuilder {
             }
 
             "crumbelina" -> {
-                // CRUMBELINA DICARAMELLO: Espresso-Brown Curls +Whipped-Cream & Cocoa Tiramisu Beret Hat with Ladyfinger Trim
+                // CRUMBELINA DICARAMELLO: Espresso-Brown Curls + Whipped-Cream & Cocoa Tiramisu Beret Hat
                 val cocoaBrown = 0xFF4A2511L
                 val mascarpone = 0xFFFFF8EEL
                 for (side in listOf(-1f, 1f)) {
@@ -1012,21 +1003,19 @@ object VehicleMeshBuilder {
                 val popRed = 0xFFE51C38L
                 val popWhite = 0xFFFFFFFFL
                 val popBlue = 0xFF1E88E5L
-                // Fluffy White & Ice-Blue Parka Fur Hood Collar
                 acc.addTorus(0f, 0.46f, 0.0f, 0.185f, 0.062f, 12, 6, popWhite, 0xFF80D8FFL, matType = CandyMaterials.MAT_MARSHMALLOW)
-                // Three-Tier Rocket-Pop Helmet (Blue Lower -> White Mid -> Red Top Cone + Popsicle Stick Antenna)
-                acc.addSphere(0f, headY + 0.06f, headZ - 0.01f, 0.244f, 0.195f, 0.234f, 9, 12, popBlue, popWhite, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.06f, headZ - 0.01f, 0.244f, 0.195f, 0.234f, 10, 14, popBlue, popWhite, matType = CandyMaterials.MAT_CANDY)
                 acc.addCylinder(0f, headY + 0.15f, headZ - 0.01f, 0.215f, 0.165f, 0.095f, 12, popWhite, popRed, matType = CandyMaterials.MAT_MARSHMALLOW)
                 acc.addCylinder(0f, headY + 0.24f, headZ - 0.01f, 0.165f, 0.065f, 0.115f, 12, popRed, popRed, matType = CandyMaterials.MAT_CANDY)
                 acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.19f, 0.26f, 0.055f, 0.042f, 0.85f, 0.85f, 0xFF00E5FFL, popWhite, CandyMaterials.MAT_EMISSIVE)
             }
 
             "glazed_gus" -> {
-                // GLOYD ORANGEBOAR: Pumpkin / Candy-Corn Trickster Cap with Yellow-Orange-White Stripes & Green Pumpkin Stem
+                // GLOYD ORANGEBOAR: Pumpkin / Candy-Corn Trickster Cap
                 val pumpkinOrange = 0xFFFF7A00L
                 val candyYellow = 0xFFFFD600L
                 val darkBrown = 0xFF3E1F0DL
-                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 9, 12, pumpkinOrange, candyYellow, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 10, 14, pumpkinOrange, candyYellow, matType = CandyMaterials.MAT_CANDY)
                 acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.185f, 0.24f, 0.035f, 0.10f, 0.85f, 0.9f, darkBrown, pumpkinOrange, CandyMaterials.MAT_CARAMEL)
                 acc.addCylinder(0f, headY + 0.26f, headZ - 0.01f, 0.045f, 0.022f, 0.09f, 6, 0xFF2ECC71L, candyYellow, matType = CandyMaterials.MAT_CANDY)
             }
@@ -1035,30 +1024,234 @@ object VehicleMeshBuilder {
                 // MINTY ZAKI: Mint-Green Helmet & Big Red Maraschino Bow on Top
                 val mintGreen = 0xFF2CE6B0L
                 val bowRed = 0xFFFF2E63L
-                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 9, 12, mintGreen, cream, matType = CandyMaterials.MAT_CANDY)
-                // Giant Red Ribbon Bow on Top of Helmet
+                acc.addSphere(0f, headY + 0.065f, headZ - 0.01f, 0.238f, 0.205f, 0.228f, 10, 14, mintGreen, cream, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(0f, headY + 0.275f, headZ + 0.02f, 0.048f, 0.048f, 0.048f, 5, 6, bowRed, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(-0.11f, headY + 0.285f, headZ + 0.02f, 0.085f, 0.058f, 0.045f, 6, 8, bowRed, cream, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(0.11f, headY + 0.285f, headZ + 0.02f, 0.085f, 0.058f, 0.045f, 6, 8, bowRed, cream, matType = CandyMaterials.MAT_CANDY)
             }
 
             "toffee_rex" -> {
-                // KING CANDY: Royal Golden Crown with Glowing Gems + Pink Oversized Bow Tie on Chest + White Royal Hair Tufts
+                // KING CANDY: Royal Golden Crown with Glowing Gems + Pink Oversized Bow Tie on Chest
                 val royalGold = 0xFFFFC107L
                 val royalPink = 0xFFFF3D8BL
-                // Oversized Pink Royal Bow Tie on Chest
                 acc.addSphere(-0.085f, 0.42f, 0.175f, 0.068f, 0.046f, 0.032f, 5, 6, royalPink, cream, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(0.085f, 0.42f, 0.175f, 0.068f, 0.046f, 0.032f, 5, 6, royalPink, cream, matType = CandyMaterials.MAT_CANDY)
                 acc.addSphere(0f, 0.42f, 0.182f, 0.035f, 0.035f, 0.030f, 5, 6, royalGold, matType = CandyMaterials.MAT_CHROME)
-                // White Side Hair Tufts & Purple Royal Brow
                 for (side in listOf(-1f, 1f)) {
                     acc.addSphere(side * 0.22f, headY + 0.04f, headZ - 0.02f, 0.055f, 0.065f, 0.065f, 5, 6, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
-                // Royal Golden Crown on King Candy's Head
                 acc.addCylinder(0f, headY + 0.19f, headZ - 0.01f, 0.145f, 0.175f, 0.135f, 10, royalGold, 0xFFFFA000L, matType = CandyMaterials.MAT_CHROME)
                 for (i in 0 until 5) {
                     val a = (i.toFloat() / 5f) * (2f * PI.toFloat())
                     acc.addSphere(cos(a) * 0.16f, headY + 0.34f, headZ - 0.01f + sin(a) * 0.16f, 0.042f, 0.052f, 0.042f, 5, 6, if (i % 2 == 0) royalPink else 0xFF00E5FFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+            }
+
+            "anime_goku" -> {
+                // SON GOKU (Super Saiyan): Iconic Golden Glowing Spiky Anime Hair Crown + Forehead Bangs + Blue Gi Sash
+                val ssjGold = 0xFFFFEA00L
+                val ssjGlow = 0xFFFFB300L
+                acc.addSphere(0f, headY + 0.07f, headZ - 0.02f, 0.232f, 0.205f, 0.220f, 8, 12, ssjGold, ssjGlow, matType = CandyMaterials.MAT_EMISSIVE)
+                // 9 Iconic Super Saiyan Upward & Outward Golden Spikes
+                val spikeDirs = listOf(
+                    Vec3(0f, 0.44f, -0.04f),
+                    Vec3(-0.26f, 0.36f, -0.02f),
+                    Vec3(0.26f, 0.36f, -0.02f),
+                    Vec3(-0.34f, 0.20f, -0.05f),
+                    Vec3(0.34f, 0.20f, -0.05f),
+                    Vec3(-0.18f, 0.40f, -0.18f),
+                    Vec3(0.18f, 0.40f, -0.18f),
+                    Vec3(-0.10f, 0.26f, 0.24f),
+                    Vec3(0.10f, 0.26f, 0.24f)
+                )
+                for (sp in spikeDirs) {
+                    acc.addStrut(Vec3(0f, headY + 0.10f, headZ - 0.02f), Vec3(sp.x, headY + sp.y, headZ + sp.z), 0.072f, 6, ssjGold, CandyMaterials.MAT_EMISSIVE)
+                    acc.addSphere(sp.x, headY + sp.y, headZ + sp.z, 0.045f, 0.065f, 0.045f, 5, 6, ssjGlow, ssjGold, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+            }
+
+            "anime_naruto" -> {
+                // NARUTO UZUMAKI: Bright Yellow Spiky Hair + Blue Konoha Headband with Silver Metal Plate + Cheek Whisker Marks
+                val narutoYellow = 0xFFFFD600L
+                val headbandBlue = 0xFF1565C0L
+                val plateSilver = 0xFFE0E6EDL
+                // Cheek whisker marks (3 per cheek)
+                for (side in listOf(-1f, 1f)) {
+                    for (w in -1..1) {
+                        acc.addBox(side * 0.135f, headY - 0.028f + w * 0.018f, headZ + 0.175f, 0.042f, 0.007f, 0.012f, 0xFF4E2A1EL)
+                    }
+                }
+                // Blue Ninja Forehead Protector Band + Chrome Metal Plate
+                acc.addTorus(0f, headY + 0.115f, headZ + 0.005f, 0.218f, 0.036f, 14, 6, headbandBlue, 0xFF0D47A1L, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY + 0.120f, headZ + 0.218f, 0.16f, 0.058f, 0.026f, 0.9f, 0.9f, plateSilver, 0xFFFFFFFFL, CandyMaterials.MAT_CHROME)
+                // Spiky Yellow Hair Crown above headband
+                acc.addSphere(0f, headY + 0.15f, headZ - 0.02f, 0.225f, 0.165f, 0.215f, 8, 12, narutoYellow, 0xFFFFF176L, matType = CandyMaterials.MAT_CANDY)
+                for (i in 0 until 8) {
+                    val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.18f, headY + 0.27f + (i % 2) * 0.04f, headZ - 0.02f + sin(a) * 0.17f, 0.068f, 0.095f, 0.068f, 5, 6, narutoYellow, 0xFFFFEA00L, matType = CandyMaterials.MAT_CANDY)
+                }
+            }
+
+            "anime_luffy" -> {
+                // MONKEY D. LUFFY: Shaggy Black Anime Hair + Iconic Golden Straw Hat with Red Ribbon Brim + Under-Eye Scar
+                val blackHair = 0xFF16161EL
+                val strawGold = 0xFFFBC02DL
+                val ribbonRed = 0xFFD50000L
+                // Under-eye scar on left cheek
+                acc.addBox(-0.085f, headY - 0.022f, headZ + 0.196f, 0.036f, 0.008f, 0.012f, 0xFF5D2E1EL)
+                // Shaggy black hair tufts under straw hat
+                acc.addSphere(0f, headY + 0.05f, headZ - 0.02f, 0.228f, 0.185f, 0.218f, 8, 12, blackHair)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.185f, headY + 0.02f, headZ + 0.08f, 0.058f, 0.105f, 0.068f, 5, 7, blackHair)
+                }
+                // Wide Straw Hat Brim + Red Band + Straw Dome
+                acc.addCylinder(0f, headY + 0.155f, headZ - 0.01f, 0.36f, 0.35f, 0.028f, 16, strawGold, 0xFFF57F17L, matType = CandyMaterials.MAT_WAFER)
+                acc.addCylinder(0f, headY + 0.175f, headZ - 0.01f, 0.215f, 0.208f, 0.048f, 14, ribbonRed, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.225f, headZ - 0.01f, 0.212f, 0.145f, 0.208f, 10, 14, strawGold, 0xFFFFEB3BL, matType = CandyMaterials.MAT_WAFER)
+            }
+
+            "anime_gojo" -> {
+                // SATORU GOJO: Snowy White Swept-Up Spiky Hair + Dark Blindfold / Visor Band + High Jujutsu Collar
+                val whiteHair = 0xFFF5F8FFL
+                val iceBlue = 0xFF00E5FFL
+                val blindfoldBlack = 0xFF141622L
+                // High dark Jujutsu collar
+                acc.addCylinder(0f, 0.455f, 0.01f, 0.175f, 0.185f, 0.085f, 12, blindfoldBlack, 0xFF283593L, matType = CandyMaterials.MAT_CANDY)
+                // Sleek black eye-band with glowing Six-Eyes cyan rim
+                acc.addTorus(0f, headY + 0.045f, headZ + 0.01f, 0.216f, 0.042f, 14, 6, blindfoldBlack, iceBlue, matType = CandyMaterials.MAT_CANDY)
+                // Swept-up silver-white spiky hair crown
+                acc.addSphere(0f, headY + 0.13f, headZ - 0.02f, 0.232f, 0.195f, 0.222f, 10, 14, whiteHair, iceBlue, matType = CandyMaterials.MAT_MARSHMALLOW)
+                for (i in 0 until 9) {
+                    val a = (i.toFloat() / 9f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.16f, headY + 0.29f + (i % 2) * 0.05f, headZ - 0.02f + sin(a) * 0.15f, 0.068f, 0.115f, 0.068f, 5, 7, whiteHair, iceBlue, matType = CandyMaterials.MAT_MARSHMALLOW)
+                }
+            }
+
+            "anime_tanjiro" -> {
+                // TANJIRO KAMADO: Burgundy-Black Swept Hair + Flame Forehead Mark + Iconic Hanafuda Earrings
+                val burgundyHair = 0xFF5D1420L
+                val darkRoot = 0xFF1C1018L
+                // Forehead Sun-Breathing Flame Scar on upper-left forehead
+                acc.addSphere(-0.095f, headY + 0.115f, headZ + 0.178f, 0.052f, 0.036f, 0.020f, 5, 6, 0xFFB71C1CL, matType = CandyMaterials.MAT_CANDY)
+                // Swept-back burgundy hair with spiky tips
+                acc.addSphere(0f, headY + 0.085f, headZ - 0.03f, 0.234f, 0.205f, 0.225f, 10, 14, darkRoot, burgundyHair, matType = CandyMaterials.MAT_CANDY)
+                for (i in 0 until 7) {
+                    val a = (i.toFloat() / 7f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.17f, headY + 0.23f, headZ - 0.04f + sin(a) * 0.16f, 0.072f, 0.085f, 0.072f, 5, 7, burgundyHair, 0xFFD50000L, matType = CandyMaterials.MAT_CANDY)
+                }
+                // Rectangular White & Red Rising-Sun Hanafuda Earrings hanging below ears
+                for (side in listOf(-1f, 1f)) {
+                    acc.addBox(side * 0.225f, headY - 0.095f, headZ + 0.01f, 0.016f, 0.068f, 0.042f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addSphere(side * 0.230f, headY - 0.085f, headZ + 0.01f, 0.012f, 0.018f, 0.018f, 4, 5, 0xFFD50000L, matType = CandyMaterials.MAT_CANDY)
+                }
+            }
+
+            "anime_nezuko" -> {
+                // NEZUKO KAMADO: Long Black Hair with Flame-Orange Ombre Tips + Green Bamboo Muzzle + Pink Hair Ribbon
+                val blackHair = 0xFF16141DL
+                val flameOrange = 0xFFFF6D00L
+                val bambooGreen = 0xFF2ECC71L
+                val ribbonPink = 0xFFFF80ABL
+                // Green Bamboo Muzzle across mouth with red side ties
+                acc.addCylinder(0f, headY - 0.068f, headZ + 0.205f, 0.032f, 0.032f, 0.036f, 8, bambooGreen, 0xFF00C853L, matType = CandyMaterials.MAT_CANDY)
+                acc.addBeveledBox(0f, headY - 0.068f, headZ + 0.205f, 0.155f, 0.044f, 0.044f, 0.9f, 0.9f, bambooGreen, 0xFFD50000L, CandyMaterials.MAT_CANDY)
+                // Long flowing black hair cap + orange flame-tipped locks + pink hair bow
+                acc.addSphere(0f, headY + 0.07f, headZ - 0.03f, 0.234f, 0.205f, 0.226f, 10, 14, blackHair, flameOrange, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(-0.14f, headY + 0.21f, headZ + 0.08f, 0.058f, 0.042f, 0.042f, 5, 6, ribbonPink, matType = CandyMaterials.MAT_CANDY)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.21f, headY - 0.08f, headZ - 0.04f, 0.078f, 0.155f, 0.085f, 6, 8, blackHair, flameOrange)
+                    acc.addSphere(side * 0.22f, headY - 0.22f, headZ - 0.05f, 0.072f, 0.095f, 0.075f, 6, 8, flameOrange, 0xFFFFAB00L, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+            }
+
+            "anime_zoro" -> {
+                // RORONOA ZORO: Signature Emerald-Green Spiky Crop Hair + Triple Golden Left-Ear Earrings + Sword Hilts on Back
+                val zoroGreen = 0xFF00E676L
+                val darkGreen = 0xFF1B5E20L
+                acc.addSphere(0f, headY + 0.08f, headZ - 0.02f, 0.232f, 0.202f, 0.222f, 10, 14, zoroGreen, darkGreen, matType = CandyMaterials.MAT_CANDY)
+                for (i in 0 until 8) {
+                    val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.16f, headY + 0.24f, headZ - 0.02f + sin(a) * 0.15f, 0.065f, 0.075f, 0.065f, 5, 6, zoroGreen, darkGreen, matType = CandyMaterials.MAT_CANDY)
+                }
+                // Triple gold drop earrings on left ear
+                for (e in 0..2) {
+                    acc.addSphere(-0.226f, headY - 0.055f - e * 0.018f, headZ + (e - 1) * 0.015f, 0.012f, 0.020f, 0.012f, 4, 5, gold, matType = CandyMaterials.MAT_CHROME)
+                }
+            }
+
+            "anime_Deku" -> {
+                // IZUKU MIDORIYA (DEKU): Fluffy Dark-Green & Emerald Curly Spikes + Freckles + Hero Respirator Collar
+                val dekuDark = 0xFF114B3EL
+                val dekuEmerald = 0xFF00E676L
+                acc.addTorus(0f, 0.455f, 0.02f, 0.175f, 0.048f, 12, 6, 0xFFD0D8E0L, dekuEmerald, matType = CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.08f, headZ - 0.02f, 0.236f, 0.205f, 0.226f, 10, 14, dekuDark, dekuEmerald, matType = CandyMaterials.MAT_CANDY)
+                for (i in 0 until 10) {
+                    val a = (i.toFloat() / 10f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.19f, headY + 0.21f + (i % 2) * 0.05f, headZ - 0.02f + sin(a) * 0.18f, 0.082f, 0.092f, 0.082f, 6, 8, if (i % 2 == 0) dekuDark else dekuEmerald, dekuEmerald, matType = CandyMaterials.MAT_CANDY)
+                }
+            }
+
+            "anime_anya" -> {
+                // ANYA FORGER: Pastel Pink Bob Hair + Twin Iconic Black & Gold Cone Hair Ornaments
+                val anyaPink = 0xFFFF94B8L
+                val coneBlack = 0xFF1A1A24L
+                acc.addSphere(0f, headY + 0.07f, headZ - 0.02f, 0.234f, 0.205f, 0.224f, 10, 14, anyaPink, 0xFFFFC1E3L, matType = CandyMaterials.MAT_MARSHMALLOW)
+                for (side in listOf(-1f, 1f)) {
+                    // Bob side locks
+                    acc.addSphere(side * 0.205f, headY - 0.03f, headZ + 0.05f, 0.068f, 0.128f, 0.082f, 6, 8, anyaPink, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    // Iconic Black & Gold Cone Ornaments on Top Sides of Head
+                    acc.addCylinder(side * 0.155f, headY + 0.22f, headZ + 0.01f, 0.068f, 0.014f, 0.135f, 10, coneBlack, gold, matType = CandyMaterials.MAT_CANDY)
+                    acc.addTorus(side * 0.155f, headY + 0.225f, headZ + 0.01f, 0.068f, 0.016f, 10, 5, gold, coneBlack, matType = CandyMaterials.MAT_CHROME)
+                }
+            }
+
+            "anime_sailor" -> {
+                // SAILOR MOON: Golden Blonde Twin Odango Buns + Flowing Pigtails + Golden Crescent Moon Tiara + Red Sailor Bow
+                val usagiGold = 0xFFFFEA00L
+                val sailorRed = 0xFFFF1744L
+                // Red Sailor Chest Bow
+                acc.addSphere(-0.085f, 0.39f, 0.175f, 0.072f, 0.048f, 0.032f, 5, 6, sailorRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0.085f, 0.39f, 0.175f, 0.072f, 0.048f, 0.032f, 5, 6, sailorRed, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, 0.39f, 0.185f, 0.038f, 0.038f, 0.028f, 5, 6, gold, matType = CandyMaterials.MAT_CHROME)
+                // Forehead Golden Tiara with Red Gem
+                acc.addBeveledBox(0f, headY + 0.105f, headZ + 0.208f, 0.16f, 0.034f, 0.022f, 0.85f, 0.85f, gold, cream, CandyMaterials.MAT_CHROME)
+                acc.addSphere(0f, headY + 0.105f, headZ + 0.222f, 0.022f, 0.026f, 0.016f, 5, 6, sailorRed, matType = CandyMaterials.MAT_EMISSIVE)
+                // Golden Hair Cap + Twin Odango Buns + Long Flowing Twin-Tails
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.02f, 0.232f, 0.205f, 0.222f, 10, 14, usagiGold, 0xFFFFF59DL, matType = CandyMaterials.MAT_CANDY)
+                for (side in listOf(-1f, 1f)) {
+                    acc.addSphere(side * 0.185f, headY + 0.245f, headZ - 0.02f, 0.082f, 0.082f, 0.082f, 8, 10, usagiGold, sailorRed, matType = CandyMaterials.MAT_CANDY)
+                    acc.addSphere(side * 0.185f, headY + 0.245f, headZ + 0.045f, 0.036f, 0.036f, 0.024f, 5, 6, sailorRed, cream, matType = CandyMaterials.MAT_EMISSIVE)
+                    acc.addStrut(Vec3(side * 0.20f, headY + 0.20f, headZ - 0.06f), Vec3(side * 0.27f, headY - 0.18f, headZ - 0.14f), 0.052f, 8, usagiGold, CandyMaterials.MAT_CANDY)
+                }
+            }
+
+            "anime_miku" -> {
+                // HATSUNE MIKU: Cyan-Turquoise Twin-Tails + Magenta/Black Futuristic Hair Clips + Cyber Headset & Tie
+                val mikuCyan = 0xFF00E5FFL
+                val mikuTeal = 0xFF00BFA5L
+                val clipMagenta = 0xFFFF1744L
+                // Cyan Tie on Chest
+                acc.addBeveledBox(0f, 0.31f, 0.165f, 0.052f, 0.18f, 0.024f, 0.7f, 0.9f, mikuCyan, mikuTeal, CandyMaterials.MAT_CANDY)
+                // Turquoise Hair Cap + Bangs
+                acc.addSphere(0f, headY + 0.075f, headZ - 0.02f, 0.232f, 0.205f, 0.222f, 10, 14, mikuCyan, mikuTeal, matType = CandyMaterials.MAT_CANDY)
+                for (side in listOf(-1f, 1f)) {
+                    // Cyber Headset Earcups
+                    acc.addSphere(side * 0.225f, headY + 0.01f, headZ, 0.038f, 0.065f, 0.065f, 6, 8, 0xFF1A1E29L, mikuCyan, matType = CandyMaterials.MAT_EMISSIVE)
+                    // Square Magenta/Black Hair Clips
+                    acc.addBeveledBox(side * 0.215f, headY + 0.185f, headZ - 0.02f, 0.055f, 0.055f, 0.055f, 0.9f, 0.9f, clipMagenta, 0xFF1A1E29L, CandyMaterials.MAT_EMISSIVE)
+                    // Giant Flowing Cyan Twin-Tails
+                    acc.addStrut(Vec3(side * 0.23f, headY + 0.17f, headZ - 0.03f), Vec3(side * 0.32f, headY - 0.22f, headZ - 0.12f), 0.068f, 8, mikuCyan, CandyMaterials.MAT_CANDY)
+                }
+            }
+
+            "anime_killua" -> {
+                // KILLUA ZOLDYCK: Fluffy Silver-White Spiky Anime Hair + Electric Blue Godspeed Sparks
+                val silverHair = 0xFFE8EEFCL
+                val godspeedBlue = 0xFF00E5FFL
+                acc.addSphere(0f, headY + 0.085f, headZ - 0.02f, 0.236f, 0.208f, 0.226f, 10, 14, silverHair, godspeedBlue, matType = CandyMaterials.MAT_MARSHMALLOW)
+                for (i in 0 until 10) {
+                    val a = (i.toFloat() / 10f) * (2f * PI.toFloat())
+                    acc.addSphere(cos(a) * 0.19f, headY + 0.22f + (i % 3) * 0.035f, headZ - 0.02f + sin(a) * 0.18f, 0.075f, 0.095f, 0.075f, 6, 8, silverHair, godspeedBlue, matType = CandyMaterials.MAT_MARSHMALLOW)
                 }
             }
 
@@ -1067,7 +1260,7 @@ object VehicleMeshBuilder {
                 val swizzPurple = 0xFF7B2CBFL
                 val swizzGreen = 0xFF00E676L
                 val swizzBlue = 0xFF00B0FFL
-                acc.addSphere(0f, headY + 0.07f, headZ - 0.01f, 0.240f, 0.210f, 0.230f, 9, 12, swizzBlue, swizzPurple, matType = CandyMaterials.MAT_CANDY)
+                acc.addSphere(0f, headY + 0.07f, headZ - 0.01f, 0.240f, 0.210f, 0.230f, 10, 14, swizzBlue, swizzPurple, matType = CandyMaterials.MAT_CANDY)
                 acc.addBeveledBox(0f, headY + 0.24f, headZ - 0.01f, 0.075f, 0.075f, 0.28f, 0.7f, 0.85f, swizzGreen, swizzPurple, CandyMaterials.MAT_CANDY)
                 acc.addBeveledBox(0f, headY + 0.125f, headZ + 0.188f, 0.25f, 0.052f, 0.036f, 0.9f, 0.9f, 0xFFFFEA00L, swizzGreen, CandyMaterials.MAT_EMISSIVE)
             }

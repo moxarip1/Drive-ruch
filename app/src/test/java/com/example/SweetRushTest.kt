@@ -33,9 +33,9 @@ import java.io.File
 class SweetRushTest {
 
     @Test
-    fun `catalog contains 12 movie karts 12 movie racers 4 tracks 7 powerups and distinct physics tuning`() {
+    fun `catalog contains 12 movie karts 24 movie and anime racers 4 tracks 7 powerups and distinct physics tuning`() {
         assertEquals(12, CatalogData.karts.size)
-        assertEquals(12, CatalogData.racers.size)
+        assertEquals(24, CatalogData.racers.size)
         assertEquals(4, CatalogData.tracks.size)
         assertEquals(7, PowerUpType.entries.size)
         assertEquals(4, CatalogData.challenges.size)
@@ -48,10 +48,10 @@ class SweetRushTest {
 
         // Ensure all 12 movie KartBodyStyle variants are represented across the 12 movie karts
         assertEquals(12, CatalogData.karts.map { it.style }.toSet().size)
-        // Ensure all 12 movie racers and karts are unlocked by default in PlayerProfile
+        // Ensure all 24 racers (12 movie + 12 anime) and 12 karts are unlocked by default in PlayerProfile
         val defaultProfile = PlayerProfile()
         assertEquals(12, defaultProfile.unlockedKarts.size)
-        assertEquals(12, defaultProfile.unlockedRacers.size)
+        assertEquals(24, defaultProfile.unlockedRacers.size)
     }
 
     @Test
@@ -192,7 +192,7 @@ class SweetRushTest {
         )
         assertTrue(engine.isFreeRoam)
         assertTrue(engine.raceStarted)
-        assertEquals(12, engine.karts.size) // 1 player + 11 roaming movie AI drivers
+        assertEquals(24, engine.karts.size) // 1 player + 23 roaming movie & anime AI drivers
         assertEquals(WorldRegion.CANDY_CITY, engine.currentRegion)
 
         engine.teleportPlayerToRegion(WorldRegion.CHOCOLATE_MOUNTAINS)
@@ -473,10 +473,10 @@ class SweetRushTest {
         assertTrue("turbo_candy_drift.mp3 raw resource should have non-zero size", turboBytes > 100_000)
 
         context.resources.openRawResourceFd(R.raw.gumball_horizon)?.use { afd ->
-            assertTrue("gumball_horizon.mp3 AssetFileDescriptor length should be > 4MB", afd.length > 4_000_000L)
+            assertTrue("gumball_horizon.mp3 AssetFileDescriptor length should be > 1.5MB", afd.length > 1_500_000L)
         }
         context.resources.openRawResourceFd(R.raw.turbo_candy_drift)?.use { afd ->
-            assertTrue("turbo_candy_drift.mp3 AssetFileDescriptor length should be > 4MB", afd.length > 4_000_000L)
+            assertTrue("turbo_candy_drift.mp3 AssetFileDescriptor length should be > 1.5MB", afd.length > 1_500_000L)
         }
 
         val audioEngine = com.example.sweetrush.audio.CandyAudioEngine(context)

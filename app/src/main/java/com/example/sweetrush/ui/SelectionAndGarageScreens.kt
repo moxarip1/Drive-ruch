@@ -266,9 +266,9 @@ fun RaceSetupScreen(
                             }
                         }
 
-                        // Quick 12 Movie Racers & Karts Switcher Strip inside Race Setup
+                        // Quick 24 Movie & Anime Racers & Karts Switcher Strip inside Race Setup
                         Text(
-                            text = "اختر متسابق وسيارة الفيلم (12 شخصية):",
+                            text = "اختر الشخصية والسيارة (24 متسابق من الفيلم والأنمي):",
                             style = MaterialTheme.typography.labelSmall,
                             color = CaramelGold,
                             fontWeight = FontWeight.Bold
@@ -294,10 +294,8 @@ fun RaceSetupScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
-                                    Image(
-                                        painter = painterResource(id = racerPortraitRes(rItem.id)),
-                                        contentDescription = rItem.name,
-                                        contentScale = ContentScale.Crop,
+                                    RacerAvatarThumb(
+                                        racerId = rItem.id,
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
@@ -372,10 +370,8 @@ fun RaceSetupScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = racerPortraitRes(racer.id)),
-                                contentDescription = racer.name,
-                                contentScale = ContentScale.Crop,
+                            RacerAvatarThumb(
+                                racerId = racer.id,
                                 modifier = Modifier
                                     .size(30.dp)
                                     .clip(CircleShape)
@@ -526,8 +522,22 @@ internal fun racerCharacterLookAr(racerId: String): String = when (racerId) {
     "fizzy_pop" -> "سويزل ذا مالارك • خوذة مصاصة حلزونية بنظارات نيون • سترة سباق الحلوى الفوارة"
     "minty_zaki" -> "مينتي زاكي • فيونكة نعناع يابانية مع عود مصاصة أبيض • معطف النعناع الملكي الأخضر"
     "toffee_rex" -> "الملك كاندي • التاج الذهبي الإمبراطوري وربطة الفراشة الوردية • الرداء الملكي البنفسجي"
-    else -> "شخصية رسمية ثلاثية الأبعاد من فيلم Sugar Rush"
+    "anime_goku" -> "سون غوكو (Dragon Ball) • شعر السوبر سايان الذهبي الشائك المتوهج • بدلة القتال البرتقالية والزرقاء"
+    "anime_naruto" -> "ناروتو أوزوماكي (Naruto) • شعر أشقر شائك وعصابة كونوها المعدنية • علامات الخدود وسترة الهوكاجي"
+    "anime_luffy" -> "مونكي دي لوفي (One Piece) • قبعة القش الصفراء بشريط أحمر • ندبة تحت العين وسترة القرصان الحمراء"
+    "anime_gojo" -> "ساتورو غوجو (Jujutsu Kaisen) • شعر أبيض فضي مرفوع وعصابة العينين السوداء • عيون اللانهاية الزرقاء"
+    "anime_tanjiro" -> "تانجيرو كامادو (Demon Slayer) • شعر عنابي وندبة تنفس الشمس • أقراط الهانافودا وهاوري الأخضر والأسود"
+    "anime_nezuko" -> "نيزوكو كامادو (Demon Slayer) • شعر أسود بأطراف برتقالية نارية • خيزران الفم الأخضر وكيمونو الزهور الوردي"
+    "anime_zoro" -> "رورونوا زورو (One Piece) • شعر أخضر زمردي قصير • ثلاثة أقراط ذهبية في الأذن اليسرى ورداء السياف"
+    "anime_Deku" -> "إيزوكو ميدوريا ديكو (My Hero Academia) • شعر أخضر كثيف ونمش الخدود • قناع وبدلة ون فور أول الخضراء"
+    "anime_anya" -> "آنيا فورجر (Spy x Family) • شعر وردي قصير وزينتا الرأس المخروطيتان السوداء والذهبية • زي إيدن"
+    "anime_sailor" -> "سيلور مون (Sailor Moon) • ضفيرتا أودانغو الشقراء الطويلة • تاج الهلال الذهبي وفيونكة البحارة الحمراء"
+    "anime_miku" -> "هاتسوني ميكو (Vocaloid) • ضفيرتان تركوازيتان طويلتان • سماعات ومشابك شعر نيون مستقبلية"
+    "anime_killua" -> "كيلوا زولديك (Hunter x Hunter) • شعر فضي شائك متوهج بالبرق الأزرق (Godspeed) • عيون القاتل الزرقاء"
+    else -> "شخصية ثلاثية الأبعاد عالية التفاصيل"
 }
+
+internal fun isAnimeRacer(racerId: String): Boolean = racerId.startsWith("anime_")
 
 internal fun racerPortraitRes(racerId: String): Int = when (racerId) {
     "berry_blitz" -> R.drawable.img_racer_vanellope
@@ -543,6 +553,121 @@ internal fun racerPortraitRes(racerId: String): Int = when (racerId) {
     "minty_zaki" -> R.drawable.img_racer_minty_zaki
     "toffee_rex" -> R.drawable.img_racer_king_candy
     else -> R.drawable.img_racer_vanellope
+}
+
+@Composable
+internal fun RacerAvatarThumb(
+    racerId: String,
+    modifier: Modifier = Modifier
+) {
+    val spec = CatalogData.racerById(racerId)
+    if (!isAnimeRacer(racerId)) {
+        Image(
+            painter = painterResource(id = racerPortraitRes(racerId)),
+            contentDescription = spec.name,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    } else {
+        // Custom Vector Anime Character Portrait Avatar
+        androidx.compose.foundation.Canvas(
+            modifier = modifier.background(
+                Brush.verticalGradient(
+                    listOf(Color(spec.suitPrimaryHex), Color(spec.suitSecondaryHex))
+                )
+            )
+        ) {
+            val w = size.width
+            val h = size.height
+            val cx = w * 0.5f
+            val cy = h * 0.54f
+            val skinCol = Color(spec.skinHex)
+            val hairCol = Color(spec.helmetHex)
+            val eyeCol = Color(spec.visorHex)
+            val suitCol = Color(spec.suitPrimaryHex)
+
+            // Back hair / aura
+            drawCircle(
+                color = hairCol.copy(alpha = 0.35f),
+                radius = w * 0.44f,
+                center = androidx.compose.ui.geometry.Offset(cx, cy - h * 0.04f)
+            )
+            // Shoulders / anime outfit collar
+            drawOval(
+                color = suitCol,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.72f),
+                size = androidx.compose.ui.geometry.Size(w * 0.68f, h * 0.36f)
+            )
+            // Anime face oval
+            drawOval(
+                color = skinCol,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.25f, h * 0.26f),
+                size = androidx.compose.ui.geometry.Size(w * 0.50f, h * 0.52f)
+            )
+            // Large anime eyes + white catchlights
+            for (side in listOf(-1f, 1f)) {
+                val ex = cx + side * w * 0.11f
+                val ey = cy + h * 0.01f
+                drawCircle(Color.White, radius = w * 0.072f, center = androidx.compose.ui.geometry.Offset(ex, ey))
+                drawCircle(eyeCol, radius = w * 0.052f, center = androidx.compose.ui.geometry.Offset(ex, ey))
+                drawCircle(Color(0xFF140822), radius = w * 0.028f, center = androidx.compose.ui.geometry.Offset(ex, ey))
+                drawCircle(
+                    Color.White,
+                    radius = w * 0.016f,
+                    center = androidx.compose.ui.geometry.Offset(ex - side * w * 0.015f, ey - h * 0.018f)
+                )
+            }
+            // Smile
+            drawArc(
+                color = Color(0xFFD81B60),
+                startAngle = 15f,
+                sweepAngle = 150f,
+                useCenter = false,
+                topLeft = androidx.compose.ui.geometry.Offset(cx - w * 0.08f, cy + h * 0.08f),
+                size = androidx.compose.ui.geometry.Size(w * 0.16f, h * 0.09f)
+            )
+            // Spiky / sculpted anime hair crown & signature headgear
+            for (i in -3..3) {
+                drawCircle(
+                    color = hairCol,
+                    radius = w * 0.11f,
+                    center = androidx.compose.ui.geometry.Offset(
+                        cx + i * w * 0.075f,
+                        h * 0.23f + kotlin.math.abs(i) * h * 0.025f
+                    )
+                )
+            }
+            if (racerId == "anime_luffy") {
+                // Straw hat red ribbon band
+                drawRect(
+                    color = Color(0xFFD50000),
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.18f, h * 0.22f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.64f, h * 0.06f)
+                )
+            } else if (racerId == "anime_naruto") {
+                // Konoha metal headband plate
+                drawRect(
+                    color = Color(0xFF1565C0),
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.22f, h * 0.26f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.56f, h * 0.08f)
+                )
+            } else if (racerId == "anime_gojo") {
+                // Gojo black blindfold
+                drawRect(
+                    color = Color(0xFF141622),
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.23f, cy - h * 0.05f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.54f, h * 0.11f)
+                )
+            } else if (racerId == "anime_nezuko") {
+                // Nezuko green bamboo muzzle
+                drawRect(
+                    color = Color(0xFF2ECC71),
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.30f, cy + h * 0.09f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.07f)
+                )
+            }
+        }
+    }
 }
 
 internal fun kartPreviewRes(kartId: String): Int = when (kartId) {
@@ -581,6 +706,8 @@ fun GarageAndCharacterScreen(
     BackHandler(onBack = onBack)
     var activeTab by remember(initialTab) { mutableIntStateOf(initialTab) }
     var activeCamPreset by remember(initialTab) { mutableStateOf(if (initialTab == 0) "DRIVER" else "AUTO") }
+    // 0 = All (24), 1 = Sugar Rush Movie (12), 2 = Anime Legends (12)
+    var characterFilter by remember { mutableIntStateOf(0) }
 
     val selectedKart = CatalogData.kartById(profile.selectedKartId)
     val selectedRacer = CatalogData.racerById(profile.selectedRacerId)
@@ -591,6 +718,14 @@ fun GarageAndCharacterScreen(
     val stats = CatalogData.effectiveStats(selectedKart, custom)
     val tuning = selectedKart.physicsTuning
 
+    val filteredRacers = remember(characterFilter) {
+        when (characterFilter) {
+            1 -> CatalogData.racers.filter { !isAnimeRacer(it.id) }
+            2 -> CatalogData.racers.filter { isAnimeRacer(it.id) }
+            else -> CatalogData.racers
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -598,10 +733,68 @@ fun GarageAndCharacterScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             CandyScreenHeader(
-                title = if (activeTab == 0) "Sugar Rush Movie Racers • متسابقو الفيلم (12)" else "Sugar Rush Kart Bakery • سيارات الفيلم (12)",
+                title = if (activeTab == 0) "غاراج الشخصيات والأنمي (24 شخصية)" else "غاراج السيارات • Kart Garage",
                 profile = profile,
                 onBack = onBack
             )
+
+            // Quick Horizontal Racer + Kart Switcher Strip inside the Garage (moved from Main Menu as requested!)
+            LazyRow(
+                modifier = Modifier
+                    .testTag("garage_quick_racer_carousel")
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(CatalogData.racers) { rItem ->
+                    val isSel = rItem.id == profile.selectedRacerId
+                    val rKart = CatalogData.kartById(rItem.favoriteKartId)
+                    Row(
+                        modifier = Modifier
+                            .testTag("garage_racer_chip_${rItem.id}")
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (isSel) CandyPink.copy(alpha = 0.88f)
+                                else BerryDeep.copy(alpha = 0.82f)
+                            )
+                            .border(
+                                width = if (isSel) 2.dp else 1.dp,
+                                color = if (isSel) CaramelGold else Color.White.copy(alpha = 0.28f),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            .clickable {
+                                onSelectRacer(rItem.id)
+                                onSelectKart(rItem.favoriteKartId)
+                                activeCamPreset = "DRIVER"
+                                onFocusCamera("DRIVER")
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        RacerAvatarThumb(
+                            racerId = rItem.id,
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, if (isSel) CaramelGold else Color(rItem.suitPrimaryHex), CircleShape)
+                        )
+                        Column {
+                            Text(
+                                text = rItem.name.substringBefore("•").trim().take(12),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = FrostingWhite,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                            )
+                            Text(
+                                text = "#${rKart.racingNumber} ${rKart.name.substringBefore(" ")}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSel) MintCream else CaramelGold
+                            )
+                        }
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier
@@ -614,7 +807,7 @@ fun GarageAndCharacterScreen(
                     modifier = Modifier
                         .weight(0.98f)
                         .fillMaxHeight()
-                        .padding(bottom = 10.dp),
+                        .padding(bottom = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -629,23 +822,31 @@ fun GarageAndCharacterScreen(
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(BerryDeep.copy(alpha = 0.80f))
                                     .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Image(
-                                        painter = painterResource(
-                                            id = if (activeTab == 0) racerPortraitRes(selectedRacer.id) else kartPreviewRes(selectedKart.id)
-                                        ),
-                                        contentDescription = "Selected Movie Character / Kart Reference",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(width = 56.dp, height = 40.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
-                                    )
+                                    if (activeTab == 0) {
+                                        RacerAvatarThumb(
+                                            racerId = selectedRacer.id,
+                                            modifier = Modifier
+                                                .size(width = 48.dp, height = 38.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(id = kartPreviewRes(selectedKart.id)),
+                                            contentDescription = "Selected Kart Reference",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(width = 52.dp, height = 38.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                        )
+                                    }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -653,7 +854,7 @@ fun GarageAndCharacterScreen(
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(14.dp)
+                                                    .size(12.dp)
                                                     .clip(CircleShape)
                                                     .background(Color(primaryColorHex))
                                                     .border(1.5.dp, Color(secondaryColorHex), CircleShape)
@@ -684,7 +885,7 @@ fun GarageAndCharacterScreen(
                                     onClick = onZoomIn,
                                     modifier = Modifier
                                         .testTag("garage_zoom_in")
-                                        .size(48.dp)
+                                        .size(44.dp)
                                         .clip(CircleShape)
                                         .background(BerryPurple.copy(alpha = 0.88f))
                                         .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
@@ -695,7 +896,7 @@ fun GarageAndCharacterScreen(
                                     onClick = onZoomOut,
                                     modifier = Modifier
                                         .testTag("garage_zoom_out")
-                                        .size(48.dp)
+                                        .size(44.dp)
                                         .clip(CircleShape)
                                         .background(BerryPurple.copy(alpha = 0.88f))
                                         .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
@@ -708,7 +909,7 @@ fun GarageAndCharacterScreen(
                         // Interactive 3D Bakery Camera Angle Quick-Focus Bar
                         val cameraPresets = listOf(
                             "AUTO" to "360° تلقائي",
-                            "DRIVER" to "السائق 3D",
+                            "DRIVER" to "الشخصية 3D",
                             "FRONT" to "الأمام",
                             "SIDE" to "الجانب",
                             "WHEELS" to "الإطارات",
@@ -737,7 +938,7 @@ fun GarageAndCharacterScreen(
                                             activeCamPreset = presetKey
                                             onFocusCamera(presetKey)
                                         }
-                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                        .padding(horizontal = 10.dp, vertical = 4.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -757,8 +958,8 @@ fun GarageAndCharacterScreen(
                             .clip(RoundedCornerShape(18.dp))
                             .background(BerryDeep.copy(alpha = 0.74f))
                             .border(1.5.dp, CandyPink.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         val gripScore = ((stats.stability + (tuning.lateralGrip / 11f).coerceIn(0f, 1f)) * 0.5f).coerceIn(0f, 1f)
                         StatBarRow("TOP SPEED", stats.speed, CandyPink)
@@ -766,33 +967,25 @@ fun GarageAndCharacterScreen(
                         StatBarRow("HANDLING", stats.handling, SkyCandy)
                         StatBarRow("GRIP", gripScore, Color(0xFFB388FF))
                         StatBarRow("BOOST", stats.boost, CaramelGold)
-                        Spacer(Modifier.height(1.dp))
-                        Text(
-                            text = "إطارات: ${custom.wheelDesign.displayName}  •  عادم: ${custom.exhaustStyle.displayName}  •  زينة: ${custom.decoration.displayName}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SkyCandy,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
                 }
 
-                // Right side: Tabs + Sugar Rush Kart Bakery Customization Panel
+                // Right side: Tabs + Sugar Rush & Anime Customization Panel
                 Column(
                     modifier = Modifier
                         .weight(1.22f)
                         .fillMaxHeight()
-                        .padding(bottom = 10.dp)
+                        .padding(bottom = 8.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(BerryDeep.copy(alpha = 0.90f))
                         .border(2.dp, CaramelGold.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
-                        .padding(12.dp)
+                        .padding(10.dp)
                 ) {
                     val tabs = listOf(
-                        "Racers • السائقون",
-                        "Karts • السيارات",
-                        "Bakery • التعديل",
-                        "Oven • الترقية"
+                        "الشخصيات (24)",
+                        "السيارات (12)",
+                        "التعديل • Paint",
+                        "الترقية • Tune"
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -803,7 +996,7 @@ fun GarageAndCharacterScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp)
+                                    .height(42.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(if (sel) CandyPink else BerryCard)
                                     .border(
@@ -841,7 +1034,7 @@ fun GarageAndCharacterScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
 
                     if (statusMessage != null) {
                         Box(
@@ -858,46 +1051,50 @@ fun GarageAndCharacterScreen(
 
                     when (activeTab) {
                         0 -> {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item {
-                                    Row(
+                            // Filter chips: الكل (24) | شخصيات الفيلم (12) | نجوم الأنمي (12)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val filterOptions = listOf(
+                                    0 to "الكل (24)",
+                                    1 to "شخصيات الفيلم (12)",
+                                    2 to "نجوم الأنمي (12)"
+                                )
+                                filterOptions.forEach { (fIdx, fLabel) ->
+                                    val isFSel = characterFilter == fIdx
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(BerryCard)
-                                            .border(1.5.dp, CaramelGold.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
-                                            .padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (isFSel) CaramelGold else BerryPurple)
+                                            .border(
+                                                1.dp,
+                                                if (isFSel) Color.White else Color.White.copy(alpha = 0.25f),
+                                                RoundedCornerShape(10.dp)
+                                            )
+                                            .clickable { characterFilter = fIdx },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.img_racers_storybook_lineup),
-                                            contentDescription = "Sugar Rush 12 Movie Racers Lineup",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .size(width = 110.dp, height = 52.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .border(1.5.dp, CaramelGold, RoundedCornerShape(10.dp))
+                                        Text(
+                                            text = fLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isFSel) BerryDeep else FrostingWhite,
+                                            fontWeight = FontWeight.Bold
                                         )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "جميع متسابقي فيلم Sugar Rush الـ 12 ★",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = CaramelGold
-                                            )
-                                            Text(
-                                                text = "اضغط على أي شخصية لاختيارها مع سيارتها الرسمية من الفيلم ومشاهدتها 3D",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MintCream,
-                                                maxLines = 2
-                                            )
-                                        }
                                     }
                                 }
-                                items(CatalogData.racers) { racer ->
+                            }
+
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(filteredRacers) { racer ->
                                     val unlocked = profile.unlockedRacers.contains(racer.id)
                                     val selected = profile.selectedRacerId == racer.id
                                     val sigKart = CatalogData.kartById(racer.favoriteKartId)
+                                    val animeTag = isAnimeRacer(racer.id)
                                     Row(
                                         modifier = Modifier
                                             .testTag("racer_item_${racer.id}")
@@ -915,21 +1112,43 @@ fun GarageAndCharacterScreen(
                                                 activeCamPreset = "DRIVER"
                                                 onFocusCamera("DRIVER")
                                             }
-                                            .padding(10.dp),
+                                            .padding(9.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Image(
-                                            painter = painterResource(id = racerPortraitRes(racer.id)),
-                                            contentDescription = racer.name,
-                                            contentScale = ContentScale.Crop,
+                                        RacerAvatarThumb(
+                                            racerId = racer.id,
                                             modifier = Modifier
-                                                .size(56.dp)
+                                                .size(52.dp)
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .border(2.dp, if (selected) CaramelGold else Color(racer.suitPrimaryHex), RoundedCornerShape(14.dp))
                                         )
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text("${racer.name} — ${racer.title}", style = MaterialTheme.typography.titleMedium, color = FrostingWhite)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = racer.name,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = FrostingWhite,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(if (animeTag) SkyCandy else CaramelGold)
+                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (animeTag) "ANIME ★" else "MOVIE ★",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = BerryDeep,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
                                             Text(
                                                 text = racerCharacterLookAr(racer.id),
                                                 style = MaterialTheme.typography.labelSmall,
@@ -938,7 +1157,7 @@ fun GarageAndCharacterScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "سيارة الفيلم: #${sigKart.racingNumber} ${sigKart.name} • ${racer.signaturePowerUp.displayName}",
+                                                text = "السيارة: #${sigKart.racingNumber} ${sigKart.name} • ${racer.signaturePowerUp.displayName}",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MintCream,
                                                 maxLines = 1,
