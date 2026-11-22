@@ -106,7 +106,12 @@ data class CitizenAnimatedPose(
     val bobY: Float,
     val tiltRollRad: Float,
     val isWaving: Boolean,
-    val distSqToPlayer: Float
+    val distSqToPlayer: Float,
+    val leftLegPitchRad: Float = 0f,
+    val rightLegPitchRad: Float = 0f,
+    val leftArmPitchRad: Float = 0f,
+    val rightArmPitchRad: Float = 0f,
+    val armWaveRollRad: Float = 0f
 )
 
 data class TerrainChunkData(
@@ -205,9 +210,18 @@ object OpenWorldKingdom : WorldSurfaceSampler {
         val facePlayerYaw = atan2(dxToPlayer, dzToPlayer)
         val yaw = if (nearPlayer) facePlayerYaw else walkYaw
 
-        val stridePhase = timeSec * (if (nearPlayer) 7.5f else 5.8f) + npc.phaseOffset * 3f
-        val bobY = abs(sin(stridePhase)) * 0.14f
-        val tiltRoll = sin(stridePhase) * (if (nearPlayer) 0.14f else 0.08f)
+        val stridePhase = timeSec * (if (nearPlayer) 8.8f else 6.2f) + npc.phaseOffset * 3f
+        val cheerJump = if (nearPlayer) abs(sin(stridePhase * 1.15f)) * 0.36f else 0f
+        val bobY = abs(sin(stridePhase)) * 0.14f + cheerJump
+        val tiltRoll = sin(stridePhase) * (if (nearPlayer) 0.22f else 0.08f)
+
+        // 5-part physical limb articulation (walking stride vs cheering overhead wave)
+        val walkSwing = sin(stridePhase) * 0.56f
+        val leftLegPitch = if (nearPlayer) sin(stridePhase * 1.15f) * 0.32f else walkSwing
+        val rightLegPitch = if (nearPlayer) -sin(stridePhase * 1.15f) * 0.32f else -walkSwing
+        val leftArmPitch = if (nearPlayer) -2.45f + sin(stridePhase * 1.6f) * 0.45f else -walkSwing * 0.85f
+        val rightArmPitch = if (nearPlayer) -2.45f - sin(stridePhase * 1.6f) * 0.45f else walkSwing * 0.85f
+        val armWaveRoll = if (nearPlayer) sin(stridePhase * 2.1f) * 0.35f else 0f
 
         return CitizenAnimatedPose(
             x = wx,
@@ -217,7 +231,12 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             bobY = bobY,
             tiltRollRad = tiltRoll,
             isWaving = nearPlayer,
-            distSqToPlayer = distSq
+            distSqToPlayer = distSq,
+            leftLegPitchRad = leftLegPitch,
+            rightLegPitchRad = rightLegPitch,
+            leftArmPitchRad = leftArmPitch,
+            rightArmPitchRad = rightArmPitch,
+            armWaveRollRad = armWaveRoll
         )
     }
 
@@ -379,12 +398,19 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                         centerX = cx,
                         centerZ = cz,
                         halfSpan = halfSpan,
-                        buildMesh = { buildTerrainChunkMesh(x0, z0, span, cells = 12) }
+                        buildMesh = { buildTerrainChunkMesh(x0, z0, span, cells = 20) }
                     )
                 )
             }
         }
         return chunks
+    }
+
+    private fun sampleSmoothNormal(x: Float, z: Float): Vec3 {
+        val eps = 2.0f
+        val hx = sampleHeightOnly(x + eps, z) - sampleHeightOnly(x - eps, z)
+        val hz = sampleHeightOnly(x, z + eps) - sampleHeightOnly(x, z - eps)
+        return Vec3(-hx / (2f * eps), 1f, -hz / (2f * eps)).normalized()
     }
 
     private fun buildTerrainChunkMesh(x0: Float, z0: Float, span: Float, cells: Int): GpuMesh {
@@ -402,24 +428,35 @@ object OpenWorldKingdom : WorldSurfaceSampler {
                 val y11 = sampleHeightOnly(px1, pz1)
                 val y01 = sampleHeightOnly(px0, pz1)
 
+                val n00 = sampleSmoothNormal(px0, pz0)
+                val n10 = sampleSmoothNormal(px1, pz0)
+                val n11 = sampleSmoothNormal(px1, pz1)
+                val n01 = sampleSmoothNormal(px0, pz1)
+
                 val mx = (px0 + px1) * 0.5f
                 val mz = (pz0 + pz1) * 0.5f
                 val my = (y00 + y10 + y11 + y01) * 0.25f
                 val region = regionAt(mx, mz)
-                val shade = if ((ix + iz) % 2 == 0) 1.0f else 0.94f
+                val shade = if ((ix + iz) % 2 == 0) 1.0f else 0.96f
 
                 val baseHex = when {
                     my < -0.35f -> 0xFFFFB5D0L // Strawberry cream sand near shore
                     region == WorldRegion.CANDY_CITY -> 0xFF72E8BA
-                    region == WorldRegion.CHOCOLATE_MOUNTAINS -> if (my > 9f) 0xFF4B2418 else 0xFF6B3A26
+                    region == WorldRegion.CHOCOLATE_MOUNTAINS -> if (my > 11f) 0xFFFFE5EC else if (my > 7f) 0xFF4B2418 else 0xFF6B3A26
                     region == WorldRegion.GUMDROP_FOREST -> 0xFF7BE495
                     region == WorldRegion.CUPCAKE_VALLEY -> 0xFFFFB8DE
                     region == WorldRegion.PEPPERMINT_COAST -> 0xFFFFE0B2
                     else -> 0xFF72E8BA
                 }
                 val (r, g, b) = MeshAccumulator.hexToRgb(baseHex)
-                acc.addTri(px0, y01, pz1, px1, y11, pz1, px1, y10, pz0, r * shade, g * shade, b * shade)
-                acc.addTri(px0, y01, pz1, px1, y10, pz0, px0, y00, pz0, r * shade, g * shade, b * shade)
+                val cr = r * shade; val cg = g * shade; val cb = b * shade
+                acc.addQuadSmooth(
+                    Vec3(px0, y01, pz1), n01, cr, cg, cb,
+                    Vec3(px1, y11, pz1), n11, cr, cg, cb,
+                    Vec3(px1, y10, pz0), n10, cr, cg, cb,
+                    Vec3(px0, y00, pz0), n00, cr, cg, cb,
+                    matType = CandyMaterials.MAT_MARSHMALLOW
+                )
             }
         }
         return acc.build()
@@ -1414,26 +1451,46 @@ object OpenWorldKingdom : WorldSurfaceSampler {
             }
         }
 
-        // Chocolate Mountain Landmarks & Candy Factory
-        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_CASTLE, Vec3(330f, sampleHeightOnly(330f, -265f), -265f), 0.5f, 1.85f, 0xFFFFB300, 0xFF6D3B22), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_WATERFALL, Vec3(265f, sampleHeightOnly(265f, -110f), -110f), 0.2f, 1.65f, 0xFF8B4726, 0xFFFFB74D), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_WATERFALL, Vec3(340f, sampleHeightOnly(340f, -175f), -175f), -0.8f, 1.50f, 0xFF8B4726, 0xFFFFB74D), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.CANDY_FACTORY, Vec3(155f, sampleHeightOnly(155f, -135f), -135f), -0.4f, 1.45f, 0xFFFF9800, 0xFF3CE8B5), roadClearExtra = 4f)
+        // Chocolate Mountain Landmarks: Diet Cola Mountain Volcano Peak, Boiling Cola Waterfalls & Mentos Columns
+        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_CASTLE, Vec3(330f, sampleHeightOnly(330f, -265f), -265f), 0.5f, 1.95f, 0xFFFF1744, 0xFF3E1D14), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_WATERFALL, Vec3(265f, sampleHeightOnly(265f, -110f), -110f), 0.2f, 1.75f, 0xFF8B4726, 0xFFFFB74D), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_WATERFALL, Vec3(340f, sampleHeightOnly(340f, -175f), -175f), -0.8f, 1.60f, 0xFF8B4726, 0xFFFFB74D), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CANDY_FACTORY, Vec3(155f, sampleHeightOnly(155f, -135f), -135f), -0.4f, 1.50f, 0xFFFF9800, 0xFF3CE8B5), roadClearExtra = 4f)
+        // Mentos crystal columns surrounding Diet Cola Mountain
+        for (m in 0 until 6) {
+            val ma = (m.toFloat() / 6f) * (2f * PI.toFloat())
+            val mx = 310f + cos(ma) * 48f
+            val mz = -270f + sin(ma) * 48f
+            tryAddWorldDeco(DecorationInstance(DecoType.SUGAR_CRYSTAL, Vec3(mx, sampleHeightOnly(mx, mz), mz), ma, 1.65f, 0xFFE0F7FA, 0xFF00E5FF), roadClearExtra = 3f)
+        }
 
-        // Gumdrop Forest Giant Gummy Bears & Ice Cream Parlor
-        tryAddWorldDeco(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-260f, sampleHeightOnly(-260f, -225f), -225f), 0.7f, 1.75f, 0xFF3CE8B5, 0xFFFF3D8B), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-310f, sampleHeightOnly(-310f, -180f), -180f), 1.2f, 1.55f, 0xFFFF3D8B, 0xFFFFEB3B), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.MACARON_TOWER, Vec3(-210f, sampleHeightOnly(-210f, -135f), -135f), 0.4f, 1.45f, 0xFF3CE8B5, 0xFFFF6EB4), roadClearExtra = 4f)
+        // King Candy's Royal Sugar Rush Castle & Starting Grid Grandstands in Candy City
+        tryAddWorldDeco(DecorationInstance(DecoType.CHOCOLATE_CASTLE, Vec3(0f, sampleHeightOnly(0f, 76f), 76f), 3.14f, 2.05f, 0xFFFF4D94, 0xFFFFD54F), roadClearExtra = 5f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(-34f, sampleHeightOnly(-34f, 70f), 70f), 2.8f, 1.55f, 0xFFFF80AB, 0xFFFFF8FF), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(34f, sampleHeightOnly(34f, 70f), 70f), -2.8f, 1.55f, 0xFFFF80AB, 0xFFFFF8FF), roadClearExtra = 4f)
 
-        // Cupcake Valley Cupcake Castles & Ice Cream Parlor
-        tryAddWorldDeco(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(-255f, sampleHeightOnly(-255f, 235f), 235f), 0.4f, 1.7f, 0xFFD980FA, 0xFFFFF8FF), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.GINGERBREAD_HOUSE, Vec3(-305f, sampleHeightOnly(-305f, 210f), 210f), 1.0f, 1.45f, 0xFFFF6EB4, 0xFF3CE8B5), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.ICE_CREAM_PARLOR, Vec3(-155f, sampleHeightOnly(-155f, 155f), 155f), -0.6f, 1.4f, 0xFFFF3D8B, 0xFF5CE1E6), roadClearExtra = 4f)
+        // Gumdrop / Candy Cane Forest: Double-Stripe Candy Cane Groves & Vanellope's Secret Hideout
+        tryAddWorldDeco(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-260f, sampleHeightOnly(-260f, -225f), -225f), 0.7f, 1.80f, 0xFF3CE8B5, 0xFFFF3D8B), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.GUMMY_BEAR_STATUE, Vec3(-310f, sampleHeightOnly(-310f, -180f), -180f), 1.2f, 1.60f, 0xFFFF3D8B, 0xFFFFEB3B), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.MACARON_TOWER, Vec3(-210f, sampleHeightOnly(-210f, -135f), -135f), 0.4f, 1.50f, 0xFF3CE8B5, 0xFFFF6EB4), roadClearExtra = 4f)
+        for (c in 0 until 8) {
+            val ca = (c.toFloat() / 8f) * (2f * PI.toFloat())
+            val cx = -255f + cos(ca) * 42f
+            val cz = -205f + sin(ca) * 42f
+            tryAddWorldDeco(DecorationInstance(DecoType.CANDY_CANE_PLANT, Vec3(cx, sampleHeightOnly(cx, cz), cz), ca, 1.55f, 0xFFFF1744, 0xFFFFFFFF), roadClearExtra = 3f)
+        }
 
-        // Peppermint Coast Lighthouse, Fountains & Coastal Parlor
-        tryAddWorldDeco(DecorationInstance(DecoType.PEPPERMINT_LIGHTHOUSE, Vec3(315f, max(0.2f, sampleHeightOnly(315f, 275f)), 275f), -0.5f, 1.55f, 0xFF5CE1E6, 0xFFFF3D8B), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.STRAWBERRY_FOUNTAIN, Vec3(235f, sampleHeightOnly(235f, 185f), 185f), 0f, 1.25f, 0xFF5CE1E6, 0xFFFFF8FF), roadClearExtra = 4f)
-        tryAddWorldDeco(DecorationInstance(DecoType.DONUT_BUILDING, Vec3(205f, sampleHeightOnly(205f, 255f), 255f), 2.1f, 1.35f, 0xFFFF6EB4, 0xFFFFFFFF), roadClearExtra = 4f)
+        // Cupcake Valley (Cakeway): Tiered Birthday Cake Castles & Ice Cream Parlors
+        tryAddWorldDeco(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(-255f, sampleHeightOnly(-255f, 235f), 235f), 0.4f, 1.85f, 0xFFD980FA, 0xFFFFF8FF), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CUPCAKE_TOWER, Vec3(-215f, sampleHeightOnly(-215f, 265f), 265f), -0.5f, 1.65f, 0xFFFF4D94, 0xFFFFD54F), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.GINGERBREAD_HOUSE, Vec3(-305f, sampleHeightOnly(-305f, 210f), 210f), 1.0f, 1.50f, 0xFFFF6EB4, 0xFF3CE8B5), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.ICE_CREAM_PARLOR, Vec3(-155f, sampleHeightOnly(-155f, 155f), 155f), -0.6f, 1.45f, 0xFFFF3D8B, 0xFF5CE1E6), roadClearExtra = 4f)
+
+        // Peppermint Coast (Kart Bakery & Gumball Gorge): Kart Bakery Factory, Lighthouse & Giant Gumball Spheres
+        tryAddWorldDeco(DecorationInstance(DecoType.PEPPERMINT_LIGHTHOUSE, Vec3(315f, max(0.2f, sampleHeightOnly(315f, 275f)), 275f), -0.5f, 1.65f, 0xFF5CE1E6, 0xFFFF3D8B), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.CANDY_FACTORY, Vec3(268f, max(0.2f, sampleHeightOnly(268f, 178f)), 178f), 2.2f, 1.60f, 0xFFFF4081, 0xFFFFD54F), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.STRAWBERRY_FOUNTAIN, Vec3(235f, sampleHeightOnly(235f, 185f), 185f), 0f, 1.30f, 0xFF5CE1E6, 0xFFFFF8FF), roadClearExtra = 4f)
+        tryAddWorldDeco(DecorationInstance(DecoType.DONUT_BUILDING, Vec3(205f, sampleHeightOnly(205f, 255f), 255f), 2.1f, 1.40f, 0xFFFF6EB4, 0xFFFFFFFF), roadClearExtra = 4f)
 
         // Scatter regional candy buildings, trees, jellybean bushes, candy flowers, crystals, benches & floating balloons with zero overlap!
         for (i in 0 until 420) {

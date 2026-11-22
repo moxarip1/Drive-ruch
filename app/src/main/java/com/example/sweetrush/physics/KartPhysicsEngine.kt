@@ -111,6 +111,21 @@ data class KartRuntimeState(
     var smoothedSteer: Float = 0f,
     var landingImpulse: Float = 0f,
     var justLandedImpulse: Float = 0f,
+    // Articulated Character Motion Physics (Spring-Damper G-Force Torso, Head, Arms & Hair/Hat)
+    var prevForwardVel: Float = 0f,
+    var driverTorsoRollRad: Float = 0f,
+    var driverTorsoRollVel: Float = 0f,
+    var driverTorsoPitchRad: Float = 0f,
+    var driverTorsoPitchVel: Float = 0f,
+    var driverBounceY: Float = 0f,
+    var driverBounceVel: Float = 0f,
+    var driverHeadYawRad: Float = 0f,
+    var driverHeadPitchRad: Float = 0f,
+    var driverHairRollRad: Float = 0f,
+    var driverHairRollVel: Float = 0f,
+    var driverHairPitchRad: Float = 0f,
+    var driverHairPitchVel: Float = 0f,
+    var driverArmRaiseRad: Float = 0f,
     // AI helpers
     var aiTargetLaneOffset: Float = 0f,
     var aiLaneTimer: Float = 0f,
@@ -881,6 +896,7 @@ class KartPhysicsEngine(
                 k.raceScore = maxOf(k.raceScore, computedScore)
             }
         }
+        stepCharacterMotionPhysics(k, dt, k.remoteYawRate * dt)
     }
 
     private fun stepSingleKart(
@@ -1189,6 +1205,102 @@ class KartPhysicsEngine(
         if (!isFreeRoam) {
             stepTrackHazardsItemsAndLaps(k, prevNodeIndex, events)
         }
+        stepCharacterMotionPhysics(k, dt, yawDelta)
+    }
+
+    /**
+     * Simulates real-time second-order spring-damper physics for the articulated 3D racer character:
+     * - Torso lateral roll: combines centrifugal G-force whip on corner entry with active lean-in during sustained curves/drifts.
+     * - Torso longitudinal pitch: rocks backward under acceleration/nitro boost and lunges forward under heavy braking.
+     * - Seat cushion bounce: compresses on landing impacts & off-road bumps, springing back smoothly.
+     * - Head look-ahead: turns smoothly toward the corner apex and nods with speed and jump arcs.
+     * - Hair / Pigtails / Hat pendulum: secondary inertia + high-speed aerodynamic wind flutter.
+     * - Arm raise: celebratory/airtime arm pump when jumping off ramps or crossing the finish line.
+     */
+    private fun stepCharacterMotionPhysics(
+        k: KartRuntimeState,
+        dt: Float,
+        yawDelta: Float
+    ) {
+        val safeDt = dt.coerceIn(0.001f, 0.05f)
+        val longAccel = ((k.speed - k.prevForwardVel) / safeDt).coerceIn(-65f, 65f)
+        k.prevForwardVel = k.speed
+
+        val yawRate = (yawDelta / safeDt).coerceIn(-4.5f, 4.5f)
+        val lateralG = (k.speed * yawRate) / 36f // normalized lateral centripetal G
+
+        val isBoosting = k.isNitroActive || k.boostTimer > 0f || k.starTimer > 0f
+
+        // 1. Torso Roll Spring-Damper (active corner lean + centrifugal G impulse)
+        val steerNorm = (-k.steerVisualRad / 0.46f).coerceIn(-1f, 1f)
+        val targetTorsoRoll = (steerNorm * 0.24f - lateralG * 0.09f + (if (k.isDrifting) k.driftDir * 0.14f else 0f))
+            .coerceIn(-0.42f, 0.42f)
+        val rollSpring = 54f
+        val rollDamping = 10.5f
+        k.driverTorsoRollVel += ((targetTorsoRoll - k.driverTorsoRollRad) * rollSpring - k.driverTorsoRollVel * rollDamping) * safeDt
+        k.driverTorsoRollRad = (k.driverTorsoRollRad + k.driverTorsoRollVel * safeDt).coerceIn(-0.48f, 0.48f)
+
+        // 2. Torso Pitch Spring-Damper (acceleration kickback, braking forward lunge, nitro tuck)
+        val accelPitchImpulse = (-longAccel * 0.0055f).coerceIn(-0.22f, 0.24f)
+        val baseDrivePitch = when {
+            isBoosting -> -0.11f
+            k.isBraking -> 0.16f
+            !k.isGrounded -> (-k.vy * 0.015f).coerceIn(-0.18f, 0.18f)
+            else -> 0.03f
+        }
+        val targetTorsoPitch = (baseDrivePitch + accelPitchImpulse).coerceIn(-0.34f, 0.36f)
+        val pitchSpring = 48f
+        val pitchDamping = 9.5f
+        k.driverTorsoPitchVel += ((targetTorsoPitch - k.driverTorsoPitchRad) * pitchSpring - k.driverTorsoPitchVel * pitchDamping) * safeDt
+        k.driverTorsoPitchRad = (k.driverTorsoPitchRad + k.driverTorsoPitchVel * safeDt).coerceIn(-0.38f, 0.40f)
+
+        // 3. Vertical Seat Cushion Bounce (landing impact + off-road chatter + engine idle hum)
+        if (k.justLandedImpulse > 0.05f) {
+            k.driverBounceVel -= k.justLandedImpulse * 1.45f
+        }
+        val surfaceBump = if (k.isGrounded && k.currentSurface == SurfaceType.OFFROAD && abs(k.speed) > 8f) {
+            sin(k.wheelSpinRad * 2.4f) * 0.025f
+        } else {
+            0f
+        }
+        val bounceSpring = 95f
+        val bounceDamping = 11.5f
+        k.driverBounceVel += ((surfaceBump - k.driverBounceY) * bounceSpring - k.driverBounceVel * bounceDamping) * safeDt
+        k.driverBounceY = (k.driverBounceY + k.driverBounceVel * safeDt).coerceIn(-0.11f, 0.11f)
+
+        // 4. Articulated Head Look-Ahead (turns toward corner apex + drift counter-look)
+        val targetHeadYaw = (steerNorm * 0.44f + (if (k.isDrifting) k.driftDir * 0.18f else 0f) + sin(k.wheelSpinRad * 0.25f) * 0.03f)
+            .coerceIn(-0.58f, 0.58f)
+        k.driverHeadYawRad += (targetHeadYaw - k.driverHeadYawRad) * (14f * safeDt).coerceAtMost(1f)
+
+        val targetHeadPitch = (-k.driverTorsoPitchRad * 0.45f + (if (isBoosting) -0.08f else 0f) + sin(k.wheelSpinRad * 0.65f) * 0.025f)
+            .coerceIn(-0.28f, 0.28f)
+        k.driverHeadPitchRad += (targetHeadPitch - k.driverHeadPitchRad) * (15f * safeDt).coerceAtMost(1f)
+
+        // 5. Secondary Hair / Pigtails / Hat Pendulum + Aerodynamic High-Speed Wind Flutter
+        val speedNorm = (abs(k.speed) / 55f).coerceIn(0f, 1.35f)
+        val windFlutterRoll = sin(k.wheelSpinRad * 2.1f + k.x * 0.15f) * 0.085f * speedNorm
+        val windFlutterPitch = (0.16f + 0.09f * cos(k.wheelSpinRad * 2.7f)) * speedNorm + (if (isBoosting) 0.18f else 0f)
+
+        val targetHairRoll = (-k.driverTorsoRollRad * 0.85f - lateralG * 0.18f + windFlutterRoll).coerceIn(-0.55f, 0.55f)
+        val targetHairPitch = (windFlutterPitch - k.driverTorsoPitchRad * 0.70f - k.driverBounceVel * 0.14f).coerceIn(-0.35f, 0.62f)
+
+        val hairSpring = 72f
+        val hairDamping = 7.2f // under-damped so hair/pigtails/hat bounce and whip livelily!
+        k.driverHairRollVel += ((targetHairRoll - k.driverHairRollRad) * hairSpring - k.driverHairRollVel * hairDamping) * safeDt
+        k.driverHairRollRad = (k.driverHairRollRad + k.driverHairRollVel * safeDt).coerceIn(-0.60f, 0.60f)
+
+        k.driverHairPitchVel += ((targetHairPitch - k.driverHairPitchRad) * hairSpring - k.driverHairPitchVel * hairDamping) * safeDt
+        k.driverHairPitchRad = (k.driverHairPitchRad + k.driverHairPitchVel * safeDt).coerceIn(-0.40f, 0.68f)
+
+        // 6. Celebratory / Air-Time Arm Raise
+        val targetArmRaise = when {
+            k.finished && k.position <= 3 -> 0.55f + 0.25f * sin(k.wheelSpinRad * 1.5f + k.y)
+            !k.isGrounded && k.vy > 2.5f -> 0.42f
+            isBoosting -> -0.08f
+            else -> 0f
+        }
+        k.driverArmRaiseRad += (targetArmRaise - k.driverArmRaiseRad) * (12f * safeDt).coerceAtMost(1f)
     }
 
     private fun stepTrackHazardsItemsAndLaps(

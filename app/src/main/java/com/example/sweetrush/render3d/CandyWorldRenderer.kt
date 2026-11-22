@@ -290,14 +290,16 @@ class CandyWorldRenderer(
     private var groundMesh: GpuMesh? = null
     private val decoMeshCache = HashMap<String, GpuMesh>()
 
-    // Open World cached meshes (chunked terrain + road network + flowing water)
+    // Open World cached meshes (chunked terrain + road network + flowing water + monumental landmarks)
     private var openWorldBuilt = false
     private var openWorldRoadMesh: GpuMesh? = null
     private var openWorldWaterMesh: GpuMesh? = null
+    private var openWorldMonumentalLandmarksMesh: GpuMesh? = null
     private var openWorldChunkMeta: List<TerrainChunkData> = emptyList()
     private val openWorldChunkMeshes = ArrayList<GpuMesh>()
     private val portalMeshCache = HashMap<Long, GpuMesh>()
     private val citizenMeshCache = HashMap<String, GpuMesh>()
+    private val articulatedCitizenCache = HashMap<String, ArticulatedCitizenBundle>()
     private val companyDepotRingCache = HashMap<Long, GpuMesh>()
 
     // Shared gameplay meshes
@@ -382,10 +384,12 @@ class CandyWorldRenderer(
         openWorldChunkMeshes.clear()
         openWorldRoadMesh = null
         openWorldWaterMesh = null
+        openWorldMonumentalLandmarksMesh = null
         decoMeshCache.clear()
         kartBundleCache.clear()
         portalMeshCache.clear()
         citizenMeshCache.clear()
+        articulatedCitizenCache.clear()
         companyDepotRingCache.clear()
     }
 
@@ -431,6 +435,7 @@ class CandyWorldRenderer(
         openWorldChunkMeshes.clear()
         openWorldRoadMesh?.release()
         openWorldWaterMesh?.release()
+        openWorldMonumentalLandmarksMesh?.release()
 
         openWorldChunkMeta = OpenWorldKingdom.getTerrainChunks()
         for (chunk in openWorldChunkMeta) {
@@ -438,6 +443,7 @@ class CandyWorldRenderer(
         }
         openWorldRoadMesh = OpenWorldKingdom.buildRoadNetworkMesh()
         openWorldWaterMesh = OpenWorldKingdom.buildLiquidWaterMesh()
+        openWorldMonumentalLandmarksMesh = MeshFactory.buildSugarRushMonumentalLandmarksMesh()
         openWorldBuilt = true
     }
 
@@ -920,7 +926,15 @@ class CandyWorldRenderer(
                 isBoosting = k.boostTimer > 0f || k.isNitroActive,
                 isFinished = k.finished,
                 isSpunOut = k.spinoutTimer > 0f,
-                hasCargoCrate = engine.isFreeRoam && k.isPlayer && engine.companyCargoLoaded
+                hasCargoCrate = engine.isFreeRoam && k.isPlayer && engine.companyCargoLoaded,
+                driverTorsoRollRad = k.driverTorsoRollRad,
+                driverTorsoPitchRad = k.driverTorsoPitchRad,
+                driverBounceY = k.driverBounceY,
+                driverHeadYawRad = k.driverHeadYawRad,
+                driverHeadPitchRad = k.driverHeadPitchRad,
+                driverHairRollRad = k.driverHairRollRad,
+                driverHairPitchRad = k.driverHairPitchRad,
+                driverArmRaiseRad = k.driverArmRaiseRad
             )
 
             if (!isPaused) {
@@ -1043,6 +1057,7 @@ class CandyWorldRenderer(
         }
         drawIdentityMesh(openWorldRoadMesh, gloss = 0.55f)
         drawIdentityMesh(openWorldWaterMesh, gloss = 0.92f)
+        drawIdentityMesh(openWorldMonumentalLandmarksMesh, gloss = 0.88f)
 
         // World Boost Pads & Ramps
         for (pad in OpenWorldKingdom.boostPads) {
@@ -1112,7 +1127,7 @@ class CandyWorldRenderer(
             drawMesh(ringMesh, modelMat, gloss = 0.96f)
         }
 
-        // 71 Living Open-World Candy Citizens, Chefs, Engineers, Executives & Guards
+        // 71 Living Open-World Candy Citizens, Chefs, Engineers, Executives & Guards (5-Part Articulated Physics)
         val citizenCullSq = when (graphicsQuality) {
             GraphicsQuality.LOW -> 150f * 150f
             GraphicsQuality.MEDIUM -> 215f * 215f
@@ -1123,19 +1138,92 @@ class CandyWorldRenderer(
             if (distSq2D(npc.homePos.x, npc.homePos.z, camX, camZ) > citizenCullSq) continue
             val pose = OpenWorldKingdom.sampleCitizenPose(npc, totalTimeSec, pk.x, pk.z)
             val cKey = "${npc.variant.name}_${npc.primaryHex}_${npc.secondaryHex}_${npc.hatHex}"
-            val cMesh = citizenMeshCache.getOrPut(cKey) {
-                MeshFactory.buildCandyCitizenMesh(npc.variant, npc.primaryHex, npc.secondaryHex, npc.hatHex)
+            val bundle = articulatedCitizenCache.getOrPut(cKey) {
+                MeshFactory.buildArticulatedCitizenBundle(npc.variant, npc.primaryHex, npc.secondaryHex, npc.hatHex)
             }
             val citizenScale = if (pose.isWaving) 1.16f else 1.10f
-            Matrix.setIdentityM(modelMat, 0)
-            Matrix.translateM(modelMat, 0, pose.x, pose.y + pose.bobY, pose.z)
-            Matrix.rotateM(modelMat, 0, Math.toDegrees(pose.yawRad.toDouble()).toFloat(), 0f, 1f, 0f)
-            Matrix.rotateM(modelMat, 0, Math.toDegrees(pose.tiltRollRad.toDouble()).toFloat(), 0f, 0f, 1f)
-            Matrix.scaleM(modelMat, 0, citizenScale, citizenScale, citizenScale)
-            drawMesh(cMesh, modelMat, gloss = 0.78f)
+            drawArticulatedCitizen(
+                bundle = bundle,
+                wx = pose.x,
+                wy = pose.y + pose.bobY,
+                wz = pose.z,
+                yawDeg = Math.toDegrees(pose.yawRad.toDouble()).toFloat(),
+                rollDeg = Math.toDegrees(pose.tiltRollRad.toDouble()).toFloat(),
+                scale = citizenScale,
+                leftLegPitchDeg = Math.toDegrees(pose.leftLegPitchRad.toDouble()).toFloat(),
+                rightLegPitchDeg = Math.toDegrees(pose.rightLegPitchRad.toDouble()).toFloat(),
+                leftArmPitchDeg = Math.toDegrees(pose.leftArmPitchRad.toDouble()).toFloat(),
+                rightArmPitchDeg = Math.toDegrees(pose.rightArmPitchRad.toDouble()).toFloat(),
+                armWaveRollDeg = Math.toDegrees(pose.armWaveRollRad.toDouble()).toFloat()
+            )
         }
 
         drawDecorationsList(OpenWorldKingdom.decorations, camX, camZ)
+    }
+
+    private fun drawArticulatedCitizen(
+        bundle: ArticulatedCitizenBundle,
+        wx: Float,
+        wy: Float,
+        wz: Float,
+        yawDeg: Float,
+        rollDeg: Float,
+        scale: Float,
+        leftLegPitchDeg: Float,
+        rightLegPitchDeg: Float,
+        leftArmPitchDeg: Float,
+        rightArmPitchDeg: Float,
+        armWaveRollDeg: Float
+    ) {
+        // 1. Body / Torso / Head
+        Matrix.setIdentityM(modelMat, 0)
+        Matrix.translateM(modelMat, 0, wx, wy, wz)
+        Matrix.rotateM(modelMat, 0, yawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(modelMat, 0, rollDeg, 0f, 0f, 1f)
+        Matrix.scaleM(modelMat, 0, scale, scale, scale)
+        drawMesh(bundle.bodyMesh, modelMat, gloss = 0.78f)
+
+        // 2. Left Leg (pivoting around hipY)
+        Matrix.setIdentityM(modelMat, 0)
+        Matrix.translateM(modelMat, 0, wx, wy, wz)
+        Matrix.rotateM(modelMat, 0, yawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(modelMat, 0, rollDeg, 0f, 0f, 1f)
+        Matrix.scaleM(modelMat, 0, scale, scale, scale)
+        Matrix.translateM(modelMat, 0, 0f, bundle.hipY, 0f)
+        Matrix.rotateM(modelMat, 0, leftLegPitchDeg, 1f, 0f, 0f)
+        drawMesh(bundle.leftLegMesh, modelMat, gloss = 0.75f)
+
+        // 3. Right Leg (pivoting around hipY)
+        Matrix.setIdentityM(modelMat, 0)
+        Matrix.translateM(modelMat, 0, wx, wy, wz)
+        Matrix.rotateM(modelMat, 0, yawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(modelMat, 0, rollDeg, 0f, 0f, 1f)
+        Matrix.scaleM(modelMat, 0, scale, scale, scale)
+        Matrix.translateM(modelMat, 0, 0f, bundle.hipY, 0f)
+        Matrix.rotateM(modelMat, 0, rightLegPitchDeg, 1f, 0f, 0f)
+        drawMesh(bundle.rightLegMesh, modelMat, gloss = 0.75f)
+
+        // 4. Left Arm (pivoting around left shoulder)
+        Matrix.setIdentityM(modelMat, 0)
+        Matrix.translateM(modelMat, 0, wx, wy, wz)
+        Matrix.rotateM(modelMat, 0, yawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(modelMat, 0, rollDeg, 0f, 0f, 1f)
+        Matrix.scaleM(modelMat, 0, scale, scale, scale)
+        Matrix.translateM(modelMat, 0, -bundle.shoulderX, bundle.shoulderY, 0f)
+        Matrix.rotateM(modelMat, 0, leftArmPitchDeg, 1f, 0f, 0f)
+        Matrix.rotateM(modelMat, 0, armWaveRollDeg, 0f, 0f, 1f)
+        drawMesh(bundle.leftArmMesh, modelMat, gloss = 0.80f)
+
+        // 5. Right Arm + Held Prop (pivoting around right shoulder)
+        Matrix.setIdentityM(modelMat, 0)
+        Matrix.translateM(modelMat, 0, wx, wy, wz)
+        Matrix.rotateM(modelMat, 0, yawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(modelMat, 0, rollDeg, 0f, 0f, 1f)
+        Matrix.scaleM(modelMat, 0, scale, scale, scale)
+        Matrix.translateM(modelMat, 0, bundle.shoulderX, bundle.shoulderY, 0f)
+        Matrix.rotateM(modelMat, 0, rightArmPitchDeg, 1f, 0f, 0f)
+        Matrix.rotateM(modelMat, 0, -armWaveRollDeg, 0f, 0f, 1f)
+        drawMesh(bundle.rightArmMesh, modelMat, gloss = 0.80f)
     }
 
     private fun drawTrackGameplayObjects(engine: KartPhysicsEngine, track: GeneratedTrack) {
@@ -1198,18 +1286,31 @@ class CandyWorldRenderer(
                 val sHex = palette[(serial + 2) % palette.size]
                 val hHex = palette[(serial + 1) % palette.size]
                 val cKey = "${variant.name}_${pHex}_${sHex}_${hHex}"
-                val cMesh = citizenMeshCache.getOrPut(cKey) {
-                    MeshFactory.buildCandyCitizenMesh(variant, pHex, sHex, hHex)
+                val bundle = articulatedCitizenCache.getOrPut(cKey) {
+                    MeshFactory.buildArticulatedCitizenBundle(variant, pHex, sHex, hHex)
                 }
                 val faceTrackYawDeg = Math.toDegrees(atan2(-node.right.x * side, -node.right.z * side).toDouble()).toFloat()
-                val bounceY = abs(sin(totalTimeSec * 4.2f + serial * 0.7f)) * 0.24f
-                val swayDeg = sin(totalTimeSec * 5.0f + serial) * 8f
-                Matrix.setIdentityM(modelMat, 0)
-                Matrix.translateM(modelMat, 0, nx, node.center.y + bounceY, nz)
-                Matrix.rotateM(modelMat, 0, faceTrackYawDeg, 0f, 1f, 0f)
-                Matrix.rotateM(modelMat, 0, swayDeg, 0f, 0f, 1f)
-                Matrix.scaleM(modelMat, 0, 1.18f, 1.18f, 1.18f)
-                drawMesh(cMesh, modelMat, gloss = 0.78f)
+                val cheerPhase = totalTimeSec * 6.5f + serial * 0.7f
+                val bounceY = abs(sin(cheerPhase)) * 0.28f
+                val swayDeg = sin(cheerPhase * 0.8f) * 9f
+                val legKickDeg = sin(cheerPhase) * 22f
+                val leftArmCheerDeg = -135f + sin(cheerPhase * 1.3f) * 32f
+                val rightArmCheerDeg = -135f - sin(cheerPhase * 1.3f) * 32f
+                val waveRollDeg = sin(cheerPhase * 1.6f) * 18f
+                drawArticulatedCitizen(
+                    bundle = bundle,
+                    wx = nx,
+                    wy = node.center.y + bounceY,
+                    wz = nz,
+                    yawDeg = faceTrackYawDeg,
+                    rollDeg = swayDeg,
+                    scale = 1.18f,
+                    leftLegPitchDeg = legKickDeg,
+                    rightLegPitchDeg = -legKickDeg,
+                    leftArmPitchDeg = leftArmCheerDeg,
+                    rightArmPitchDeg = rightArmCheerDeg,
+                    armWaveRollDeg = waveRollDeg
+                )
             }
         }
     }
@@ -1276,7 +1377,15 @@ class CandyWorldRenderer(
         isBoosting: Boolean = false,
         isFinished: Boolean = false,
         isSpunOut: Boolean = false,
-        hasCargoCrate: Boolean = false
+        hasCargoCrate: Boolean = false,
+        driverTorsoRollRad: Float = -steerVis * 0.50f,
+        driverTorsoPitchRad: Float = 0f,
+        driverBounceY: Float = 0f,
+        driverHeadYawRad: Float = -steerVis * 0.75f,
+        driverHeadPitchRad: Float = 0f,
+        driverHairRollRad: Float = steerVis * 0.45f,
+        driverHairPitchRad: Float = 0f,
+        driverArmRaiseRad: Float = 0f
     ) {
         val bodyKey = "${kart.id}_${racer.id}_${custom.paintId}_${custom.wheelDesign.name}_${custom.exhaustStyle.name}_${custom.decoration.name}"
         val bundle = kartBundleCache.getOrPut(bodyKey) {
@@ -1326,21 +1435,64 @@ class CandyWorldRenderer(
         Matrix.rotateM(swMat, 0, steerDeg * 1.45f, 0f, 0f, 1f)
         drawMesh(bundle.steeringWheelMesh, swMat, gloss = 0.88f)
 
-        // Animated Seated Driver Character (leaning into turns, hunching on boost, cheering on finish)
+        // =========================================================================
+        // 5-PART ARTICULATED RACER CHARACTER PHYSICS (Torso, Arms, Head & Hair/Hat)
+        // =========================================================================
         val drvMat = FloatArray(16)
         val celebrateY = if (isFinished) abs(sin(totalTimeSec * 7f)) * 0.14f else 0f
-        val driverLeanZ = -steerDeg * 0.55f
-        val driverPitchX = when {
-            isSpunOut -> 18f
-            isFinished -> sin(totalTimeSec * 7f) * 8f
-            isBoosting -> -10f
-            isBraking -> 7f
-            else -> 0f
+        val torsoRollDeg = Math.toDegrees(driverTorsoRollRad.toDouble()).toFloat()
+        val torsoPitchDeg = when {
+            isSpunOut -> 20f
+            isFinished -> sin(totalTimeSec * 7f) * 9f
+            else -> Math.toDegrees(driverTorsoPitchRad.toDouble()).toFloat()
         }
-        Matrix.translateM(drvMat, 0, modelMat, 0, 0f, 0.85f + celebrateY, -0.14f)
-        Matrix.rotateM(drvMat, 0, driverLeanZ, 0f, 0f, 1f)
-        Matrix.rotateM(drvMat, 0, driverPitchX, 1f, 0f, 0f)
+        Matrix.translateM(drvMat, 0, modelMat, 0, 0f, 0.85f + celebrateY + driverBounceY, -0.14f)
+        Matrix.rotateM(drvMat, 0, torsoRollDeg, 0f, 0f, 1f)
+        Matrix.rotateM(drvMat, 0, torsoPitchDeg, 1f, 0f, 0f)
         drawMesh(bundle.driverMesh, drvMat, gloss = 0.72f)
+
+        // Articulated Left & Right Steering Arms pivoting at shoulders (±0.23, 0.38, 0.02)
+        val armRaiseDeg = Math.toDegrees(driverArmRaiseRad.toDouble()).toFloat()
+        val leftArmPitchDeg = -steerDeg * 0.65f - armRaiseDeg
+        val rightArmPitchDeg = steerDeg * 0.65f - armRaiseDeg
+        val armRollDeg = steerDeg * 0.25f
+
+        val leftArmMat = FloatArray(16)
+        Matrix.translateM(leftArmMat, 0, drvMat, 0, -0.23f, 0.38f, 0.02f)
+        Matrix.rotateM(leftArmMat, 0, leftArmPitchDeg, 1f, 0f, 0f)
+        Matrix.rotateM(leftArmMat, 0, armRollDeg - armRaiseDeg * 0.28f, 0f, 0f, 1f)
+        Matrix.translateM(leftArmMat, 0, 0.23f, -0.38f, -0.02f)
+        drawMesh(bundle.driverLeftArmMesh, leftArmMat, gloss = 0.74f)
+
+        val rightArmMat = FloatArray(16)
+        Matrix.translateM(rightArmMat, 0, drvMat, 0, 0.23f, 0.38f, 0.02f)
+        Matrix.rotateM(rightArmMat, 0, rightArmPitchDeg, 1f, 0f, 0f)
+        Matrix.rotateM(rightArmMat, 0, armRollDeg + armRaiseDeg * 0.28f, 0f, 0f, 1f)
+        Matrix.translateM(rightArmMat, 0, -0.23f, -0.38f, -0.02f)
+        drawMesh(bundle.driverRightArmMesh, rightArmMat, gloss = 0.74f)
+
+        // Articulated Expressive Head pivoting at Neck (0, 0.48, 0.03) — looks into corner apexes!
+        val headMat = FloatArray(16)
+        val headYawDeg = Math.toDegrees(driverHeadYawRad.toDouble()).toFloat() +
+            (if (isSpunOut) sin(totalTimeSec * 18f) * 28f else 0f)
+        val headPitchDeg = Math.toDegrees(driverHeadPitchRad.toDouble()).toFloat()
+        val headRollDeg = -torsoRollDeg * 0.32f
+        Matrix.translateM(headMat, 0, drvMat, 0, 0f, 0.48f, 0.03f)
+        Matrix.rotateM(headMat, 0, headYawDeg, 0f, 1f, 0f)
+        Matrix.rotateM(headMat, 0, headPitchDeg, 1f, 0f, 0f)
+        Matrix.rotateM(headMat, 0, headRollDeg, 0f, 0f, 1f)
+        Matrix.translateM(headMat, 0, 0f, -0.48f, -0.03f)
+        drawMesh(bundle.driverHeadMesh, headMat, gloss = 0.68f)
+
+        // Dynamic Physics Hair / Pigtails / Hat / Crown pivoting at Head Crown (0, 0.65, 0.04)
+        val hairMat = FloatArray(16)
+        val hairRollDeg = Math.toDegrees(driverHairRollRad.toDouble()).toFloat()
+        val hairPitchDeg = Math.toDegrees(driverHairPitchRad.toDouble()).toFloat()
+        Matrix.translateM(hairMat, 0, headMat, 0, 0f, 0.65f, 0.04f)
+        Matrix.rotateM(hairMat, 0, hairRollDeg, 0f, 0f, 1f)
+        Matrix.rotateM(hairMat, 0, hairPitchDeg, 1f, 0f, 0f)
+        Matrix.translateM(hairMat, 0, 0f, -0.65f, -0.04f)
+        drawMesh(bundle.driverHairMesh, hairMat, gloss = 0.82f)
 
         // Sweet Rush Corp. Cargo Shipment Crate mounted on rear rack during active delivery!
         if (hasCargoCrate) {

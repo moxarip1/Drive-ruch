@@ -158,35 +158,46 @@ object CandyShaders {
             vec3 ambient = mix(vec3(0.46, 0.35, 0.52), vec3(0.95, 0.89, 1.0), hemi) * ao;
 
             // Soft wrapped diffuse lighting + cool opposite fill bounce
-            float diff = max(dot(N, L) * 0.72 + 0.28, 0.0);
+            float rawNdotL = dot(N, L);
+            float diff = max(rawNdotL * 0.72 + 0.28, 0.0);
             vec3 fillDir = normalize(vec3(-L.x, 0.38, -L.z));
-            float fillDiff = max(dot(N, fillDir), 0.0) * 0.24;
+            float fillDiff = max(dot(N, fillDir), 0.0) * 0.26;
+
+            // Subsurface Scattering (SSS) warm candy/skin/frosting translucency
+            float backLight = max(0.0, dot(V, -L + N * 0.42));
+            float sssStrength = (matType >= 8.5 || (matType >= 3.5 && matType < 4.5) || matType < 0.5) ? 0.34 : 0.14;
+            float sss = (pow(backLight, 2.4) * 0.65 + (1.0 - max(rawNdotL, 0.0)) * max(0.0, rawNdotL + 0.55) * 0.35) * sssStrength;
+            vec3 sssColor = mix(baseRgb, vec3(1.0, 0.38, 0.54), 0.46) * sss;
 
             // Dual-lobe candy clearcoat specular (broad glaze + tight sun glint)
-            float specPow = mix(16.0, 128.0, localGloss);
-            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.20 + 0.84 * localGloss);
-            float coatSpec = pow(max(dot(N, H), 0.0), 192.0) * (0.34 * localGloss);
+            float specPow = mix(18.0, 136.0, localGloss);
+            float spec = pow(max(dot(N, H), 0.0), specPow) * (0.22 + 0.86 * localGloss);
+            float coatSpec = pow(max(dot(N, H), 0.0), 210.0) * (0.40 * localGloss);
 
             // Vivid candy rim highlight
-            float rim = pow(1.0 - max(dot(N, V), 0.0), 2.5) * 0.34;
+            float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6) * (0.36 + 0.14 * max(N.y, 0.0));
 
             if (uRainbowTime > 0.0) {
                 vec3 rainbow = 0.5 + 0.5 * cos(uRainbowTime * 4.5 + vWorldPos.xyz * 0.6 + vec3(0.0, 2.09, 4.18));
                 baseRgb = mix(baseRgb, rainbow, 0.58);
             }
 
-            vec3 lit = baseRgb * (ambient * 0.56 + uSunColor * diff * 0.82 + vec3(0.76, 0.86, 1.0) * fillDiff + emissiveBoost)
+            vec3 lit = baseRgb * (ambient * 0.58 + uSunColor * diff * 0.84 + vec3(0.76, 0.86, 1.0) * fillDiff + emissiveBoost)
+                     + sssColor
                      + uSunColor * (spec + coatSpec)
                      + vec3(1.0, 0.88, 0.98) * rim;
 
             // Gentle ACES-like saturation/highlight shoulder roll-off
             lit = (lit * (2.51 * lit + 0.03)) / (lit * (2.43 * lit + 0.59) + 0.14);
-            lit = clamp(lit * 1.08, 0.0, 1.0);
+            lit = clamp(lit * 1.09, 0.0, 1.0);
 
-            // Distance atmospheric pastel fog
+            // Distance atmospheric pastel fog with warm sun-aligned inscattering
             float dist = length(uCameraPos - vWorldPos);
-            float fogFactor = clamp((dist - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 0.88);
-            vec3 finalRgb = mix(lit, uFogColor, fogFactor * fogFactor);
+            float heightAtten = exp(-max(vWorldPos.y, 0.0) * 0.008);
+            float fogFactor = clamp((dist - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 0.86) * heightAtten;
+            float sunAlign = max(dot(normalize(vWorldPos - uCameraPos), L), 0.0);
+            vec3 horizonFog = mix(uFogColor, vec3(1.0, 0.89, 0.78), pow(sunAlign, 5.0) * 0.42);
+            vec3 finalRgb = mix(lit, horizonFog, fogFactor * fogFactor);
 
             fragColor = vec4(finalRgb, alpha);
         }
@@ -208,17 +219,65 @@ object CandyShaders {
         uniform vec3 uSkyBottom;
         uniform float uTime;
         out vec4 fragColor;
+
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+
+        float noise(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+                u.y
+            );
+        }
+
+        float fbm(vec2 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p *= 2.03;
+                a *= 0.5;
+            }
+            return v;
+        }
+
         void main() {
             float t = clamp(vUv.y, 0.0, 1.0);
-            vec3 col = mix(uSkyBottom, uSkyTop, pow(t, 0.70));
-            // Layered marshmallow clouds moving across horizon
-            float c1 = sin(vUv.x * 8.0 + uTime * 0.05) * cos(vUv.y * 12.0 - 1.8) * 0.5 + 0.5;
-            float c2 = sin(vUv.x * 15.0 - uTime * 0.08 + 2.0) * cos(vUv.y * 20.0 - 3.5) * 0.5 + 0.5;
-            float cloudMask = (smoothstep(0.54, 0.84, c1) * 0.18 + smoothstep(0.60, 0.90, c2) * 0.10) * smoothstep(0.28, 0.72, t);
-            col = mix(col, vec3(1.0, 0.97, 0.99), cloudMask);
-            // Warm sun disc glow
-            float sunDist = length(vUv - vec2(0.76, 0.78));
-            col += vec3(1.0, 0.92, 0.75) * smoothstep(0.24, 0.0, sunDist) * 0.35;
+            vec3 midSky = mix(uSkyBottom, uSkyTop, 0.46) + vec3(0.07, 0.02, 0.06);
+            vec3 col = mix(uSkyBottom, midSky, smoothstep(0.0, 0.48, t));
+            col = mix(col, uSkyTop, smoothstep(0.42, 0.96, t));
+
+            // Sugar Rush cotton-candy horizon ribbon
+            float horizonBand = exp(-abs(t - 0.30) * 8.0);
+            col += vec3(0.20, 0.09, 0.14) * horizonBand;
+
+            // Volumetric FBM marshmallow clouds with sunlit tops and berry underbellies
+            if (t > 0.20) {
+                vec2 cloudUv = vec2(vUv.x * 3.8 + uTime * 0.015, t * 5.2);
+                float c1 = fbm(cloudUv);
+                float c2 = fbm(cloudUv * 1.35 + vec2(0.0, 0.16));
+                float cloudMask = smoothstep(0.49, 0.78, c1) * smoothstep(0.20, 0.48, t) * smoothstep(0.98, 0.68, t);
+                float litTop = clamp((c2 - c1) * 3.0 + 0.55, 0.0, 1.0);
+                vec3 cloudUnder = mix(uSkyBottom, vec3(0.95, 0.72, 0.88), 0.55);
+                vec3 cloudLit = vec3(1.0, 0.97, 0.99);
+                col = mix(col, mix(cloudUnder, cloudLit, litTop), cloudMask * 0.62);
+            }
+
+            // Warm sun disc, halo & crepuscular rays
+            vec2 sunPos = vec2(0.76, 0.76);
+            vec2 delta = (vUv - sunPos) * vec2(1.7, 1.0);
+            float sunDist = length(delta);
+            float sunDisc = smoothstep(0.075, 0.028, sunDist);
+            float sunHalo = exp(-sunDist * 4.6) * 0.45;
+            float rayAngle = atan(delta.y, delta.x);
+            float sunRays = pow(max(0.0, cos(rayAngle * 8.0 + uTime * 0.22)), 6.0) * exp(-sunDist * 5.0) * 0.16;
+            col += vec3(1.0, 0.93, 0.78) * (sunDisc * 0.85 + sunHalo + sunRays);
+
             fragColor = vec4(col, 1.0);
         }
     """

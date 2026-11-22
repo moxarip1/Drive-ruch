@@ -446,7 +446,11 @@ class SweetRushTest {
             )
             assertTrue("Kart ${kart.id} tire mesh should have edible sidewall details", bundle.tireMesh.vertexCount > 300)
             assertTrue("Kart ${kart.id} rim mesh should have spoke & hubcap vertices", bundle.rimMesh.vertexCount > 60)
-            assertTrue("Kart ${kart.id} driver mesh should have helmet & suit vertices", bundle.driverMesh.vertexCount > 250)
+            assertTrue("Kart ${kart.id} driver torso mesh should have suit vertices", bundle.driverMesh.vertexCount > 150)
+            assertTrue("Kart ${kart.id} driver left arm mesh should have articulated vertices", bundle.driverLeftArmMesh.vertexCount > 60)
+            assertTrue("Kart ${kart.id} driver right arm mesh should have articulated vertices", bundle.driverRightArmMesh.vertexCount > 60)
+            assertTrue("Kart ${kart.id} driver head mesh should have sculpted facial vertices", bundle.driverHeadMesh.vertexCount > 250)
+            assertTrue("Kart ${kart.id} driver hair/headgear mesh should have 3D hair/hat vertices", bundle.driverHairMesh.vertexCount > 80)
         }
 
         val turntable = com.example.sweetrush.render3d.MeshFactory.buildBakeryTurntablePedestalMesh()
@@ -658,5 +662,48 @@ class SweetRushTest {
         assertEquals(2, engine.companyLevel)
         assertTrue(deliveryEvents.any { it.type == com.example.sweetrush.physics.RaceEventType.COMPANY_DELIVERY_COMPLETED })
     }
+
+    @Test
+    fun `character motion physics simulates spring damper torso lean head apex look and hair wind flutter`() {
+        val engine = KartPhysicsEngine(
+            trackId = TrackId.PEPPERMINT_PLAZA,
+            mode = GameMode.FREE_ROAM,
+            difficulty = Difficulty.NORMAL,
+            playerRacerId = "berry_blitz",
+            playerKartId = "strawberry_rocket",
+            playerCustomization = KartCustomization(),
+            startRegion = WorldRegion.CANDY_CITY
+        )
+        repeat(45) {
+            engine.step(1f / 30f, PlayerInputState(steer = 0.9f, throttle = true, nitro = true))
+        }
+        val pk = engine.playerKart
+        assertTrue("Character torso should lean into corner under steering & G-force", kotlin.math.abs(pk.driverTorsoRollRad) > 0.04f)
+        assertTrue("Character head should turn toward corner apex", kotlin.math.abs(pk.driverHeadYawRad) > 0.08f)
+        assertTrue("Character hair/headgear should flutter back under high speed & wind", kotlin.math.abs(pk.driverHairPitchRad) > 0.04f)
+
+        // Verify 5-part articulated citizen bundle across all movie citizen variants
+        for (variant in com.example.sweetrush.track.CitizenVariant.entries) {
+            val citizenBundle = com.example.sweetrush.render3d.MeshFactory.buildArticulatedCitizenBundle(
+                variant = variant,
+                c1 = 0xFF4CD137L,
+                c2 = 0xFFFF4D94L,
+                hatHex = 0xFFFFD700L
+            )
+            assertTrue("Citizen $variant bodyMesh should have vertices", citizenBundle.bodyMesh.vertexCount > 60)
+            assertTrue("Citizen $variant leftLegMesh should have vertices", citizenBundle.leftLegMesh.vertexCount > 20)
+            assertTrue("Citizen $variant rightLegMesh should have vertices", citizenBundle.rightLegMesh.vertexCount > 20)
+            assertTrue("Citizen $variant leftArmMesh should have vertices", citizenBundle.leftArmMesh.vertexCount > 20)
+            assertTrue("Citizen $variant rightArmMesh should have vertices", citizenBundle.rightArmMesh.vertexCount > 20)
+        }
+
+        // Verify monumental Sugar Rush landmarks mesh builds rich 3D geometry
+        val landmarksMesh = com.example.sweetrush.render3d.MeshFactory.buildSugarRushMonumentalLandmarksMesh()
+        assertTrue(
+            "Sugar Rush monumental landmarks mesh should contain > 3000 vertices, got ${landmarksMesh.vertexCount}",
+            landmarksMesh.vertexCount > 3000
+        )
+    }
 }
+
 

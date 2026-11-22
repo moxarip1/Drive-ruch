@@ -18,6 +18,10 @@ data class KartModelBundle(
     val chassisMesh: GpuMesh,
     val steeringWheelMesh: GpuMesh,
     val driverMesh: GpuMesh,
+    val driverLeftArmMesh: GpuMesh,
+    val driverRightArmMesh: GpuMesh,
+    val driverHeadMesh: GpuMesh,
+    val driverHairMesh: GpuMesh,
     val brakeLightMesh: GpuMesh,
     val tireMesh: GpuMesh,
     val rimMesh: GpuMesh,
@@ -28,6 +32,10 @@ data class KartModelBundle(
         chassisMesh.release()
         steeringWheelMesh.release()
         driverMesh.release()
+        driverLeftArmMesh.release()
+        driverRightArmMesh.release()
+        driverHeadMesh.release()
+        driverHairMesh.release()
         brakeLightMesh.release()
         tireMesh.release()
         rimMesh.release()
@@ -66,7 +74,11 @@ object VehicleMeshBuilder {
     ): KartModelBundle {
         val chassisMesh = buildDetailedChassis(kart, custom)
         val steeringWheelMesh = buildSteeringWheelMesh(kart, custom)
-        val driverMesh = buildDriverMesh(racer)
+        val driverMesh = buildDriverTorsoMesh(racer)
+        val driverLeftArmMesh = buildDriverArmMesh(racer, -1f)
+        val driverRightArmMesh = buildDriverArmMesh(racer, 1f)
+        val driverHeadMesh = buildDriverHeadMesh(racer)
+        val driverHairMesh = buildDriverHairMesh(racer)
         val brakeLightMesh = buildBrakeLights(kart)
         val tireMesh = buildSculptedTireMesh(custom.wheelDesign)
         val rimMesh = buildAlloyRimMesh(custom.wheelDesign)
@@ -79,6 +91,10 @@ object VehicleMeshBuilder {
             chassisMesh = chassisMesh,
             steeringWheelMesh = steeringWheelMesh,
             driverMesh = driverMesh,
+            driverLeftArmMesh = driverLeftArmMesh,
+            driverRightArmMesh = driverRightArmMesh,
+            driverHeadMesh = driverHeadMesh,
+            driverHairMesh = driverHairMesh,
             brakeLightMesh = brakeLightMesh,
             tireMesh = tireMesh,
             rimMesh = rimMesh,
@@ -750,30 +766,22 @@ object VehicleMeshBuilder {
     }
 
     /**
-     * High-detail movie-style 3D Sugar Rush racer character centered at hip pivot
-     * (placed at (0, 0.85, -0.14) by renderer).
-     * Features:
-     * - Layered candy racing suit with pleated skirt/pants, belt & golden candy buckle,
-     *   open jacket lapels, candy buttons, whipped-cream collar, shoulder pads,
-     *   articulated upper/lower arms, and cuffed racing gloves gripping the wheel.
-     * - Expressive 3D head & face with ears, rosy candy blush cheeks, button nose,
-     *   cheerful smile, arched eyebrows, and multi-layered anime eyes (white sclera,
-     *   colored iris, dark pupil, and bright white specular catchlights).
-     * - 8 unique sculpted 3D hairstyles & signature headgear/accessories per racer ID.
+     * Articulated 3D Sugar Rush / Anime racer character split into 5 independent physics meshes:
+     * 1. Torso & Lower Body (`buildDriverTorsoMesh`) - responds to lateral/longitudinal G-forces & suspension bounce
+     * 2. Left & Right Steering Arms (`buildDriverArmMesh`) - pivot at shoulders `(±0.23, 0.38, 0.02)` with steering wheel & jumps
+     * 3. Expressive Sculpted 3D Head & Face (`buildDriverHeadMesh`) - pivots at neck `(0, 0.48, 0.03)` to look into corners
+     * 4. Dynamic Hair / Pigtails / Hat / Headgear (`buildDriverHairMesh`) - pivots at head crown `(0, 0.65, 0.04)` with spring-pendulum wind flutter
      */
-    private fun buildDriverMesh(racer: RacerSpec): GpuMesh {
+    private fun buildDriverTorsoMesh(racer: RacerSpec): GpuMesh {
         val acc = MeshAccumulator()
         val pHex = racer.suitPrimaryHex
         val sHex = racer.suitSecondaryHex
-        val hHex = racer.helmetHex
         val vHex = racer.visorHex
-        val skin = racer.skinHex
         val cream = 0xFFFFF8F2L
         val gold = 0xFFFFD54FL
 
         // 1. Seated Hips, Pleated Candy Skirt / Racing Shorts & Thighs
         acc.addCylinder(0f, -0.04f, 0.02f, 0.25f, 0.21f, 0.16f, 12, sHex, pHex, matType = CandyMaterials.MAT_CANDY)
-        // Pleated candy trim around hips
         for (i in 0 until 8) {
             val a = (i.toFloat() / 8f) * (2f * PI.toFloat())
             val px = cos(a) * 0.23f
@@ -781,13 +789,14 @@ object VehicleMeshBuilder {
             val col = if (i % 2 == 0) pHex else cream
             acc.addSphere(px, 0.03f, pz, 0.055f, 0.065f, 0.055f, 4, 6, col, matType = CandyMaterials.MAT_MARSHMALLOW)
         }
-        // Seated thighs extending forward into cockpit
+        // Seated thighs & knees extending forward into cockpit
         for (side in listOf(-1f, 1f)) {
             acc.addStrut(
                 Vec3(side * 0.11f, 0.01f, 0.05f),
                 Vec3(side * 0.12f, -0.02f, 0.30f),
                 0.072f, 6, sHex, CandyMaterials.MAT_WAFER
             )
+            acc.addSphere(side * 0.12f, -0.02f, 0.31f, 0.068f, 0.065f, 0.068f, 5, 6, pHex, matType = CandyMaterials.MAT_CANDY)
         }
 
         // 2. Racing Waist Belt & Golden Candy-Wrapper Buckle
@@ -796,102 +805,107 @@ object VehicleMeshBuilder {
         acc.addSphere(0f, 0.13f, 0.24f, 0.032f, 0.032f, 0.020f, 5, 6, pHex, matType = CandyMaterials.MAT_EMISSIVE)
 
         // 3. Layered Sugar Rush Racing Jacket, Inner Candy Shirt, Buttons & Lapels
-        // Inner shirt torso
         acc.addCylinder(0f, 0.15f, 0.0f, 0.195f, 0.175f, 0.31f, 12, cream, sHex, matType = CandyMaterials.MAT_MARSHMALLOW)
-        // Outer tailored racing jacket shell (left & right jacket panels + back)
         acc.addBeveledBox(0f, 0.29f, -0.02f, 0.44f, 0.29f, 0.31f, 0.88f, 0.90f, pHex, sHex, CandyMaterials.MAT_CANDY)
-        // Contrasting front racing stripes & open lapels
         for (side in listOf(-1f, 1f)) {
             acc.addBeveledBox(side * 0.11f, 0.30f, 0.135f, 0.085f, 0.26f, 0.05f, 0.85f, 0.92f, sHex, cream, CandyMaterials.MAT_CANDY)
-            // Wafer / frosting shoulder pads
             acc.addSphere(side * 0.235f, 0.40f, 0.01f, 0.088f, 0.068f, 0.095f, 6, 8, sHex, gold, matType = CandyMaterials.MAT_CANDY)
         }
-        // Center candy buttons down the chest placket
         for (by in listOf(0.22f, 0.29f, 0.36f)) {
             acc.addSphere(0f, by, 0.158f, 0.026f, 0.026f, 0.018f, 5, 6, gold, matType = CandyMaterials.MAT_CHROME)
         }
-        // Rear racing backpack / candy nitro pack on jacket back
         acc.addBeveledBox(0f, 0.30f, -0.185f, 0.24f, 0.19f, 0.075f, 0.86f, 0.86f, sHex, pHex, CandyMaterials.MAT_CANDY)
         acc.addSphere(0f, 0.30f, -0.228f, 0.055f, 0.055f, 0.028f, 5, 6, vHex, matType = CandyMaterials.MAT_EMISSIVE)
 
         // 4. Frosted Whipped-Cream / Candy Scarf Collar
         acc.addTorus(0f, 0.445f, 0.015f, 0.145f, 0.044f, 12, 6, cream, sHex, matType = CandyMaterials.MAT_MARSHMALLOW)
+        return acc.build()
+    }
 
-        // 5. Articulated Arms (Upper Arm -> Elbow Joint -> Forearm -> Glove Cuff -> Sculpted Racing Glove)
-        for (side in listOf(-1f, 1f)) {
-            val shoulder = Vec3(side * 0.23f, 0.38f, 0.02f)
-            val elbow = Vec3(side * 0.25f, 0.26f, 0.21f)
-            val wrist = Vec3(side * 0.17f, 0.22f, 0.41f)
-            // Upper sleeve
-            acc.addStrut(shoulder, elbow, 0.062f, 8, pHex, CandyMaterials.MAT_CANDY)
-            // Elbow pad
-            acc.addSphere(elbow.x, elbow.y, elbow.z, 0.065f, 0.065f, 0.065f, 5, 6, sHex, matType = CandyMaterials.MAT_CANDY)
-            // Forearm sleeve
-            acc.addStrut(elbow, wrist, 0.056f, 8, pHex, CandyMaterials.MAT_CANDY)
-            // Frosted glove cuff ring
-            acc.addTorus(wrist.x, wrist.y, wrist.z, 0.058f, 0.022f, 8, 5, cream, sHex, verticalArch = true, matType = CandyMaterials.MAT_MARSHMALLOW)
-            // Racing glove fist gripping the steering wheel rim + sculpted thumb
-            val handX = side * 0.16f
-            val handY = 0.22f
-            val handZ = 0.46f
-            acc.addSphere(handX, handY, handZ, 0.068f, 0.062f, 0.074f, 6, 8, sHex, cream, matType = CandyMaterials.MAT_CANDY)
-            acc.addSphere(handX - side * 0.045f, handY + 0.025f, handZ - 0.01f, 0.032f, 0.028f, 0.040f, 5, 6, cream, matType = CandyMaterials.MAT_CANDY)
-        }
+    private fun buildDriverArmMesh(racer: RacerSpec, side: Float): GpuMesh {
+        val acc = MeshAccumulator()
+        val pHex = racer.suitPrimaryHex
+        val sHex = racer.suitSecondaryHex
+        val cream = 0xFFFFF8F2L
 
-        // 6. Neck & Sculpted Expressive 3D Anime/Movie Head & Face
+        val shoulder = Vec3(side * 0.23f, 0.38f, 0.02f)
+        val elbow = Vec3(side * 0.25f, 0.26f, 0.21f)
+        val wrist = Vec3(side * 0.17f, 0.22f, 0.41f)
+        acc.addSphere(shoulder.x, shoulder.y, shoulder.z, 0.068f, 0.068f, 0.068f, 5, 6, pHex, matType = CandyMaterials.MAT_CANDY)
+        acc.addStrut(shoulder, elbow, 0.062f, 8, pHex, CandyMaterials.MAT_CANDY)
+        acc.addSphere(elbow.x, elbow.y, elbow.z, 0.065f, 0.065f, 0.065f, 5, 6, sHex, matType = CandyMaterials.MAT_CANDY)
+        acc.addStrut(elbow, wrist, 0.056f, 8, pHex, CandyMaterials.MAT_CANDY)
+        acc.addTorus(wrist.x, wrist.y, wrist.z, 0.058f, 0.022f, 8, 5, cream, sHex, verticalArch = true, matType = CandyMaterials.MAT_MARSHMALLOW)
+        val handX = side * 0.16f
+        val handY = 0.22f
+        val handZ = 0.46f
+        acc.addSphere(handX, handY, handZ, 0.068f, 0.062f, 0.074f, 6, 8, sHex, cream, matType = CandyMaterials.MAT_CANDY)
+        acc.addSphere(handX - side * 0.045f, handY + 0.025f, handZ - 0.01f, 0.032f, 0.028f, 0.040f, 5, 6, cream, matType = CandyMaterials.MAT_CANDY)
+        return acc.build()
+    }
+
+    private fun buildDriverHeadMesh(racer: RacerSpec): GpuMesh {
+        val acc = MeshAccumulator()
+        val pHex = racer.suitPrimaryHex
+        val sHex = racer.suitSecondaryHex
+        val hHex = racer.helmetHex
+        val vHex = racer.visorHex
+        val skin = racer.skinHex
+
+        // Neck & Sculpted Expressive 3D Anime/Movie Head & Face
         acc.addCylinder(0f, 0.45f, 0.02f, 0.082f, 0.078f, 0.115f, 12, skin)
         val headY = 0.645f
         val headZ = 0.042f
-        // Main sculpted head with refined high-resolution anime cranium & jawline
         acc.addSphere(0f, headY + 0.01f, headZ, 0.216f, 0.210f, 0.212f, 14, 18, skin)
-        // Sculpted anime cheeks & tapered chin contour
         acc.addSphere(0f, headY - 0.048f, headZ + 0.038f, 0.194f, 0.126f, 0.178f, 10, 14, skin)
         acc.addSphere(0f, headY - 0.115f, headZ + 0.075f, 0.088f, 0.068f, 0.095f, 8, 10, skin)
 
-        // Left & Right Ears with inner ear detail & anime earrings where applicable
         for (side in listOf(-1f, 1f)) {
             acc.addSphere(side * 0.212f, headY - 0.01f, headZ - 0.01f, 0.044f, 0.060f, 0.038f, 6, 8, skin)
             acc.addSphere(side * 0.218f, headY - 0.01f, headZ + 0.005f, 0.024f, 0.035f, 0.020f, 5, 6, 0xFFFF8DA1L)
         }
 
-        // Soft Anime Blush Cheeks + Subtle Cheek Highlight Dot
         for (side in listOf(-1f, 1f)) {
             acc.addSphere(side * 0.124f, headY - 0.040f, headZ + 0.170f, 0.046f, 0.026f, 0.022f, 6, 8, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
             acc.addSphere(side * 0.132f, headY - 0.034f, headZ + 0.184f, 0.014f, 0.009f, 0.010f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
         }
 
-        // Refined 3D Anime Nose Bridge & Tip
         acc.addSphere(0f, headY - 0.010f, headZ + 0.215f, 0.025f, 0.028f, 0.032f, 6, 8, skin)
 
-        // Cheerful Anime Smiling Mouth (upper lip contour, warm smile cavity, bright white teeth)
         acc.addBeveledBox(0f, headY - 0.072f, headZ + 0.190f, 0.086f, 0.030f, 0.028f, 0.8f, 0.8f, 0xFFD81B60L, 0xFFFF80ABL, CandyMaterials.MAT_CANDY)
         acc.addBox(0f, headY - 0.065f, headZ + 0.198f, 0.064f, 0.015f, 0.018f, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
 
-        // Large Expressive Multi-Layer Anime Eyes (Sclera + Dual-Ring Iris + Deep Pupil + Triple Catchlights + Eyelashes + Brows)
         for (side in listOf(-1f, 1f)) {
             val ex = side * 0.084f
             val ey = headY + 0.020f
             val ez = headZ + 0.184f
-            // White sclera
             acc.addSphere(ex, ey, ez, 0.055f, 0.061f, 0.034f, 8, 10, 0xFFFFFFFFL)
-            // Outer vibrant iris ring
             acc.addSphere(ex, ey, ez + 0.016f, 0.041f, 0.047f, 0.023f, 8, 10, vHex, pHex, matType = CandyMaterials.MAT_CANDY)
-            // Inner glowing iris gradient core
             acc.addSphere(ex, ey - 0.005f, ez + 0.023f, 0.032f, 0.036f, 0.018f, 6, 8, pHex, vHex, matType = CandyMaterials.MAT_EMISSIVE)
-            // Deep dark pupil
             acc.addSphere(ex, ey + 0.002f, ez + 0.030f, 0.022f, 0.026f, 0.015f, 6, 8, 0xFF12061EL)
-            // Triple bright white anime specular eye catchlights
             acc.addSphere(ex - side * 0.014f, ey + 0.017f, ez + 0.038f, 0.012f, 0.012f, 0.009f, 5, 6, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
             acc.addSphere(ex + side * 0.012f, ey - 0.014f, ez + 0.037f, 0.007f, 0.007f, 0.006f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
             acc.addSphere(ex + side * 0.015f, ey + 0.012f, ez + 0.036f, 0.005f, 0.005f, 0.005f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
-            // Sculpted upper eyelash wing & lower lash line
             acc.addBeveledBox(ex, ey + 0.051f, ez + 0.014f, 0.092f, 0.017f, 0.028f, 0.9f, 0.9f, 0xFF1A0926L)
             acc.addSphere(ex + side * 0.044f, ey + 0.046f, ez + 0.012f, 0.018f, 0.010f, 0.016f, 4, 5, 0xFF1A0926L)
-            // Expressive arched eyebrow
             acc.addBeveledBox(ex, ey + 0.082f, ez + 0.010f, 0.086f, 0.018f, 0.025f, 0.85f, 0.85f, hHex, sHex)
         }
+        return acc.build()
+    }
 
-        // 7. Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Movie + Anime Headgear
+    private fun buildDriverHairMesh(racer: RacerSpec): GpuMesh {
+        val acc = MeshAccumulator()
+        val pHex = racer.suitPrimaryHex
+        val sHex = racer.suitSecondaryHex
+        val hHex = racer.helmetHex
+        val vHex = racer.visorHex
+        val skin = racer.skinHex
+        val cream = 0xFFFFF8F2L
+        val gold = 0xFFFFD54FL
+        val headY = 0.645f
+        val headZ = 0.042f
+
+        // Character-Specific Sculpted 3D Hairstyles & Signature Sugar Rush Movie + Anime Headgear
         when (racer.id) {
             "berry_blitz" -> {
                 // VANELLOPE VON SCHWEETZ: Glossy Black Hair + High Ponytail tied with Red Licorice Twist + Candy Sprinkles in Hair + Mint Hoodie Hood

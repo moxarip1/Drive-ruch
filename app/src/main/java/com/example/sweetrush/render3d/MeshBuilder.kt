@@ -5,6 +5,7 @@ import com.example.sweetrush.model.CatalogData
 import com.example.sweetrush.track.CitizenVariant
 import com.example.sweetrush.track.DecoType
 import com.example.sweetrush.track.GeneratedTrack
+import com.example.sweetrush.track.OpenWorldKingdom
 import com.example.sweetrush.track.Vec3
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -1373,5 +1374,360 @@ object MeshFactory {
 
         return acc.build()
     }
+
+    /**
+     * 5-Part Articulated Open-World Citizen Physics Rig (Body/Torso, Left Leg, Right Leg, Left Arm, Right Arm)
+     * so every Sugar Rush movie citizen (Sour Bill, Wynnchel & Duncan Donut Police, Oreo Guards, Cupcake Chefs)
+     * physically walks with alternating leg strides, swings arms/spears/batons, and waves both arms when cheering!
+     */
+    fun buildArticulatedCitizenBundle(
+        variant: CitizenVariant,
+        c1: Long,
+        c2: Long,
+        hatHex: Long
+    ): ArticulatedCitizenBundle {
+        val bodyAcc = MeshAccumulator()
+        val leftLegAcc = MeshAccumulator()
+        val rightLegAcc = MeshAccumulator()
+        val leftArmAcc = MeshAccumulator()
+        val rightArmAcc = MeshAccumulator()
+        val cream = 0xFFFFF8F2L
+        val gold = 0xFFFFD54FL
+
+        bodyAcc.addCylinder(0f, 0.02f, 0f, 0.58f, 0.58f, 0.02f, 14, 0xFF1A0926L, a = 0.55f)
+
+        val hipY: Float
+        val shoulderX: Float
+        val shoulderY: Float
+
+        when (variant) {
+            CitizenVariant.CANDY_CITIZEN -> {
+                // SOUR BILL (ساور بيل)
+                val sourGreen = 0xFF4CAF50L
+                val sourDark = 0xFF2E7D32L
+                val sourHi = 0xFF81C784L
+                hipY = 0.36f
+                shoulderX = 0.48f
+                shoulderY = 0.86f
+
+                for ((side, legAcc) in listOf(-1f to leftLegAcc, 1f to rightLegAcc)) {
+                    legAcc.addSphere(side * 0.19f, 0.12f, 0.05f, 0.14f, 0.11f, 0.19f, 8, 10, sourDark, sourGreen, matType = CandyMaterials.MAT_CANDY)
+                    legAcc.addCylinder(side * 0.18f, 0.14f, 0f, 0.080f, 0.090f, 0.28f, 10, sourDark, sourGreen, matType = CandyMaterials.MAT_CANDY)
+                }
+
+                val bodyY = 0.86f
+                bodyAcc.addSphere(0f, bodyY, 0f, 0.55f, 0.55f, 0.53f, 16, 20, sourGreen, sourHi, matType = CandyMaterials.MAT_CANDY)
+                for (side in listOf(-1f, 1f)) {
+                    val ex = side * 0.18f
+                    val ey = bodyY + 0.10f
+                    val ez = 0.46f
+                    bodyAcc.addSphere(ex, ey, ez, 0.105f, 0.115f, 0.055f, 8, 10, 0xFFFFFFFFL)
+                    bodyAcc.addSphere(ex, ey - 0.01f, ez + 0.038f, 0.045f, 0.048f, 0.025f, 6, 8, 0xFF1B3B1AL)
+                    bodyAcc.addSphere(ex - side * 0.015f, ey + 0.01f, ez + 0.055f, 0.014f, 0.014f, 0.010f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+                    bodyAcc.addSphere(ex, ey + 0.055f, ez + 0.01f, 0.115f, 0.065f, 0.065f, 7, 9, sourDark, sourGreen, matType = CandyMaterials.MAT_CANDY)
+                    bodyAcc.addBeveledBox(ex, ey + 0.125f, ez + 0.01f, 0.18f, 0.028f, 0.04f, 0.85f, 0.85f, sourDark)
+                }
+                bodyAcc.addSphere(0f, bodyY - 0.02f, 0.52f, 0.048f, 0.042f, 0.045f, 6, 8, sourHi, matType = CandyMaterials.MAT_CANDY)
+                bodyAcc.addBeveledBox(0f, bodyY - 0.16f, 0.48f, 0.22f, 0.036f, 0.04f, 0.85f, 0.85f, sourDark)
+
+                leftArmAcc.addStrut(Vec3(-0.48f, bodyY, 0f), Vec3(-0.64f, bodyY - 0.24f, 0.16f), 0.068f, 8, sourDark, CandyMaterials.MAT_CANDY)
+                leftArmAcc.addSphere(-0.66f, bodyY - 0.26f, 0.18f, 0.098f, 0.098f, 0.098f, 6, 8, sourGreen, matType = CandyMaterials.MAT_CANDY)
+
+                rightArmAcc.addStrut(Vec3(0.48f, bodyY, 0f), Vec3(0.66f, bodyY + 0.28f, 0.16f), 0.068f, 8, sourDark, CandyMaterials.MAT_CANDY)
+                rightArmAcc.addSphere(0.68f, bodyY + 0.32f, 0.18f, 0.098f, 0.098f, 0.098f, 6, 8, sourGreen, matType = CandyMaterials.MAT_CANDY)
+            }
+
+            CitizenVariant.PEPPERMINT_GUARD -> {
+                // WYNNCHEL & DUNCAN (شرطة الدونات)
+                val donutDough = 0xFFE6A95CL
+                val chocoGlaze = 0xFF4A2511L
+                val pinkGlaze = 0xFFFF4D94L
+                val policeNavy = 0xFF1A233AL
+                hipY = 0.54f
+                shoulderX = 0.54f
+                shoulderY = 0.96f
+
+                for ((side, legAcc) in listOf(-1f to leftLegAcc, 1f to rightLegAcc)) {
+                    val lx = side * 0.16f
+                    legAcc.addSphere(lx, 0.11f, 0.05f, 0.12f, 0.10f, 0.18f, 7, 9, policeNavy, cream, matType = CandyMaterials.MAT_CANDY)
+                    legAcc.addCylinder(lx, 0.14f, 0f, 0.082f, 0.092f, 0.44f, 10, donutDough, chocoGlaze, matType = CandyMaterials.MAT_WAFER)
+                }
+
+                val donutY = 0.96f
+                bodyAcc.addTorus(0f, donutY, 0f, 0.39f, 0.23f, 20, 12, donutDough, chocoGlaze, verticalArch = true, matType = CandyMaterials.MAT_WAFER)
+                bodyAcc.addTorus(0f, donutY + 0.03f, 0.02f, 0.39f, 0.195f, 20, 10, chocoGlaze, pinkGlaze, verticalArch = true, matType = CandyMaterials.MAT_CARAMEL)
+                val faceY = donutY + 0.24f
+                for (side in listOf(-1f, 1f)) {
+                    bodyAcc.addBeveledBox(side * 0.12f, faceY, 0.22f, 0.14f, 0.09f, 0.04f, 0.85f, 0.85f, 0xFF101520L, gold, CandyMaterials.MAT_CHROME)
+                }
+                bodyAcc.addBox(0f, faceY + 0.02f, 0.23f, 0.10f, 0.02f, 0.03f, gold, matType = CandyMaterials.MAT_CHROME)
+                bodyAcc.addSphere(0f, faceY - 0.07f, 0.24f, 0.055f, 0.048f, 0.055f, 6, 8, pinkGlaze, matType = CandyMaterials.MAT_CANDY)
+                val capY = donutY + 0.54f
+                bodyAcc.addCylinder(0f, capY, 0f, 0.26f, 0.30f, 0.14f, 14, policeNavy, policeNavy, matType = CandyMaterials.MAT_CANDY)
+                bodyAcc.addBeveledBox(0f, capY + 0.01f, 0.24f, 0.32f, 0.035f, 0.14f, 0.85f, 0.9f, 0xFF0D111CL, gold, CandyMaterials.MAT_CHROME)
+                bodyAcc.addSphere(0f, capY + 0.08f, 0.28f, 0.055f, 0.065f, 0.025f, 6, 8, gold, matType = CandyMaterials.MAT_EMISSIVE)
+
+                leftArmAcc.addStrut(Vec3(-0.54f, donutY, 0f), Vec3(-0.66f, donutY - 0.24f, 0.18f), 0.068f, 8, donutDough, CandyMaterials.MAT_WAFER)
+                leftArmAcc.addSphere(-0.68f, donutY - 0.26f, 0.20f, 0.088f, 0.088f, 0.088f, 6, 8, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                leftArmAcc.addCylinder(-0.68f, 0.12f, 0.24f, 0.044f, 0.044f, 1.38f, 8, 0xFFFF2448L, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CANDY)
+
+                rightArmAcc.addStrut(Vec3(0.54f, donutY, 0f), Vec3(0.70f, donutY + 0.28f, 0.16f), 0.068f, 8, donutDough, CandyMaterials.MAT_WAFER)
+                rightArmAcc.addSphere(0.72f, donutY + 0.32f, 0.18f, 0.088f, 0.088f, 0.088f, 6, 8, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+            }
+
+            CitizenVariant.CORP_EXECUTIVE -> {
+                // OREO CASTLE ROYAL GUARD (حارس الأوريو الملكي)
+                val oreoCookie = 0xFF261612L
+                val oreoCream = 0xFFFFFBF5L
+                val royalPurple = 0xFF6A1B9AL
+                hipY = 0.54f
+                shoulderX = 0.44f
+                shoulderY = 0.96f
+
+                for ((side, legAcc) in listOf(-1f to leftLegAcc, 1f to rightLegAcc)) {
+                    val lx = side * 0.16f
+                    legAcc.addSphere(lx, 0.11f, 0.05f, 0.11f, 0.10f, 0.16f, 7, 9, oreoCookie, gold, matType = CandyMaterials.MAT_CARAMEL)
+                    legAcc.addCylinder(lx, 0.14f, 0f, 0.08f, 0.09f, 0.44f, 10, oreoCookie, oreoCream, matType = CandyMaterials.MAT_WAFER)
+                }
+
+                val oreoY = 0.96f
+                bodyAcc.addHorizontalCylinderZ(0f, oreoY, -0.10f, 0.46f, 0.46f, 0.10f, 20, oreoCookie, 0xFF3E2723L, CandyMaterials.MAT_WAFER)
+                bodyAcc.addHorizontalCylinderZ(0f, oreoY, 0.0f, 0.44f, 0.44f, 0.12f, 20, oreoCream, oreoCream, CandyMaterials.MAT_MARSHMALLOW)
+                bodyAcc.addHorizontalCylinderZ(0f, oreoY, 0.10f, 0.46f, 0.46f, 0.10f, 20, oreoCookie, 0xFF3E2723L, CandyMaterials.MAT_WAFER)
+                for (side in listOf(-1f, 1f)) {
+                    bodyAcc.addSphere(side * 0.13f, oreoY + 0.08f, 0.17f, 0.048f, 0.055f, 0.025f, 6, 8, oreoCream)
+                    bodyAcc.addSphere(side * 0.13f, oreoY + 0.08f, 0.188f, 0.024f, 0.028f, 0.015f, 5, 6, 0xFF140720L)
+                }
+                val hatY = oreoY + 0.42f
+                bodyAcc.addCylinder(0f, hatY, 0f, 0.24f, 0.27f, 0.38f, 14, royalPurple, gold, matType = CandyMaterials.MAT_CANDY)
+                bodyAcc.addBeveledBox(0f, hatY + 0.02f, 0.22f, 0.28f, 0.04f, 0.10f, 0.85f, 0.85f, gold, matType = CandyMaterials.MAT_CHROME)
+                bodyAcc.addSphere(0f, hatY + 0.42f, 0f, 0.08f, 0.12f, 0.08f, 6, 8, gold, matType = CandyMaterials.MAT_EMISSIVE)
+
+                leftArmAcc.addStrut(Vec3(-0.44f, oreoY, 0f), Vec3(-0.58f, oreoY - 0.18f, 0.18f), 0.065f, 8, royalPurple, CandyMaterials.MAT_CANDY)
+                leftArmAcc.addSphere(-0.60f, oreoY - 0.20f, 0.20f, 0.082f, 0.082f, 0.082f, 6, 8, oreoCream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                leftArmAcc.addCylinder(-0.60f, 0.08f, 0.22f, 0.044f, 0.044f, 1.72f, 8, gold, royalPurple, matType = CandyMaterials.MAT_CHROME)
+                leftArmAcc.addSphere(-0.60f, 1.84f, 0.22f, 0.095f, 0.15f, 0.095f, 6, 8, gold, matType = CandyMaterials.MAT_EMISSIVE)
+
+                rightArmAcc.addStrut(Vec3(0.44f, oreoY, 0f), Vec3(0.62f, oreoY + 0.28f, 0.14f), 0.065f, 8, royalPurple, CandyMaterials.MAT_CANDY)
+                rightArmAcc.addSphere(0.64f, oreoY + 0.32f, 0.16f, 0.082f, 0.082f, 0.082f, 6, 8, oreoCream, matType = CandyMaterials.MAT_MARSHMALLOW)
+            }
+
+            else -> {
+                // CUPCAKE SPECTATORS & MARSHMALLOW KART BAKERY STAFF
+                val skin = if (variant == CitizenVariant.BAKER_CHEF) 0xFFFFDFC4L else 0xFFE8B48AL
+                hipY = 0.56f
+                shoulderX = 0.28f
+                shoulderY = 1.04f
+
+                for ((side, legAcc) in listOf(-1f to leftLegAcc, 1f to rightLegAcc)) {
+                    val lx = side * 0.14f
+                    legAcc.addSphere(lx, 0.11f, 0.04f, 0.11f, 0.10f, 0.16f, 7, 9, 0xFF2B1338L, c2, matType = CandyMaterials.MAT_CANDY)
+                    legAcc.addCylinder(lx, 0.14f, 0f, 0.085f, 0.095f, 0.46f, 10, c2, c1, matType = CandyMaterials.MAT_WAFER)
+                }
+
+                bodyAcc.addCylinder(0f, 0.56f, 0f, 0.28f, 0.32f, 0.56f, 16, c1, c2, matType = CandyMaterials.MAT_WAFER)
+                bodyAcc.addSphere(0f, 1.08f, 0f, 0.34f, 0.14f, 0.34f, 8, 12, cream, c1, matType = CandyMaterials.MAT_MARSHMALLOW)
+                if (variant == CitizenVariant.BAKER_CHEF) {
+                    bodyAcc.addBeveledBox(0f, 0.78f, 0.16f, 0.36f, 0.46f, 0.22f, 0.9f, 0.9f, cream, c1, CandyMaterials.MAT_MARSHMALLOW)
+                } else {
+                    bodyAcc.addBox(0f, 0.84f, 0.25f, 0.36f, 0.08f, 0.04f, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+
+                leftArmAcc.addStrut(Vec3(-0.28f, 1.04f, 0f), Vec3(-0.34f, 0.72f, 0.16f), 0.068f, 8, c1, CandyMaterials.MAT_CANDY)
+                leftArmAcc.addSphere(-0.34f, 0.70f, 0.18f, 0.075f, 0.075f, 0.075f, 6, 8, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                if (variant == CitizenVariant.BAKER_CHEF) {
+                    leftArmAcc.addCylinder(-0.34f, 0.74f, 0.26f, 0.14f, 0.11f, 0.14f, 8, gold, c1, matType = CandyMaterials.MAT_WAFER)
+                    leftArmAcc.addSphere(-0.34f, 0.92f, 0.26f, 0.13f, 0.11f, 0.13f, 6, 8, 0xFFFF80ABL, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                } else {
+                    leftArmAcc.addBeveledBox(-0.34f, 0.74f, 0.26f, 0.22f, 0.20f, 0.22f, 0.88f, 0.88f, c2, gold, CandyMaterials.MAT_CANDY)
+                }
+
+                rightArmAcc.addStrut(Vec3(0.28f, 1.04f, 0f), Vec3(0.42f, 1.28f, 0.14f), 0.068f, 8, c1, CandyMaterials.MAT_CANDY)
+                rightArmAcc.addSphere(0.44f, 1.32f, 0.15f, 0.075f, 0.075f, 0.075f, 6, 8, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+
+                bodyAcc.addCylinder(0f, 1.10f, 0f, 0.085f, 0.085f, 0.10f, 10, skin)
+                val headY = 1.35f
+                bodyAcc.addSphere(0f, headY, 0f, 0.22f, 0.21f, 0.21f, 12, 16, skin)
+                for (side in listOf(-1f, 1f)) {
+                    bodyAcc.addSphere(side * 0.215f, headY - 0.01f, 0f, 0.042f, 0.055f, 0.036f, 5, 6, skin)
+                    bodyAcc.addSphere(side * 0.125f, headY - 0.04f, 0.175f, 0.045f, 0.026f, 0.022f, 5, 6, 0xFFFF6699L, matType = CandyMaterials.MAT_CANDY)
+                    val ex = side * 0.082f
+                    val ey = headY + 0.02f
+                    bodyAcc.addSphere(ex, ey, 0.185f, 0.050f, 0.056f, 0.030f, 6, 8, 0xFFFFFFFFL)
+                    bodyAcc.addSphere(ex, ey, 0.202f, 0.035f, 0.040f, 0.020f, 5, 6, hatHex, c1, matType = CandyMaterials.MAT_CANDY)
+                    bodyAcc.addSphere(ex, ey, 0.214f, 0.021f, 0.024f, 0.012f, 4, 5, 0xFF140720L)
+                    bodyAcc.addSphere(ex - side * 0.010f, ey + 0.014f, 0.222f, 0.010f, 0.010f, 0.008f, 4, 5, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+                }
+                bodyAcc.addSphere(0f, headY - 0.01f, 0.215f, 0.028f, 0.025f, 0.028f, 5, 6, skin)
+                bodyAcc.addBeveledBox(0f, headY - 0.072f, 0.195f, 0.085f, 0.028f, 0.024f, 0.8f, 0.8f, 0xFFD81B60L)
+                if (variant == CitizenVariant.BAKER_CHEF) {
+                    bodyAcc.addCylinder(0f, headY + 0.14f, 0f, 0.20f, 0.23f, 0.24f, 12, cream, hatHex, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    bodyAcc.addSphere(0f, headY + 0.40f, 0f, 0.25f, 0.14f, 0.25f, 8, 12, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+                    bodyAcc.addSphere(0f, headY + 0.54f, 0f, 0.06f, 0.06f, 0.06f, 6, 8, 0xFFFF1744L, matType = CandyMaterials.MAT_CANDY)
+                } else {
+                    bodyAcc.addSphere(0f, headY + 0.12f, 0f, 0.24f, 0.18f, 0.25f, 8, 12, gold, hatHex, matType = CandyMaterials.MAT_CHROME)
+                    bodyAcc.addBeveledBox(0f, headY + 0.13f, 0.22f, 0.24f, 0.03f, 0.10f, 0.85f, 0.85f, gold, matType = CandyMaterials.MAT_CHROME)
+                }
+            }
+        }
+
+        return ArticulatedCitizenBundle(
+            bodyMesh = bodyAcc.build(),
+            leftLegMesh = leftLegAcc.build(),
+            rightLegMesh = rightLegAcc.build(),
+            leftArmMesh = leftArmAcc.build(),
+            rightArmMesh = rightArmAcc.build(),
+            hipY = hipY,
+            shoulderX = shoulderX,
+            shoulderY = shoulderY
+        )
+    }
+
+    /**
+     * Builds the Ultra-Detailed Wreck-It Ralph Sugar Rush Movie Landmarks across the Open World Kingdom:
+     * 1. King Candy's Royal Sugar Rush Palace & Checkered Starting Grid Stadium Archway (Candy City)
+     * 2. Diet Cola Mountain Boiling Volcano Crater, Stalactite Rim & Hanging Mentos Stalactites (Chocolate Mountains)
+     * 3. Candy Cane Forest Double-Helix Archway Corridor & Vanellope's Secret Hideout Entrance (Gumdrop Forest)
+     * 4. Cakeway Giant Multi-Tiered Birthday Cake Bridge & Candle Colonnade (Cupcake Valley)
+     * 5. Gumball Gorge Giant Glass Gumball Machine Towers & Kart Bakery Factory Facade (Peppermint Coast)
+     */
+    fun buildSugarRushMonumentalLandmarksMesh(): GpuMesh {
+        val acc = MeshAccumulator()
+        val cream = 0xFFFFF8F2L
+        val gold = 0xFFFFD54FL
+        val pink = 0xFFFF3D8BL
+        val mint = 0xFF3CE8B5L
+
+        // =========================================================================================
+        // 1. KING CANDY'S ROYAL SUGAR RUSH PALACE & STARTING GRID STADIUM ARCHWAY (Candy City Plaza)
+        // =========================================================================================
+        // Grand Sugar Rush Starting Grid Stadium Gantry right over the North Boulevard (0, 0, -28)
+        for (side in listOf(-1f, 1f)) {
+            val px = side * 12.2f
+            val pz = -28f
+            // Striped peppermint stadium gantry towers
+            acc.addCylinder(px, 0f, pz, 1.35f, 1.15f, 11.5f, 16, 0xFFFF1744L, cream, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(px, 12.0f, pz, 1.85f, 1.35f, 1.85f, 10, 14, gold, pink, matType = CandyMaterials.MAT_CHROME)
+            acc.addCylinder(px, 13.0f, pz, 0.35f, 0.08f, 3.8f, 10, gold, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+        // Overhead Checkered Sugar Rush Championship Banner & 5 Starting Lights
+        acc.addBeveledBox(0f, 10.2f, -28f, 25.4f, 2.4f, 1.6f, 0.94f, 0.94f, 0xFF280E3BL, gold, CandyMaterials.MAT_CANDY)
+        acc.addBox(0f, 10.2f, -27.1f, 22.8f, 1.65f, 0.14f, pink, matType = CandyMaterials.MAT_EMISSIVE)
+        acc.addBox(0f, 10.2f, -28.9f, 22.8f, 1.65f, 0.14f, mint, matType = CandyMaterials.MAT_EMISSIVE)
+        for (li in -2..2) {
+            val lCol = when (li) {
+                -2, -1 -> 0xFFFF1744L
+                0 -> 0xFFFFEA00L
+                else -> 0xFF00E676L
+            }
+            acc.addSphere(li * 3.4f, 8.5f, -27.2f, 0.68f, 0.68f, 0.45f, 8, 10, lCol, matType = CandyMaterials.MAT_EMISSIVE)
+            acc.addSphere(li * 3.4f, 8.5f, -28.8f, 0.68f, 0.68f, 0.45f, 8, 10, lCol, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+        // Golden Royal Crown atop the Starting Grid Archway
+        acc.addCylinder(0f, 11.4f, -28f, 2.4f, 2.8f, 1.8f, 16, gold, pink, matType = CandyMaterials.MAT_CHROME)
+        for (p in 0 until 6) {
+            val a = (p.toFloat() / 6f) * (2f * PI.toFloat())
+            acc.addSphere(cos(a) * 2.5f, 13.4f, -28f + sin(a) * 2.5f, 0.42f, 0.42f, 0.42f, 6, 8, 0xFF00F5D4L, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+
+        // King Candy's Multi-Spire Cotton-Candy & Frosted Wafer Royal Palace Dome at (0, y, 76)
+        val castleY = OpenWorldKingdom.rawTerrainHeight(0f, 76f)
+        acc.addCylinder(0f, castleY + 8.4f, 76f, 6.2f, 4.8f, 9.5f, 20, 0xFFFF80ABL, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+        acc.addSphere(0f, castleY + 18.5f, 76f, 5.4f, 4.2f, 5.4f, 14, 18, pink, gold, matType = CandyMaterials.MAT_CANDY)
+        acc.addCylinder(0f, castleY + 22.0f, 76f, 0.65f, 0.12f, 6.5f, 12, gold, matType = CandyMaterials.MAT_CHROME)
+        acc.addTorus(0f, castleY + 13.5f, 76f, 5.8f, 0.55f, 22, 10, gold, cream, matType = CandyMaterials.MAT_EMISSIVE)
+
+        // =========================================================================================
+        // 2. DIET COLA MOUNTAIN BOILING VOLCANO CRATER & MENTOS STALACTITES (310, y, -285)
+        // =========================================================================================
+        val colaX = 310f
+        val colaZ = -285f
+        val colaBaseY = OpenWorldKingdom.rawTerrainHeight(colaX, colaZ)
+        // Giant Dark-Cola Striated Volcano Cone & Frosted Fizz Rim
+        acc.addCylinder(colaX, colaBaseY - 2f, colaZ, 34f, 16f, 26f, 24, 0xFF3B1A10L, 0xFF5D2918L, matType = CandyMaterials.MAT_WAFER)
+        acc.addTorus(colaX, colaBaseY + 24.0f, colaZ, 16.0f, 2.8f, 24, 12, cream, 0xFFFF80ABL, matType = CandyMaterials.MAT_MARSHMALLOW)
+        // Boiling Fizzy Diet Cola Lava Pool inside the Crater Rim
+        acc.addCylinder(colaX, colaBaseY + 22.8f, colaZ, 14.5f, 14.5f, 1.2f, 22, 0xFFFF3D00L, 0xFFFFEA00L, matType = CandyMaterials.MAT_EMISSIVE)
+        // Giant Mentos Mint Discs poised around & suspended above the Boiling Cola Crater
+        for (m in 0 until 8) {
+            val ma = (m.toFloat() / 8f) * (2f * PI.toFloat())
+            val mx = colaX + cos(ma) * 14.8f
+            val mz = colaZ + sin(ma) * 14.8f
+            acc.addSphere(mx, colaBaseY + 26.2f + (m % 2) * 1.4f, mz, 2.4f, 1.15f, 2.4f, 10, 14, 0xFFE0F7FAL, 0xFFFFFFFFL, matType = CandyMaterials.MAT_EMISSIVE)
+            // Towering cola-rock stalagmite pillars around the crater
+            acc.addCylinder(mx * 1.02f - colaX * 0.02f, colaBaseY + 24f, mz * 1.02f - colaZ * 0.02f, 1.6f, 0.35f, 8.5f, 10, 0xFF4E2416L, cream, matType = CandyMaterials.MAT_CARAMEL)
+        }
+
+        // =========================================================================================
+        // 3. CANDY CANE FOREST DOUBLE-STRIPE GROVE & VANELLOPE'S SECRET TRACK ARCH (-255, y, -210)
+        // =========================================================================================
+        val forestX = -255f
+        val forestZ = -210f
+        val forestY = OpenWorldKingdom.rawTerrainHeight(forestX, forestZ)
+        for (i in 0 until 10) {
+            val a = (i.toFloat() / 10f) * (2f * PI.toFloat())
+            val tx = forestX + cos(a) * 32f
+            val tz = forestZ + sin(a) * 32f
+            val ty = OpenWorldKingdom.rawTerrainHeight(tx, tz)
+            acc.addCylinder(tx, ty, tz, 0.95f, 0.85f, 14.5f, 12, 0xFFFF1744L, 0xFFFFFFFFL, matType = CandyMaterials.MAT_CANDY)
+            acc.addTorus(tx - cos(a) * 3.2f, ty + 14.5f, tz - sin(a) * 3.2f, 3.2f, 0.85f, 14, 8, 0xFFFF1744L, 0xFFFFFFFFL, verticalArch = true, matType = CandyMaterials.MAT_CANDY)
+        }
+
+        // =========================================================================================
+        // 4. CAKEWAY GIANT TIERED BIRTHDAY CAKE PAVILION & CANDLE TOWERS (-245, y, 225)
+        // =========================================================================================
+        val cakeX = -245f
+        val cakeZ = 225f
+        val cakeY = OpenWorldKingdom.rawTerrainHeight(cakeX, cakeZ)
+        acc.addCylinder(cakeX, cakeY, cakeZ, 18f, 17f, 5.5f, 24, 0xFFFF85C2L, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+        acc.addCylinder(cakeX, cakeY + 5.5f, cakeZ, 13.5f, 12.8f, 5.0f, 24, 0xFF80FFEAL, cream, matType = CandyMaterials.MAT_MARSHMALLOW)
+        acc.addCylinder(cakeX, cakeY + 10.5f, cakeZ, 9.0f, 8.4f, 4.5f, 22, 0xFFFFD54FL, pink, matType = CandyMaterials.MAT_MARSHMALLOW)
+        for (ci in 0 until 6) {
+            val ca = (ci.toFloat() / 6f) * (2f * PI.toFloat())
+            val cx = cakeX + cos(ca) * 7.2f
+            val cz = cakeZ + sin(ca) * 7.2f
+            acc.addCylinder(cx, cakeY + 15.0f, cz, 0.58f, 0.52f, 4.8f, 10, 0xFFFFFFFFL, pink, matType = CandyMaterials.MAT_CANDY)
+            acc.addSphere(cx, cakeY + 20.4f, cz, 0.65f, 1.15f, 0.65f, 8, 10, 0xFFFFEA00L, 0xFFFF3D00L, matType = CandyMaterials.MAT_EMISSIVE)
+        }
+
+        // =========================================================================================
+        // 5. GUMBALL GORGE GIANT GLASS GUMBALL MACHINE TOWERS (260, y, 235)
+        // =========================================================================================
+        val gumX = 260f
+        val gumZ = 235f
+        val gumY = maxOf(0.2f, OpenWorldKingdom.rawTerrainHeight(gumX, gumZ))
+        acc.addCylinder(gumX, gumY, gumZ, 6.2f, 5.0f, 7.5f, 20, 0xFFFF1744L, gold, matType = CandyMaterials.MAT_CANDY)
+        acc.addSphere(gumX, gumY + 13.5f, gumZ, 7.2f, 7.2f, 7.2f, 16, 20, 0xFF80FFEAL, 0xFFFFFFFFL, a = 0.52f, matType = CandyMaterials.MAT_GUMMY)
+        acc.addCylinder(gumX, gumY + 20.2f, gumZ, 3.8f, 2.2f, 2.2f, 16, 0xFFFF1744L, gold, matType = CandyMaterials.MAT_CHROME)
+        val gCols = longArrayOf(0xFFFF3D8BL, 0xFF3CE8B5L, 0xFFFFD54FL, 0xFF5CE1E6L, 0xFFB388FFL, 0xFFFF5252L)
+        for (gi in 0 until 12) {
+            val ga = (gi.toFloat() / 12f) * (2f * PI.toFloat())
+            val gr = 3.2f + (gi % 2) * 1.4f
+            val gh = gumY + 10.5f + (gi % 3) * 2.2f
+            acc.addSphere(gumX + cos(ga) * gr, gh, gumZ + sin(ga) * gr, 1.55f, 1.55f, 1.55f, 8, 10, gCols[gi % gCols.size], matType = CandyMaterials.MAT_EMISSIVE)
+        }
+
+        return acc.build()
+    }
 }
+
+data class ArticulatedCitizenBundle(
+    val bodyMesh: GpuMesh,
+    val leftLegMesh: GpuMesh,
+    val rightLegMesh: GpuMesh,
+    val leftArmMesh: GpuMesh,
+    val rightArmMesh: GpuMesh,
+    val hipY: Float,
+    val shoulderX: Float,
+    val shoulderY: Float
+) {
+    fun release() {
+        bodyMesh.release()
+        leftLegMesh.release()
+        rightLegMesh.release()
+        leftArmMesh.release()
+        rightArmMesh.release()
+    }
+}
+
 

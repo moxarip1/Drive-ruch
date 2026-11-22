@@ -66,7 +66,18 @@ android {
   androidResources {
     noCompress += listOf("mp3", "wav", "ogg")
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        val localRoboDir = File("/home/appuser/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7")
+        if (localRoboDir.exists()) {
+          it.systemProperty("robolectric.offline", "true")
+          it.systemProperty("robolectric.dependency.dir", localRoboDir.absolutePath)
+        }
+      }
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
